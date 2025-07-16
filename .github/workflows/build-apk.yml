@@ -1,0 +1,93 @@
+  name: Build APK
+
+  # Запускается при push в main ветку или вручную
+  on:
+    push:
+      branches: [ main, master ]
+    pull_request:
+      branches: [ main, master ]
+    workflow_dispatch:  # Позволяет запускать вручную
+
+  jobs:
+    build:
+      name: Build APK
+      runs-on: ubuntu-latest
+
+      steps:
+        # Шаг 1: Получаем код из репозитория
+        - name: Checkout code
+          uses: actions/checkout@v4
+
+        # Шаг 2: Настраиваем Java (требуется для Android)
+        - name: Setup Java
+          uses: actions/setup-java@v4
+          with:
+            distribution: 'temurin'
+            java-version: '17'
+
+        # Шаг 3: Настраиваем Flutter
+        - name: Setup Flutter
+          uses: subosito/flutter-action@v2
+          with:
+            flutter-version: '3.32.6'
+            channel: 'stable'
+
+        # Шаг 4: Получаем зависимости Flutter
+        - name: Get dependencies
+          run: flutter pub get
+
+        # Шаг 5: Собираем Debug APK
+        - name: Build Debug APK
+          run: flutter build apk --debug
+
+        # Шаг 6: Собираем Release APK
+        - name: Build Release APK
+          run: flutter build apk --release
+
+        # Шаг 7: Переименовываем APK файлы для удобства
+        - name: Rename APK files
+          run: |
+            mv build/app/outputs/flutter-apk/app-debug.apk build/app/outputs/flutter-apk/allcourt-debug.apk
+            mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/allcourt-release.apk
+
+        # Шаг 8: Загружаем Debug APK как артефакт
+        - name: Upload Debug APK
+          uses: actions/upload-artifact@v4
+          with:
+            name: allcourt-debug-apk
+            path: build/app/outputs/flutter-apk/allcourt-debug.apk
+
+        # Шаг 9: Загружаем Release APK как артефакт
+        - name: Upload Release APK
+          uses: actions/upload-artifact@v4
+          with:
+            name: allcourt-release-apk
+            path: build/app/outputs/flutter-apk/allcourt-release.apk
+
+        # Шаг 10: Создаем релиз (если это push в main)
+        - name: Create Release
+          if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+          uses: ncipollo/release-action@v1
+          with:
+            artifacts: "build/app/outputs/flutter-apk/*.apk"
+            tag: v1.0.${{ github.run_number }}
+            name: Все Корты v1.0.${{ github.run_number }}
+            body: |
+              ## 📱 Все Корты - Мобильное приложение
+
+              ### Что нового:
+              - Автоматическая сборка из последнего кода
+              - Commit: ${{ github.sha }}
+
+              ### Скачать:
+              - **allcourt-debug.apk** - для тестирования (больший размер, с отладкой)
+              - **allcourt-release.apk** - для использования (меньший размер, оптимизирован)
+
+              ### Установка:
+              1. Скачайте APK файл на телефон
+              2. Разрешите установку из неизвестных источников
+              3. Откройте файл и установите
+            draft: false
+            prerelease: false
+            allowUpdates: true
+            token: ${{ secrets.GITHUB_TOKEN }}
