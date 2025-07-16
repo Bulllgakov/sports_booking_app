@@ -40,8 +40,8 @@ class HomePage extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           // Логотип и приветствие
-          const Column(
-            children: [
+          Column(
+            children: const [
               Icon(
                 Icons.sports_tennis,
                 size: 80,
@@ -159,104 +159,106 @@ class AboutPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('О приложении'),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: const [
-                  Icon(
-                    Icons.sports_tennis,
-                    size: 64,
-                    color: Color(0xFF00A86B),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Все Корты',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+        child: Column(
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: const [
+                    Icon(
+                      Icons.sports_tennis,
+                      size: 64,
+                      color: Color(0xFF00A86B),
                     ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Версия 1.0.0',
-                    style: TextStyle(
-                      color: Colors.grey,
+                    SizedBox(height: 16),
+                    Text(
+                      'Все Корты',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                ],
+                    SizedBox(height: 8),
+                    Text(
+                      'Версия 1.0.0',
+                      style: TextStyle(
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'О платформе',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'О платформе',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 12),
-                  Text(
-                    'Все Корты - это удобная платформа для бронирования спортивных кортов в вашем городе. '
-                    'Мы объединяем спортивные клубы и любителей активного отдыха.',
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Функции приложения:',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  SizedBox(height: 8),
-                  Text('• Поиск кортов рядом с вами'),
-                  Text('• Онлайн бронирование'),
-                  Text('• Поиск партнеров для игры'),
-                  Text('• История бронирований'),
-                  Text('• Оплата через приложение'),
-                ],
+                    SizedBox(height: 12),
+                    Text(
+                      'Все Корты - это удобная платформа для бронирования спортивных кортов в вашем городе. '
+                      'Мы объединяем спортивные клубы и любителей активного отдыха.',
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Функции приложения:',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    SizedBox(height: 8),
+                    Text('• Поиск кортов рядом с вами'),
+                    Text('• Онлайн бронирование'),
+                    Text('• Поиск партнеров для игры'),
+                    Text('• История бронирований'),
+                    Text('• Оплата через приложение'),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Контакты',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Контакты',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  ListTile(
-                    leading: const Icon(Icons.email, color: Color(0xFF00A86B)),
-                    title: const Text('support@allcourt.ru'),
-                    subtitle: const Text('Служба поддержки'),
-                    onTap: () {},
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.phone, color: Color(0xFF00A86B)),
-                    title: const Text('+7 (800) 123-45-67'),
-                    subtitle: const Text('Горячая линия'),
-                    onTap: () {},
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    ListTile(
+                      leading: const Icon(Icons.email, color: Color(0xFF00A86B)),
+                      title: const Text('support@allcourt.ru'),
+                      subtitle: const Text('Служба поддержки'),
+                      onTap: () {},
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.phone, color: Color(0xFF00A86B)),
+                      title: const Text('+7 (800) 123-45-67'),
+                      subtitle: const Text('Горячая линия'),
+                      onTap: () {},
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
