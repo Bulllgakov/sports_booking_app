@@ -1,42 +1,73 @@
 import 'package:flutter/material.dart';
-// import 'package:firebase_core/firebase_core.dart';
-import 'package:provider/provider.dart';
-import 'core/navigation/app_router.dart';
-import 'core/theme/app_theme.dart';
-import 'services/auth_service.dart';
-import 'providers/venues_provider.dart';
-import 'providers/bookings_provider.dart';
-import 'providers/open_games_provider.dart';
-// import 'firebase_options.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Firebase - временно отключено для сборки
-  // await Firebase.initializeApp(
-  //   options: DefaultFirebaseOptions.currentPlatform,
-  // );
-  
-  runApp(const SportsBookingApp());
+void main() {
+  runApp(const MyApp());
 }
 
-class SportsBookingApp extends StatelessWidget {
-  const SportsBookingApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AuthService()),
-        ChangeNotifierProvider(create: (_) => VenuesProvider()),
-        ChangeNotifierProvider(create: (_) => BookingsProvider()),
-        ChangeNotifierProvider(create: (_) => OpenGamesProvider()),
-      ],
-      child: MaterialApp.router(
-        title: 'Все Корты',
-        theme: AppTheme.lightTheme,
-        routerConfig: AppRouter.router,
-        debugShowCheckedModeBanner: false,
+    return MaterialApp(
+      title: 'Все Корты',
+      theme: ThemeData(
+        primarySwatch: Colors.green,
+        useMaterial3: true,
+      ),
+      home: const MyHomePage(),
+    );
+  }
+}
+
+class MyHomePage extends StatelessWidget {
+  const MyHomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Все Корты'),
+        backgroundColor: const Color(0xFF00A86B),
+        foregroundColor: Colors.white,
+      ),
+      body: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.sports_tennis,
+              size: 100,
+              color: Color(0xFF00A86B),
+            ),
+            SizedBox(height: 20),
+            Text(
+              'Все Корты',
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF00A86B),
+              ),
+            ),
+            SizedBox(height: 10),
+            Text(
+              'Мобильное приложение для\nбронирования спортивных кортов',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+            SizedBox(height: 40),
+            Text(
+              'Приложение работает!',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

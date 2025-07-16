@@ -42,19 +42,17 @@ dependencies:
   # firebase_storage: ^12.3.7
   # firebase_messaging: ^15.1.8
   
-  # State management and navigation
-  provider: ^6.1.2
-  go_router: ^14.8.0
-  
-  # UI and utilities
-  intl: ^0.20.1
-  cached_network_image: ^3.4.1
-  table_calendar: ^3.1.3
-  qr_flutter: ^4.1.0
-  flutter_svg: ^2.0.14
-  google_fonts: ^6.2.1
-  shimmer: ^3.0.0
-  flutter_animate: ^4.5.0
+  # Минимальные зависимости - остальные временно отключены
+  # provider: ^6.1.2
+  # go_router: ^14.8.0
+  # intl: ^0.20.1
+  # cached_network_image: ^3.4.1
+  # table_calendar: ^3.1.3
+  # qr_flutter: ^4.1.0
+  # flutter_svg: ^2.0.14
+  # google_fonts: ^6.2.1
+  # shimmer: ^3.0.0
+  # flutter_animate: ^4.5.0
 
 dev_dependencies:
   flutter_test:
