@@ -162,11 +162,11 @@ class AboutPage extends StatelessWidget {
       body: Padding(
         padding: const EdgeInsets.all(16),
         children: [
-          const Card(
+          Card(
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Column(
-                children: [
+                children: const [
                   Icon(
                     Icons.sports_tennis,
                     size: 64,
@@ -192,12 +192,12 @@ class AboutPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          const Card(
+          Card(
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                children: const [
                   Text(
                     'О платформе',
                     style: TextStyle(
