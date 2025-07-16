@@ -1,0 +1,58 @@
+name: Manual Build APK
+
+# Запускается только вручную
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Тип сборки'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+          - both
+
+jobs:
+  build:
+    name: Build APK (${{ inputs.build_type }})
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.6'
+          channel: 'stable'
+      
+      - name: Get dependencies
+        run: flutter pub get
+      
+      - name: Build Debug APK
+        if: inputs.build_type == 'debug' || inputs.build_type == 'both'
+        run: |
+          flutter build apk --debug
+          mv build/app/outputs/flutter-apk/app-debug.apk build/app/outputs/flutter-apk/allcourt-debug-${{ github.run_number }}.apk
+      
+      - name: Build Release APK
+        if: inputs.build_type == 'release' || inputs.build_type == 'both'
+        run: |
+          flutter build apk --release
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/allcourt-release-${{ github.run_number }}.apk
+      
+      - name: Upload APK(s)
+        uses: actions/upload-artifact@v4
+        with:
+          name: allcourt-apk-${{ inputs.build_type }}-${{ github.run_number }}
+          path: build/app/outputs/flutter-apk/*.apk
+          retention-days: 30
