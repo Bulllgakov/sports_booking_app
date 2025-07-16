@@ -52,7 +52,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAnp3SY9XEyF-le5q_Tcv-7Le2qqvtz0ZM',
-    appId: '1:648540980109:android:YOUR_ANDROID_APP_ID',
+    appId: '1:648540980109:android:allcourt2025android',
     messagingSenderId: '648540980109',
     projectId: 'sports-booking-app-1d7e5',
     storageBucket: 'sports-booking-app-1d7e5.firebasestorage.app',

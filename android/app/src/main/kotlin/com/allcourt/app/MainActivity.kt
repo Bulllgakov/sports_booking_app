@@ -1,4 +1,4 @@
-package com.example.sports_booking_app
+package com.allcourt.app
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "648540980109",
+    "project_id": "sports-booking-app-1d7e5",
+    "storage_bucket": "sports-booking-app-1d7e5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:648540980109:android:allcourt2025android",
+        "android_client_info": {
+          "package_name": "com.allcourt.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDummy-TemporaryKey-ForBuildOnly"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
