@@ -1,0 +1,121 @@
+name: Build APK (No Firebase)
+
+# Временный workflow для сборки APK без Firebase
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build APK without Firebase
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Шаг 1: Получаем код из репозитория
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Шаг 2: Настраиваем Java (требуется для Android)
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      # Шаг 3: Настраиваем Flutter
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.3'
+          channel: 'stable'
+      
+      # Шаг 4: Удаляем Firebase зависимости из pubspec.yaml
+      - name: Remove Firebase dependencies
+        run: |
+          # Создаем временный pubspec.yaml без Firebase
+          cp pubspec.yaml pubspec.yaml.backup
+          sed -i '/firebase_core/d' pubspec.yaml
+          sed -i '/firebase_auth/d' pubspec.yaml
+          sed -i '/cloud_firestore/d' pubspec.yaml
+          sed -i '/firebase_storage/d' pubspec.yaml
+          sed -i '/firebase_messaging/d' pubspec.yaml
+          
+          # Показываем что удалили
+          echo "Removed Firebase dependencies from pubspec.yaml"
+      
+      # Шаг 5: Удаляем Google Services плагин
+      - name: Remove Google Services plugin
+        run: |
+          # Удаляем google-services плагин из app/build.gradle.kts
+          sed -i '/google-services/d' android/app/build.gradle.kts
+          
+          # Удаляем classpath из build.gradle.kts
+          sed -i '/google-services/d' android/build.gradle.kts
+          sed -i '/buildscript/,/}/d' android/build.gradle.kts
+          
+          # Удаляем google-services.json
+          rm -f android/app/google-services.json
+          
+          echo "Removed Google Services configuration"
+      
+      # Шаг 6: Получаем зависимости Flutter
+      - name: Get dependencies
+        run: flutter pub get
+      
+      # Шаг 7: Собираем Debug APK
+      - name: Build Debug APK
+        run: flutter build apk --debug --no-tree-shake-icons
+      
+      # Шаг 8: Собираем Release APK
+      - name: Build Release APK
+        run: flutter build apk --release --no-tree-shake-icons
+      
+      # Шаг 9: Переименовываем APK файлы
+      - name: Rename APK files
+        run: |
+          mv build/app/outputs/flutter-apk/app-debug.apk build/app/outputs/flutter-apk/allcourt-debug-no-firebase.apk
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/allcourt-release-no-firebase.apk
+      
+      # Шаг 10: Загружаем APK как артефакты
+      - name: Upload APK files
+        uses: actions/upload-artifact@v4
+        with:
+          name: allcourt-apk-no-firebase
+          path: build/app/outputs/flutter-apk/*.apk
+          retention-days: 30
+      
+      # Шаг 11: Создаем релиз
+      - name: Create Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "build/app/outputs/flutter-apk/*.apk"
+          tag: v1.0.${{ github.run_number }}-no-firebase
+          name: Все Корты v1.0.${{ github.run_number }} (No Firebase)
+          body: |
+            ## 📱 Все Корты - Тестовая сборка
+            
+            ⚠️ **Это тестовая сборка БЕЗ Firebase**
+            
+            ### Что работает:
+            - ✅ Все экраны и навигация
+            - ✅ UI и дизайн
+            - ❌ Авторизация (отключена)
+            - ❌ Сохранение данных (отключено)
+            
+            ### Скачать:
+            - **allcourt-debug-no-firebase.apk** - для тестирования
+            - **allcourt-release-no-firebase.apk** - для использования
+            
+            ### Установка:
+            1. Скачайте APK файл на телефон
+            2. Разрешите установку из неизвестных источников
+            3. Откройте файл и установите
+            
+            ### Следующие шаги:
+            Нужно правильно настроить Firebase для полной функциональности.
+          draft: false
+          prerelease: true
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
