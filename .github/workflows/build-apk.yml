@@ -8,6 +8,11 @@
       branches: [ main, master ]
     workflow_dispatch:  # Позволяет запускать вручную
 
+  # Права для создания релизов
+  permissions:
+    contents: write
+    packages: write
+
   jobs:
     build:
       name: Build APK
