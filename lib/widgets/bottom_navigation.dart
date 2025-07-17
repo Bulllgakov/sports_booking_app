@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/theme/colors.dart';
+import '../core/theme/spacing.dart';
+import '../core/theme/text_styles.dart';
 
 class BottomNavigation extends StatelessWidget {
   final int currentIndex;
@@ -13,57 +15,94 @@ class BottomNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: AppSpacing.bottomNavHeight,
       decoration: BoxDecoration(
         color: AppColors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
         ],
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(0),
+          topRight: Radius.circular(0),
+        ),
       ),
-      child: BottomNavigationBar(
-        currentIndex: currentIndex,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.gray,
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              context.go('/');
-              break;
-            case 1:
-              context.go('/find-game');
-              break;
-            case 2:
-              context.go('/my-bookings');
-              break;
-            case 3:
-              context.go('/profile');
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Главная',
+      child: SafeArea(
+        top: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildNavItem(
+              context: context,
+              icon: Icons.home_rounded,
+              label: 'Главная',
+              isSelected: currentIndex == 0,
+              onTap: () => context.go('/'),
+            ),
+            _buildNavItem(
+              context: context,
+              icon: Icons.sports_tennis,
+              label: 'Найти игру',
+              isSelected: currentIndex == 1,
+              onTap: () => context.go('/find-game'),
+            ),
+            _buildNavItem(
+              context: context,
+              icon: Icons.calendar_month,
+              label: 'Мои брони',
+              isSelected: currentIndex == 2,
+              onTap: () => context.go('/my-bookings'),
+            ),
+            _buildNavItem(
+              context: context,
+              icon: Icons.person,
+              label: 'Профиль',
+              isSelected: currentIndex == 3,
+              onTap: () => context.go('/profile'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: AppSpacing.iconMd,
+                color: isSelected ? AppColors.primary : AppColors.gray,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                label,
+                style: AppTextStyles.navLabel.copyWith(
+                  color: isSelected ? AppColors.primary : AppColors.gray,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: 'Поиск игр',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today),
-            label: 'Мои брони',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Профиль',
-          ),
-        ],
+        ),
       ),
     );
   }

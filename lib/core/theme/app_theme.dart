@@ -90,12 +90,13 @@ class AppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        color: AppColors.white,
-        elevation: 2,
+        color: AppColors.cardBackground,
+        elevation: 0,
+        shadowColor: Colors.black.withOpacity(0.05),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         ),
-        margin: const EdgeInsets.all(AppSpacing.sm),
+        margin: EdgeInsets.zero,
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.white,
@@ -117,9 +118,24 @@ class AppTheme {
         size: AppSpacing.iconMd,
       ),
       dividerTheme: const DividerThemeData(
-        color: AppColors.extraLightGray,
+        color: AppColors.divider,
         thickness: 1,
         space: AppSpacing.md,
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: AppColors.white,
+        selectedItemColor: AppColors.primary,
+        unselectedItemColor: AppColors.gray,
+        type: BottomNavigationBarType.fixed,
+        elevation: 10,
+        selectedLabelStyle: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

@@ -40,104 +40,180 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: AppSpacing.lg),
-              _buildSearchBar(),
-              const SizedBox(height: AppSpacing.lg),
-              _buildFilterChips(),
-              const SizedBox(height: AppSpacing.lg),
-              Expanded(child: _buildVenuesList()),
-            ],
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(),
+            const SizedBox(height: AppSpacing.lg),
+            _buildSearchBar(),
+            const SizedBox(height: AppSpacing.cardPadding),
+            _buildFilterChips(),
+            const SizedBox(height: AppSpacing.xl),
+            _buildSectionTitle(),
+            const SizedBox(height: AppSpacing.md),
+            Expanded(child: _buildVenuesList()),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildHeader() {
-    return Consumer<AuthService>(
-      builder: (context, authService, child) {
-        final userName = authService.currentUserModel?.displayName ?? 'Гость';
-        
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Text(
-                'Привет, $userName! Найдём корт для игры?',
-                style: AppTextStyles.h2,
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.headerPadding),
+      child: Consumer<AuthService>(
+        builder: (context, authService, child) {
+          final firstName = authService.currentUserModel?.displayName?.split(' ').first ?? 'Гость';
+          
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Привет, $firstName!',
+                      style: AppTextStyles.h1,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Найдём корт для игры?',
+                      style: AppTextStyles.body.copyWith(color: AppColors.gray),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.notifications_outlined),
-              onPressed: () {},
-            ),
-          ],
-        );
-      },
+              Container(
+                width: AppSpacing.notificationBellSize,
+                height: AppSpacing.notificationBellSize,
+                decoration: BoxDecoration(
+                  color: AppColors.extraLightGray,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusCircle),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.notifications_outlined),
+                  onPressed: () {},
+                  color: AppColors.dark,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
   Widget _buildSearchBar() {
-    return Consumer<VenuesProvider>(
-      builder: (context, venuesProvider, child) {
-        return CustomTextField(
-          controller: _searchController,
-          hint: 'Поиск кортов...',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: IconButton(
-            icon: const Icon(Icons.tune),
-            onPressed: _showFilters,
-          ),
-          onChanged: (value) {
-            if (value.isEmpty) {
-              venuesProvider.loadVenues();
-            } else {
-              venuesProvider.searchVenues(value);
-            }
-          },
-        );
-      },
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+      child: Container(
+        height: AppSpacing.searchBarHeight,
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: Icon(
+                Icons.search,
+                color: AppColors.lightGray,
+                size: AppSpacing.iconMd,
+              ),
+            ),
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Поиск кортов...',
+                  hintStyle: AppTextStyles.body.copyWith(color: AppColors.lightGray),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                style: AppTextStyles.body,
+                onChanged: (value) {
+                  final provider = context.read<VenuesProvider>();
+                  if (value.isEmpty) {
+                    provider.loadVenues();
+                  } else {
+                    provider.searchVenues(value);
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildFilterChips() {
     return Consumer<VenuesProvider>(
       builder: (context, venuesProvider, child) {
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
+        return SizedBox(
+          height: AppSpacing.chipHeight,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
             children: [
-              _buildSportChip('Все', null, venuesProvider),
-              const SizedBox(width: AppSpacing.sm),
               _buildSportChip('Теннис', SportType.tennis, venuesProvider),
               const SizedBox(width: AppSpacing.sm),
-              _buildSportChip('Падел', SportType.padel, venuesProvider),
+              _buildSportChip('Падель', SportType.padel, venuesProvider),
               const SizedBox(width: AppSpacing.sm),
-              _buildSportChip('Бадминтон', SportType.badminton, venuesProvider),
+              _buildSportChip('Сквош', SportType.badminton, venuesProvider),
             ],
           ),
         );
       },
     );
   }
+  
+  Widget _buildSectionTitle() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+      child: Text(
+        'Доступные корты',
+        style: AppTextStyles.h3,
+      ),
+    );
+  }
 
   Widget _buildSportChip(String label, SportType? sport, VenuesProvider provider) {
     final isSelected = provider.selectedSport == sport;
     
-    return FilterChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (selected) {
-        provider.setSportFilter(selected ? sport : null);
+    return GestureDetector(
+      onTap: () {
+        provider.setSportFilter(isSelected ? null : sport);
       },
-      selectedColor: AppColors.primaryLight,
-      checkmarkColor: AppColors.primary,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xl,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : AppColors.white,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.extraLightGray,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTextStyles.tinyBold.copyWith(
+            color: isSelected ? AppColors.white : AppColors.dark,
+          ),
+        ),
+      ),
     );
   }
 
@@ -198,24 +274,139 @@ class _HomeScreenState extends State<HomeScreen> {
         return RefreshIndicator(
           onRefresh: () => venuesProvider.loadVenues(),
           child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
             itemCount: venues.length,
             itemBuilder: (context, index) {
               final venue = venues[index];
-              return CourtCard(
-                name: venue.name,
-                address: venue.address,
-                price: '2000 ₽/час', // TODO: Calculate from courts
-                rating: venue.rating,
-                distance: '${(index + 1) * 0.5} км', // TODO: Calculate real distance
-                onTap: () {
-                  venuesProvider.selectVenue(venue);
-                  context.push('/court-detail');
-                },
+              return Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.cardPadding),
+                child: _buildVenueCard(venue, index, venuesProvider),
               );
             },
           ),
         );
       },
+    );
+  }
+
+  Widget _buildVenueCard(VenueModel venue, int index, VenuesProvider provider) {
+    final minPrice = venue.courts.isNotEmpty 
+        ? venue.courts.map((c) => c.pricePerHour).reduce((a, b) => a < b ? a : b)
+        : 1500;
+    final availableSlots = 5 - (index % 3); // TODO: Calculate real available slots
+    final distance = ((index + 1) * 0.6 + 0.6).toStringAsFixed(1);
+    
+    return GestureDetector(
+      onTap: () {
+        provider.selectVenue(venue);
+        context.push('/court-detail');
+      },
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.cardPadding),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    venue.name,
+                    style: AppTextStyles.bodySmallBold,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(
+                  'от $minPrice₽',
+                  style: AppTextStyles.priceSmall,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: [
+                const Icon(
+                  Icons.location_on_outlined,
+                  size: AppSpacing.iconXs,
+                  color: AppColors.gray,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(
+                  child: Text(
+                    venue.address,
+                    style: AppTextStyles.tiny,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(
+                  ' • $distance км',
+                  style: AppTextStyles.tiny,
+                ),
+                Text(
+                  ' • ⭐ ${venue.rating.toStringAsFixed(1)}',
+                  style: AppTextStyles.tiny,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.xs + 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+                  ),
+                  child: Text(
+                    '$availableSlots слотов',
+                    style: AppTextStyles.captionBold.copyWith(
+                      color: AppColors.primaryDark,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  height: AppSpacing.buttonHeightSm,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      provider.selectVenue(venue);
+                      context.push('/court-detail');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xl,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                      ),
+                    ),
+                    child: Text(
+                      'Забронировать',
+                      style: AppTextStyles.buttonSmall,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 

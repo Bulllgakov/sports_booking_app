@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/text_styles.dart';
 import '../core/theme/spacing.dart';
+import 'simple_time_selection_screen.dart';
 
 class CourtDetailScreen extends StatelessWidget {
   const CourtDetailScreen({super.key});
@@ -9,19 +10,51 @@ class CourtDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 250,
+            expandedHeight: 150,
             pinned: true,
+            backgroundColor: AppColors.white,
+            leading: Padding(
+              padding: const EdgeInsets.all(10.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: AppColors.dark),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 color: AppColors.extraLightGray,
                 child: const Center(
-                  child: Icon(
-                    Icons.sports_tennis,
-                    size: 80,
-                    color: AppColors.lightGray,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.camera_alt_outlined,
+                        size: 40,
+                        color: AppColors.lightGray,
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Фото корта',
+                        style: TextStyle(color: AppColors.lightGray),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -29,82 +62,104 @@ class CourtDetailScreen extends StatelessWidget {
           ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: const EdgeInsets.all(AppSpacing.screenPadding),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Теннисный корт "Олимп"',
-                    style: AppTextStyles.h1,
+                    'Теннис Клуб "Олимп"',
+                    style: AppTextStyles.h2,
                   ),
                   const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    '📍 ул. Спортивная, 15 • 1.2 км',
+                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.gray),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
                   Row(
                     children: [
-                      Icon(Icons.location_on, size: AppSpacing.iconSm, color: AppColors.gray),
-                      const SizedBox(width: AppSpacing.xs),
-                      Expanded(
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                          vertical: AppSpacing.xs,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.info,
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+                        ),
                         child: Text(
-                          'ул. Спортивная, 15',
-                          style: AppTextStyles.body,
+                          'Крытый',
+                          style: AppTextStyles.captionBold.copyWith(color: AppColors.white),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                          vertical: AppSpacing.xs,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.chipBackground,
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+                        ),
+                        child: Text(
+                          '⭐ 4.8 (124 отзыва)',
+                          style: AppTextStyles.captionBold.copyWith(color: AppColors.primaryDark),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Row(
-                    children: [
-                      Icon(Icons.star, size: AppSpacing.iconSm, color: AppColors.warning),
-                      const SizedBox(width: AppSpacing.xs),
-                      Text('4.8', style: AppTextStyles.body),
-                      const SizedBox(width: AppSpacing.xs),
-                      Text('(127 отзывов)', style: AppTextStyles.bodySmall),
-                    ],
+                  const SizedBox(height: AppSpacing.xl),
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Удобства',
+                          style: AppTextStyles.bodyBold,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Wrap(
+                          spacing: AppSpacing.sm,
+                          runSpacing: AppSpacing.sm,
+                          children: const [
+                            Text('✓ Раздевалки', style: AppTextStyles.tiny),
+                            SizedBox(width: AppSpacing.lg),
+                            Text('✓ Душевые', style: AppTextStyles.tiny),
+                            SizedBox(width: AppSpacing.lg),
+                            Text('✓ Парковка', style: AppTextStyles.tiny),
+                            SizedBox(width: AppSpacing.lg),
+                            Text('✓ Кафе', style: AppTextStyles.tiny),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    'Описание',
-                    style: AppTextStyles.h3,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Профессиональный теннисный корт с покрытием хард. Идеально подходит для игроков любого уровня. Корт оборудован освещением для вечерних игр.',
-                    style: AppTextStyles.body,
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    'Удобства',
-                    style: AppTextStyles.h3,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Wrap(
-                    spacing: AppSpacing.sm,
-                    runSpacing: AppSpacing.sm,
-                    children: [
-                      _buildAmenityChip(Icons.shower, 'Душ'),
-                      _buildAmenityChip(Icons.local_parking, 'Парковка'),
-                      _buildAmenityChip(Icons.local_cafe, 'Кафе'),
-                      _buildAmenityChip(Icons.wifi, 'Wi-Fi'),
-                      _buildAmenityChip(Icons.lightbulb, 'Освещение'),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    'Расписание и цены',
-                    style: AppTextStyles.h3,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      child: Column(
-                        children: [
-                          _buildPriceRow('Будни 07:00 - 17:00', '1500 ₽/час'),
-                          const Divider(),
-                          _buildPriceRow('Будни 17:00 - 23:00', '2000 ₽/час'),
-                          const Divider(),
-                          _buildPriceRow('Выходные', '2500 ₽/час'),
-                        ],
-                      ),
+                  const SizedBox(height: AppSpacing.md),
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Типы покрытия',
+                          style: AppTextStyles.bodyBold,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          'Хард (3 корта), Грунт (2 корта)',
+                          style: AppTextStyles.tiny.copyWith(color: AppColors.gray),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -114,59 +169,40 @@ class CourtDetailScreen extends StatelessWidget {
         ],
       ),
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
+        padding: const EdgeInsets.all(AppSpacing.cardPadding),
         decoration: BoxDecoration(
           color: AppColors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
             ),
           ],
         ),
-        child: ElevatedButton(
-          onPressed: () {},
-          child: const Text('Забронировать'),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAmenityChip(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.primaryLight,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusRound),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: AppSpacing.iconXs, color: AppColors.primaryDark),
-          const SizedBox(width: AppSpacing.xs),
-          Text(label, style: AppTextStyles.bodySmall.copyWith(color: AppColors.primaryDark)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPriceRow(String time, String price) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(time, style: AppTextStyles.body),
-        Text(
-          price,
-          style: AppTextStyles.body.copyWith(
-            color: AppColors.primary,
-            fontWeight: FontWeight.w600,
+        child: SizedBox(
+          height: AppSpacing.buttonHeight,
+          child: ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SimpleTimeSelectionScreen()),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              ),
+            ),
+            child: Text(
+              'Выбрать время',
+              style: AppTextStyles.button.copyWith(color: AppColors.white),
+            ),
           ),
         ),
-      ],
+      ),
     );
   }
 }

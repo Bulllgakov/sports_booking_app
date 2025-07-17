@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Приложение для бронирования кортов</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            background-color: #000;
+            color: #1a1f36;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        /* Контейнер телефона */
+        .phone-container {
+            width: 375px;
+            height: 812px;
+            background: #000;
+            border-radius: 40px;
+            padding: 10px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        
+        .phone-screen {
+            width: 100%;
+            height: 100%;
+            background: #f8f9fa;
+            border-radius: 30px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        /* Статус бар */
+        .status-bar {
+            height: 44px;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 25px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1a1f36;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        /* Экраны */
+        .screen {
+            display: none;
+            height: calc(100% - 44px - 80px);
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+        
+        .screen.active {
+            display: block;
+        }
+        
+        /* Нижняя навигация */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            border-radius: 0 0 30px 30px;
+        }
+        
+        .nav-item {
+            flex: 1;
+            text-align: center;
+            cursor: pointer;
+            padding: 10px;
+            transition: all 0.3s;
+        }
+        
+        .nav-item.active {
+            color: #00d632;
+        }
+        
+        .nav-item:not(.active) {
+            color: #6b7280;
+        }
+        
+        .nav-icon {
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+        
+        .nav-label {
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        /* Общие стили */
+        .header {
+            padding: 20px;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1a1f36;
+            margin-bottom: 4px;
+        }
+        
+        .header p {
+            font-size: 16px;
+            color: #6b7280;
+        }
+        
+        .search-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 10px 16px;
+            margin: 0 20px 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .filter-chips {
+            display: flex;
+            gap: 8px;
+            padding: 0 20px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .filter-chips::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .chip {
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+            border: 1px solid #e5e7eb;
+            background: white;
+        }
+        
+        .chip.active {
+            background: #00d632;
+            color: white;
+            border-color: #00d632;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 0 20px 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .button {
+            background: #00d632;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .button:hover {
+            background: #00c02d;
+        }
+        
+        .back-button {
+            width: 32px;
+            height: 32px;
+            background: #f3f4f6;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .back-button:hover {
+            background: #e5e7eb;
+        }
+        
+        /* Специфичные стили для экранов */
+        .court-image {
+            height: 150px;
+            background: #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+            position: relative;
+        }
+        
+        .date-selector {
+            display: flex;
+            gap: 8px;
+            padding: 0 20px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+        }
+        
+        .date-item {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 12px;
+            min-width: 60px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .date-item.active {
+            background: #00d632;
+            color: white;
+            border-color: #00d632;
+        }
+        
+        .time-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            padding: 0 20px;
+        }
+        
+        .time-slot {
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid;
+        }
+        
+        .time-slot.available {
+            background: #d1fae5;
+            border-color: #4caf50;
+            color: #1a1f36;
+        }
+        
+        .time-slot.busy {
+            background: #fee2e2;
+            border-color: #fecaca;
+            color: #dc2626;
+            cursor: not-allowed;
+        }
+        
+        .time-slot.selected {
+            background: #00d632;
+            border-color: #00d632;
+            color: white;
+        }
+        
+        .bottom-panel {
+            position: sticky;
+            bottom: 0;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 16px 16px 0 0;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .game-type-card {
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .game-type-card.selected {
+            background: #f0fdf4;
+            border-color: #00d632;
+        }
+        
+        .player-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .booking-card {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .booking-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: #00d632;
+            border-radius: 12px 0 0 12px;
+        }
+        
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            background: #00d632;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0 auto 12px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            padding: 0 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-item {
+            background: white;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        /* Анимации */
+        .screen {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        /* Скроллбар */
+        .screen::-webkit-scrollbar {
+            width: 0px;
+        }
+    </style>
+</head>
+<body>
+    <div class="phone-container">
+        <div class="phone-screen">
+            <!-- Статус бар -->
+            <div class="status-bar">
+                <span>9:41</span>
+                <span>100%</span>
+            </div>
+            
+            <!-- Экран 1: Главная -->
+            <div class="screen active" id="home">
+                <div class="header">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h1>Привет, Александр!</h1>
+                            <p>Найдём корт для игры?</p>
+                        </div>
+                        <div style="width: 50px; height: 50px; background: #e5e7eb; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                            🔔
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="search-bar">
+                    <span style="color: #9ca3af;">🔍</span>
+                    <span style="color: #9ca3af;">Поиск кортов...</span>
+                </div>
+                
+                <div class="filter-chips">
+                    <div class="chip active">Теннис</div>
+                    <div class="chip">Падель</div>
+                    <div class="chip">Сквош</div>
+                </div>
+                
+                <div style="padding: 0 20px; margin-bottom: 12px;">
+                    <div style="font-size: 14px; font-weight: 700; color: #1a1f36;">Рядом с вами</div>
+                </div>
+                
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <strong style="color: #1a1f36;">Теннис Клуб "Олимп"</strong>
+                        <span style="color: #00d632; font-weight: 700;">от 1500₽</span>
+                    </div>
+                    <div style="color: #6b7280; font-size: 11px; margin-bottom: 10px;">📍 ул. Спортивная, 15 • 1.2 км • ⭐ 4.8</div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="background: #d1fae5; color: #065f46; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">5 слотов</span>
+                        <button class="button" onclick="showScreen('court-detail')">Забронировать</button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <strong style="color: #1a1f36;">Спорткомплекс "Динамо"</strong>
+                        <span style="color: #00d632; font-weight: 600;">от 2000₽</span>
+                    </div>
+                    <div style="color: #6b7280; font-size: 11px; margin-bottom: 10px;">📍 пр. Победы, 45 • 2.5 км • ⭐ 4.6</div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="background: #d1fae5; color: #065f46; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">3 слота</span>
+                        <button class="button" onclick="showScreen('court-detail')">Забронировать</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Экран 2: Детали корта -->
+            <div class="screen" id="court-detail">
+                <div class="court-image">
+                    <div class="back-button" onclick="showScreen('home')" style="position: absolute; top: 10px; left: 20px; background: white;">
+                        ←
+                    </div>
+                    📷 Фото корта
+                </div>
+                
+                <div style="padding: 20px;">
+                    <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 8px; color: #1a1f36;">Теннис Клуб "Олимп"</h3>
+                    <div style="color: #6b7280; font-size: 12px; margin-bottom: 16px;">📍 ул. Спортивная, 15 • 1.2 км</div>
+                    <div style="display: flex; gap: 8px; margin-bottom: 20px;">
+                        <span style="background: #3b82f6; color: white; padding: 6px 12px; border-radius: 20px; font-size: 10px; font-weight: 600;">Крытый</span>
+                        <span style="background: #f0fdf4; color: #065f46; padding: 6px 12px; border-radius: 20px; font-size: 10px; font-weight: 600;">⭐ 4.8 (124 отзыва)</span>
+                    </div>
+                    
+                    <div style="background: white; border-radius: 12px; padding: 12px; margin-bottom: 12px;">
+                        <div style="font-weight: 600; margin-bottom: 8px; color: #1a1f36;">Удобства</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px; color: #6b7280;">
+                            <div>✓ Раздевалки</div>
+                            <div>✓ Душевые</div>
+                            <div>✓ Парковка</div>
+                            <div>✓ Кафе</div>
+                        </div>
+                    </div>
+                    
+                    <div style="background: white; border-radius: 12px; padding: 12px;">
+                        <div style="font-weight: 600; margin-bottom: 8px; color: #1a1f36;">Типы покрытия</div>
+                        <div style="font-size: 11px; color: #6b7280;">Хард (3 корта), Грунт (2 корта)</div>
+                    </div>
+                </div>
+                
+                <div class="bottom-panel">
+                    <button class="button" style="width: 100%; padding: 12px;" onclick="showScreen('time-selection')">Выбрать время</button>
+                </div>
+            </div>
+            
+            <!-- Экран 3: Выбор времени -->
+            <div class="screen" id="time-selection">
+                <div class="header">
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div class="back-button" onclick="showScreen('court-detail')">←</div>
+                        <div>
+                            <h2 style="font-size: 20px; font-weight: 700; color: #1a1f36;">Выберите время</h2>
+                            <p style="font-size: 14px; color: #6b7280;">Теннис Клуб "Олимп" • Корт №3</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="date-selector">
+                    <div class="date-item">
+                        <div style="font-size: 10px; color: #6b7280;">Пн</div>
+                        <div style="font-weight: 700; color: #1a1f36;">15</div>
+                    </div>
+                    <div class="date-item active">
+                        <div style="font-size: 10px;">Вт</div>
+                        <div style="font-weight: 700;">16</div>
+                    </div>
+                    <div class="date-item">
+                        <div style="font-size: 10px; color: #6b7280;">Ср</div>
+                        <div style="font-weight: 700; color: #1a1f36;">17</div>
+                    </div>
+                    <div class="date-item">
+                        <div style="font-size: 10px; color: #6b7280;">Чт</div>
+                        <div style="font-weight: 700; color: #1a1f36;">18</div>
+                    </div>
+                </div>
+                
+                <div style="padding: 0 20px; margin-bottom: 12px;">
+                    <div style="font-size: 14px; font-weight: 600; color: #1a1f36;">Доступное время</div>
+                </div>
+                
+                <div class="time-grid">
+                    <div class="time-slot busy">
+                        <div style="font-weight: 700;">07:00</div>
+                        <div style="font-size: 10px;">Занято</div>
+                    </div>
+                    <div class="time-slot busy">
+                        <div style="font-weight: 700;">08:00</div>
+                        <div style="font-size: 10px;">Занято</div>
+                    </div>
+                    <div class="time-slot available">
+                        <div style="font-weight: 700;">09:00</div>
+                        <div style="font-size: 10px; color: #065f46;">1500₽</div>
+                    </div>
+                    <div class="time-slot available">
+                        <div style="font-weight: 700;">10:00</div>
+                        <div style="font-size: 10px; color: #065f46;">1500₽</div>
+                    </div>
+                    <div class="time-slot available">
+                        <div style="font-weight: 700;">11:00</div>
+                        <div style="font-size: 10px; color: #065f46;">1500₽</div>
+                    </div>
+                    <div class="time-slot busy">
+                        <div style="font-weight: 700;">12:00</div>
+                        <div style="font-size: 10px;">Занято</div>
+                    </div>
+                    <div class="time-slot selected">
+                        <div style="font-weight: 700;">14:00</div>
+                        <div style="font-size: 10px;">Выбрано</div>
+                    </div>
+                    <div class="time-slot available">
+                        <div style="font-weight: 700;">15:00</div>
+                        <div style="font-size: 10px; color: #065f46;">1800₽</div>
+                    </div>
+                    <div class="time-slot available">
+                        <div style="font-weight: 700;">16:00</div>
+                        <div style="font-size: 10px; color: #065f46;">2000₽</div>
+                    </div>
+                </div>
+                
+                <div class="bottom-panel">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span style="color: #6b7280; font-size: 12px;">16 января, 14:00-15:00</span>
+                        <span style="font-weight: 700; font-size: 18px; color: #1a1f36;">1500 ₽</span>
+                    </div>
+                    <button class="button" style="width: 100%; padding: 12px;" onclick="showScreen('game-type')">Далее</button>
+                </div>
+            </div>
+            
+            <!-- Экран 4: Тип игры -->
+            <div class="screen" id="game-type">
+                <div class="header">
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div class="back-button" onclick="showScreen('time-selection')">←</div>
+                        <h2 style="font-size: 20px; font-weight: 700; color: #1a1f36;">Выберите формат игры</h2>
+                    </div>
+                </div>
+                
+                <div style="padding: 0 20px;">
+                    <div class="card game-type-card selected">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                            <span style="background: #00d632; color: white; padding: 8px; border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">🔒</span>
+                            <strong style="color: #1a1f36;">Приватная игра</strong>
+                        </div>
+                        <p style="font-size: 12px; color: #6b7280; margin-bottom: 8px; margin-left: 52px;">Только для вас и ваших друзей</p>
+                        <div style="display: flex; gap: 6px; margin-left: 52px;">
+                            <span style="background: #d1fae5; color: #065f46; padding: 6px 12px; border-radius: 20px; font-size: 10px; font-weight: 600;">Только для вас</span>
+                            <span style="background: #d1fae5; color: #065f46; padding: 6px 12px; border-radius: 20px; font-size: 10px; font-weight: 600;">Без посторонних</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card game-type-card" onclick="showScreen('create-open-game')">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                            <span style="background: #f3f4f6; color: #6b7280; padding: 8px; border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">👥</span>
+                            <strong style="color: #1a1f36;">Открытая игра</strong>
+                        </div>
+                        <p style="font-size: 12px; color: #6b7280; margin-bottom: 8px; margin-left: 52px;">Найдите партнёров для игры</p>
+                        <div style="display: flex; gap: 6px; margin-left: 52px;">
+                            <span style="background: #f3f4f6; color: #6b7280; padding: 6px 12px; border-radius: 20px; font-size: 10px; font-weight: 600;">Найти партнёров</span>
+                            <span style="background: #f3f4f6; color: #6b7280; padding: 6px 12px; border-radius: 20px; font-size: 10px; font-weight: 600;">Разделить оплату</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card game-type-card" onclick="setActiveTab(1)">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                            <span style="background: #f3f4f6; color: #6b7280; padding: 8px; border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">🔍</span>
+                            <strong style="color: #1a1f36;">Найти игру</strong>
+                        </div>
+                        <p style="font-size: 12px; color: #6b7280; margin-bottom: 8px; margin-left: 52px;">Присоединитесь к существующей игре</p>
+                        <div style="display: flex; gap: 6px; margin-left: 52px;">
+                            <span style="background: #f3f4f6; color: #6b7280; padding: 6px 12px; border-radius: 20px; font-size: 10px; font-weight: 600;">12 открытых игр</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="padding: 20px;">
+                    <button class="button" style="width: 100%; padding: 12px;" onclick="showScreen('payment')">Далее к оплате</button>
+                </div>
+            </div>
+            
+            <!-- Экран 5: Создание открытой игры -->
+            <div class="screen" id="create-open-game">
+                <div class="header">
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div class="back-button" onclick="showScreen('game-type')">←</div>
+                        <h2 style="font-size: 20px; font-weight: 700; color: #1a1f36;">Создать открытую игру</h2>
+                    </div>
+                </div>
+                
+                <div style="padding: 0 20px;">
+                    <div style="background: #f8f9fa; border-radius: 12px; padding: 12px; margin-bottom: 20px;">
+                        <div style="font-size: 14px; font-weight: 600; color: #1a1f36; margin-bottom: 4px;">Теннис Клуб "Олимп"</div>
+                        <div style="font-size: 12px; color: #6b7280;">16 января, 14:00-15:00 • Корт №3</div>
+                    </div>
+                    
+                    <div class="card">
+                        <h4 style="font-weight: 700; margin-bottom: 12px; color: #1a1f36; font-size: 14px;">Формат игры</h4>
+                        <div style="display: flex; gap: 8px;">
+                            <div style="background: white; border: 2px solid #e5e7eb; border-radius: 12px; padding: 12px; flex: 1; text-align: center;">
+                                <div style="font-weight: 600; font-size: 14px; color: #1a1f36; margin-bottom: 4px;">Одиночная</div>
+                                <div style="font-size: 11px; color: #6b7280;">1 на 1</div>
+                            </div>
+                            <div style="background: #f0fdf4; border: 2px solid #00d632; border-radius: 12px; padding: 12px; flex: 1; text-align: center;">
+                                <div style="font-weight: 600; font-size: 14px; color: #1a1f36; margin-bottom: 4px;">Парная</div>
+                                <div style="font-size: 11px; color: #065f46;">2 на 2</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h4 style="font-weight: 700; margin-bottom: 8px; color: #1a1f36; font-size: 14px;">Количество игроков</h4>
+                        <p style="font-size: 12px; color: #6b7280; margin-bottom: 12px;">Всего нужно 4 игрока для парной игры</p>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span class="player-avatar" style="background: #00d632; color: white;">Вы</span>
+                            <span class="player-avatar" style="background: #e5e7eb; color: #6b7280;">?</span>
+                            <span class="player-avatar" style="background: #e5e7eb; color: #6b7280;">?</span>
+                            <span class="player-avatar" style="background: #e5e7eb; color: #6b7280;">?</span>
+                            <span style="font-size: 12px; color: #6b7280; margin-left: auto;">Ищем ещё 3</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h4 style="font-weight: 700; margin-bottom: 12px; color: #1a1f36; font-size: 14px;">Уровень игроков</h4>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                            <span style="background: white; padding: 8px 16px; border-radius: 20px; font-size: 11px; border: 1px solid #e5e7eb;">2.5-3.0</span>
+                            <span style="background: white; padding: 8px 16px; border-radius: 20px; font-size: 11px; border: 1px solid #e5e7eb;">3.0-3.5</span>
+                            <span style="background: #00d632; color: white; padding: 8px 16px; border-radius: 20px; font-size: 11px; font-weight: 600;">3.5-4.0</span>
+                            <span style="background: white; padding: 8px 16px; border-radius: 20px; font-size: 11px; border: 1px solid #e5e7eb;">4.0+</span>
+                        </div>
+                        <p style="font-size: 11px; color: #6b7280;">Ваш уровень: 4.0</p>
+                    </div>
+                </div>
+                
+                <div class="bottom-panel">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                        <div>
+                            <div style="font-size: 12px; color: #6b7280;">Ваша часть</div>
+                            <div style="font-weight: 700; font-size: 20px; color: #1a1f36;">375 ₽</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 12px; color: #6b7280;">Полная стоимость</div>
+                            <div style="font-size: 14px; color: #6b7280; text-decoration: line-through;">1500 ₽</div>
+                        </div>
+                    </div>
+                    <button class="button" style="width: 100%; padding: 12px;">Создать игру и оплатить</button>
+                </div>
+            </div>
+            
+            <!-- Экран 6: Найти игру -->
+            <div class="screen" id="find-game">
+                <div class="header">
+                    <h1>Найти игру</h1>
+                    <p>Присоединитесь к открытым играм</p>
+                </div>
+                
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 10px; margin: 0 20px 15px; font-size: 11px;">
+                    <strong style="color: #065f46;">12 открытых игр</strong> ждут партнёров
+                </div>
+                
+                <div class="filter-chips">
+                    <div class="chip active">Все</div>
+                    <div class="chip">Теннис</div>
+                    <div class="chip">Падель</div>
+                    <div class="chip">Мой уровень</div>
+                </div>
+                
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <div>
+                            <strong style="color: #1a1f36;">Теннис Клуб "Олимп"</strong>
+                            <div style="font-size: 11px; color: #6b7280;">Сегодня, 14:00 • 1.2 км</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="color: #00d632; font-weight: 700;">375 ₽</div>
+                            <div style="font-size: 10px; color: #6b7280;">с человека</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid #f3f4f6;">
+                        <span class="player-avatar" style="background: #00d632; color: white;">АК</span>
+                        <div style="flex: 1;">
+                            <div style="font-size: 12px; font-weight: 600; color: #1a1f36;">Александр К.</div>
+                            <div style="font-size: 10px; color: #6b7280;">Уровень 4.0 • ⭐ 4.8</div>
+                        </div>
+                        <button class="button" style="font-size: 10px; padding: 6px 12px;">Присоединиться</button>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px; margin-top: 8px;">
+                        <span style="background: #dbeafe; color: #1e40af; padding: 4px 8px; border-radius: 20px; font-size: 9px; font-weight: 600;">Парная игра</span>
+                        <span style="background: #fef3c7; color: #92400e; padding: 4px 8px; border-radius: 20px; font-size: 9px; font-weight: 600;">Уровень 3.5-4.5</span>
+                        <span style="font-size: 10px; color: #6b7280; margin-left: auto;">2 из 4 игроков</span>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <div>
+                            <strong style="color: #1a1f36;">Спорткомплекс "Динамо"</strong>
+                            <div style="font-size: 11px; color: #6b7280;">Сегодня, 18:00 • 2.5 км</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="color: #00d632; font-weight: 700;">500 ₽</div>
+                            <div style="font-size: 10px; color: #6b7280;">с человека</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid #f3f4f6;">
+                        <span class="player-avatar" style="background: #f59e0b; color: white;">ЕП</span>
+                        <div style="flex: 1;">
+                            <div style="font-size: 12px; font-weight: 600; color: #1a1f36;">Елена П.</div>
+                            <div style="font-size: 10px; color: #6b7280;">Уровень 3.0 • ⭐ 5.0</div>
+                        </div>
+                        <button class="button" style="font-size: 10px; padding: 6px 12px;">Присоединиться</button>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px; margin-top: 8px;">
+                        <span style="background: #dbeafe; color: #1e40af; padding: 4px 8px; border-radius: 20px; font-size: 9px; font-weight: 600;">Одиночная</span>
+                        <span style="background: #fef3c7; color: #92400e; padding: 4px 8px; border-radius: 20px; font-size: 9px; font-weight: 600;">Уровень 2.5-3.5</span>
+                        <span style="font-size: 10px; color: #6b7280; margin-left: auto;">1 из 2 игроков</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Экран 7: Оплата -->
+            <div class="screen" id="payment">
+                <div class="header">
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div class="back-button" onclick="showScreen('game-type')">←</div>
+                        <h2 style="font-size: 20px; font-weight: 700; color: #1a1f36;">Подтверждение брони</h2>
+                    </div>
+                </div>
+                
+                <div style="padding: 0 20px;">
+                    <div class="card">
+                        <h4 style="font-weight: 700; margin-bottom: 12px; color: #1a1f36;">Детали брони</h4>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="color: #6b7280; font-size: 12px;">Корт</span>
+                            <span style="font-weight: 600; font-size: 12px; color: #1a1f36;">Теннис Клуб "Олимп"</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="color: #6b7280; font-size: 12px;">Дата</span>
+                            <span style="font-weight: 600; font-size: 12px; color: #1a1f36;">16 января, Вторник</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="color: #6b7280; font-size: 12px;">Время</span>
+                            <span style="font-weight: 600; font-size: 12px; color: #1a1f36;">14:00 - 15:00</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="color: #6b7280; font-size: 12px;">Тип</span>
+                            <span style="font-weight: 600; font-size: 12px; color: #1a1f36;">Приватная игра</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h4 style="font-weight: 700; margin-bottom: 12px; color: #1a1f36;">Способ оплаты</h4>
+                        <div style="background: #f8f9fa; border: 2px solid #00d632; border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
+                            <span>💳</span>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; font-size: 12px; color: #1a1f36;">•••• 4242</div>
+                                <div style="font-size: 10px; color: #6b7280;">Visa</div>
+                            </div>
+                            <span style="color: #00d632;">✓</span>
+                        </div>
+                        <div style="text-align: center; margin-top: 8px;">
+                            <a href="#" style="color: #00d632; font-size: 11px; text-decoration: none;">+ Добавить карту</a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bottom-panel">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                        <span style="font-weight: 700; font-size: 14px; color: #1a1f36;">К оплате</span>
+                        <span style="font-weight: 700; font-size: 20px; color: #00d632;">1500 ₽</span>
+                    </div>
+                    <button class="button" style="width: 100%; padding: 12px;" onclick="alert('Оплата прошла успешно!'); setActiveTab(2);">Оплатить</button>
+                </div>
+            </div>
+            
+            <!-- Экран 8: Мои брони -->
+            <div class="screen" id="my-bookings">
+                <div class="header">
+                    <h1>Мои бронирования</h1>
+                    <p>Управляйте вашими играми</p>
+                </div>
+                
+                <div class="filter-chips">
+                    <div class="chip active">Предстоящие</div>
+                    <div class="chip">Прошедшие</div>
+                </div>
+                
+                <div style="padding: 0 20px;">
+                    <div class="card booking-card">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <div>
+                                <strong style="color: #1a1f36;">Теннис Клуб "Олимп"</strong>
+                                <div style="font-size: 11px; color: #6b7280;">Корт №3 • Хард</div>
+                            </div>
+                            <span style="background: #d1fae5; color: #065f46; padding: 4px 8px; border-radius: 20px; font-size: 10px; font-weight: 600;">Подтверждено</span>
+                        </div>
+                        <div style="display: flex; gap: 12px; margin: 12px 0;">
+                            <div>
+                                <div style="font-size: 10px; color: #6b7280;">Дата</div>
+                                <div style="font-weight: 600; font-size: 12px; color: #1a1f36;">16 янв, Вт</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 10px; color: #6b7280;">Время</div>
+                                <div style="font-weight: 600; font-size: 12px; color: #1a1f36;">14:00 - 15:00</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 10px; color: #6b7280;">Тип</div>
+                                <div style="font-weight: 600; font-size: 12px; color: #1a1f36;">Приватная</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 12px;">
+                            <button style="background: #f3f4f6; color: #1a1f36; border: none; padding: 8px 16px; border-radius: 8px; font-size: 11px; font-weight: 600;">Отменить</button>
+                            <button style="background: white; color: #00d632; border: 1px solid #00d632; padding: 8px 16px; border-radius: 8px; font-size: 11px; font-weight: 600;">Детали</button>
+                        </div>
+                    </div>
+                    
+                    <div class="card booking-card" style="border-left-color: #3b82f6;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <div>
+                                <strong style="color: #1a1f36;">Спорткомплекс "Динамо"</strong>
+                                <div style="font-size: 11px; color: #6b7280;">Корт №1 • Грунт</div>
+                            </div>
+                            <span style="background: #dbeafe; color: #1e40af; padding: 4px 8px; border-radius: 20px; font-size: 10px; font-weight: 600;">Открытая игра</span>
+                        </div>
+                        <div style="display: flex; gap: 12px; margin: 12px 0;">
+                            <div>
+                                <div style="font-size: 10px; color: #6b7280;">Дата</div>
+                                <div style="font-weight: 600; font-size: 12px; color: #1a1f36;">18 янв, Чт</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 10px; color: #6b7280;">Время</div>
+                                <div style="font-weight: 600; font-size: 12px; color: #1a1f36;">18:00 - 20:00</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 10px; color: #6b7280;">Игроки</div>
+                                <div style="font-weight: 600; font-size: 12px; color: #1a1f36;">3 из 4</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 12px;">
+                            <button style="background: #f3f4f6; color: #1a1f36; border: none; padding: 8px 16px; border-radius: 8px; font-size: 11px; font-weight: 600;">Покинуть</button>
+                            <button style="background: white; color: #00d632; border: 1px solid #00d632; padding: 8px 16px; border-radius: 8px; font-size: 11px; font-weight: 600;">Игроки</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Экран 9: Профиль -->
+            <div class="screen" id="profile">
+                <div class="header">
+                    <h1>Профиль</h1>
+                    <p>Ваша статистика и настройки</p>
+                </div>
+                
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div class="profile-avatar">АС</div>
+                    <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 4px; color: #1a1f36;">Александр Смирнов</h3>
+                    <div style="font-size: 12px; color: #6b7280;">Уровень игры: 4.0</div>
+                    <div style="display: flex; justify-content: center; gap: 4px; margin-top: 8px;">
+                        <span style="color: #f59e0b;">⭐⭐⭐⭐⭐</span>
+                        <span style="font-size: 12px; color: #6b7280;">4.9 (47 отзывов)</span>
+                    </div>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div style="font-size: 20px; font-weight: 700; color: #00d632;">124</div>
+                        <div style="font-size: 10px; color: #6b7280;">Игр сыграно</div>
+                    </div>
+                    <div class="stat-item">
+                        <div style="font-size: 20px; font-weight: 700; color: #00d632;">68%</div>
+                        <div style="font-size: 10px; color: #6b7280;">Побед</div>
+                    </div>
+                    <div class="stat-item">
+                        <div style="font-size: 20px; font-weight: 700; color: #00d632;">15</div>
+                        <div style="font-size: 10px; color: #6b7280;">Партнёров</div>
+                    </div>
+                </div>
+                
+                <div style="padding: 0 20px;">
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span style="color: #6b7280;">👤</span>
+                                <span style="font-size: 14px; color: #1a1f36;">Личные данные</span>
+                            </div>
+                            <span style="color: #9ca3af;">›</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span style="color: #6b7280;">🎾</span>
+                                <span style="font-size: 14px; color: #1a1f36;">Виды спорта</span>
+                            </div>
+                            <span style="color: #9ca3af;">›</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span style="color: #6b7280;">💳</span>
+                                <span style="font-size: 14px; color: #1a1f36;">Способы оплаты</span>
+                            </div>
+                            <span style="color: #9ca3af;">›</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span style="color: #6b7280;">⚙️</span>
+                                <span style="font-size: 14px; color: #1a1f36;">Настройки</span>
+                            </div>
+                            <span style="color: #9ca3af;">›</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Нижняя навигация -->
+            <div class="bottom-nav">
+                <div class="nav-item active" onclick="setActiveTab(0)">
+                    <div class="nav-icon">🏠</div>
+                    <div class="nav-label">Главная</div>
+                </div>
+                <div class="nav-item" onclick="setActiveTab(1)">
+                    <div class="nav-icon">🎯</div>
+                    <div class="nav-label">Найти игру</div>
+                </div>
+                <div class="nav-item" onclick="setActiveTab(2)">
+                    <div class="nav-icon">📅</div>
+                    <div class="nav-label">Мои брони</div>
+                </div>
+                <div class="nav-item" onclick="setActiveTab(3)">
+                    <div class="nav-icon">👤</div>
+                    <div class="nav-label">Профиль</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Переключение экранов
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            document.getElementById(screenId).classList.add('active');
+        }
+        
+        // Переключение табов
+        function setActiveTab(index) {
+            const screens = ['home', 'find-game', 'my-bookings', 'profile'];
+            const navItems = document.querySelectorAll('.nav-item');
+            
+            // Убираем активный класс у всех
+            navItems.forEach(item => item.classList.remove('active'));
+            document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
+            
+            // Активируем нужный таб и экран
+            navItems[index].classList.add('active');
+            document.getElementById(screens[index]).classList.add('active');
+        }
+        
+        // Обработка кликов по элементам
+        document.addEventListener('DOMContentLoaded', function() {
+            // Фильтры
+            document.querySelectorAll('.chip').forEach(chip => {
+                chip.addEventListener('click', function() {
+                    if (this.parentElement.classList.contains('filter-chips')) {
+                        this.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+                        this.classList.add('active');
+                    }
+                });
+            });
+            
+            // Слоты времени
+            document.querySelectorAll('.time-slot.available').forEach(slot => {
+                slot.addEventListener('click', function() {
+                    document.querySelectorAll('.time-slot').forEach(s => {
+                        if (s.classList.contains('available')) {
+                            s.classList.remove('selected');
+                        }
+                    });
+                    this.classList.add('selected');
+                    this.classList.remove('available');
+                });
+            });
+            
+            // Выбор даты
+            document.querySelectorAll('.date-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    document.querySelectorAll('.date-item').forEach(d => d.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+            
+            // Типы игры
+            document.querySelectorAll('.game-type-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    document.querySelectorAll('.game-type-card').forEach(c => c.classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+        });
+    </script>
+</body>
+</html>
