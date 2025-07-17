@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'screens/courts_list_screen.dart';
+import 'screens/simple_profile_screen.dart';
+import 'screens/bookings_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -74,14 +77,24 @@ class HomePage extends StatelessWidget {
             icon: Icons.search,
             title: 'Найти корт',
             subtitle: 'Поиск доступных кортов рядом',
-            onTap: () => _showComingSoon(context),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const CourtsListScreen()),
+              );
+            },
           ),
           _buildMenuCard(
             context,
             icon: Icons.calendar_today,
             title: 'Мои бронирования',
             subtitle: 'История и активные брони',
-            onTap: () => _showComingSoon(context),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const BookingsScreen()),
+              );
+            },
           ),
           _buildMenuCard(
             context,
@@ -95,7 +108,12 @@ class HomePage extends StatelessWidget {
             icon: Icons.person,
             title: 'Профиль',
             subtitle: 'Настройки и личные данные',
-            onTap: () => _showComingSoon(context),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SimpleProfileScreen()),
+              );
+            },
           ),
           _buildMenuCard(
             context,
