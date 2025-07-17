@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
+import 'firebase_options.dart';
 import 'core/theme/colors.dart';
 import 'core/theme/text_styles.dart';
 import 'core/theme/spacing.dart';
+import 'providers/venues_provider.dart';
+import 'providers/location_provider.dart';
 import 'screens/simple_home_screen.dart';
 import 'screens/simple_find_game_screen.dart';
 import 'screens/simple_my_bookings_screen.dart';
 import 'screens/simple_profile_screen_v2.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 
@@ -16,27 +25,33 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Все Корты',
-      theme: ThemeData(
-        primaryColor: AppColors.primary,
-        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
-        useMaterial3: true,
-        fontFamily: 'Inter',
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: AppColors.white,
-            textStyle: AppTextStyles.button,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => LocationProvider()),
+        ChangeNotifierProvider(create: (_) => VenuesProvider()),
+      ],
+      child: MaterialApp(
+        title: 'Все Корты',
+        theme: ThemeData(
+          primaryColor: AppColors.primary,
+          colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
+          useMaterial3: true,
+          fontFamily: 'Inter',
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.white,
+              textStyle: AppTextStyles.button,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              ),
+              minimumSize: const Size(double.infinity, AppSpacing.buttonHeight),
             ),
-            minimumSize: const Size(double.infinity, AppSpacing.buttonHeight),
           ),
         ),
+        home: const MainScreen(),
+        debugShowCheckedModeBanner: false,
       ),
-      home: const MainScreen(),
-      debugShowCheckedModeBanner: false,
     );
   }
 }

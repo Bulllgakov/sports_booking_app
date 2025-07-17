@@ -60,12 +60,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(user)
             setAdmin(adminData)
             
-            // Загружаем данные клуба
+            // Загружаем данные клуба (только для admin и manager)
             if (adminData.venueId) {
               const clubDoc = await getDoc(doc(db, 'venues', adminData.venueId))
               if (clubDoc.exists()) {
                 setClub({ id: clubDoc.id, ...clubDoc.data() } as ClubData)
               }
+            } else if (adminData.role === 'superadmin') {
+              // Для суперадмина клуб не загружаем
+              setClub(null)
             }
           } else {
             // Если не админ, выходим

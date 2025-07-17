@@ -10,6 +10,7 @@ import '../widgets/loading_widget.dart';
 import '../providers/venues_provider.dart';
 import '../services/auth_service.dart';
 import '../models/venue_model.dart';
+import 'map_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -47,11 +48,19 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: AppSpacing.lg),
             _buildSearchBar(),
             const SizedBox(height: AppSpacing.cardPadding),
-            _buildFilterChips(),
-            const SizedBox(height: AppSpacing.xl),
-            _buildSectionTitle(),
-            const SizedBox(height: AppSpacing.md),
-            Expanded(child: _buildVenuesList()),
+            Expanded(
+              child: ListView(
+                children: [
+                  _buildNearbySection(),
+                  const SizedBox(height: AppSpacing.xl),
+                  _buildFilterChips(),
+                  const SizedBox(height: AppSpacing.xl),
+                  _buildSectionTitle(),
+                  const SizedBox(height: AppSpacing.md),
+                  _buildVenuesList(),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -156,6 +165,174 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildNearbySection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Рядом с вами',
+                style: AppTextStyles.h3,
+              ),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MapScreen(),
+                    ),
+                  );
+                },
+                child: Text(
+                  'Показать на карте',
+                  style: AppTextStyles.body.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Consumer<VenuesProvider>(
+          builder: (context, venuesProvider, child) {
+            if (venuesProvider.isLoading) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(AppSpacing.xl),
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
+
+            // Берем первые 3 ближайших клуба
+            final nearbyVenues = venuesProvider.venues
+                .where((v) => v.distance != null)
+                .toList()
+              ..sort((a, b) => (a.distance ?? 0).compareTo(b.distance ?? 0));
+            
+            final topVenues = nearbyVenues.take(3).toList();
+
+            if (topVenues.isEmpty) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(AppSpacing.xl),
+                  child: Text('Нет доступных клубов поблизости'),
+                ),
+              );
+            }
+
+            return SizedBox(
+              height: 120,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                itemCount: topVenues.length,
+                itemBuilder: (context, index) {
+                  final venue = topVenues[index];
+                  return Container(
+                    width: 280,
+                    margin: EdgeInsets.only(
+                      right: index < topVenues.length - 1 ? AppSpacing.md : 0,
+                    ),
+                    child: _buildNearbyCard(venue),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNearbyCard(VenueModel venue) {
+    return GestureDetector(
+      onTap: () {
+        context.push('/courts', extra: venue);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              ),
+              child: Icon(
+                Icons.sports_tennis,
+                color: AppColors.primary,
+                size: 40,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    venue.name,
+                    style: AppTextStyles.bodyLarge.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  if (venue.distance != null)
+                    Text(
+                      '${venue.distance!.toStringAsFixed(1)} км',
+                      style: AppTextStyles.body.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.star,
+                        size: 16,
+                        color: AppColors.warning,
+                      ),
+                      const SizedBox(width: AppSpacing.xxs),
+                      Text(
+                        venue.rating.toString(),
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.gray,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildFilterChips() {
     return Consumer<VenuesProvider>(
       builder: (context, venuesProvider, child) {
@@ -180,9 +357,51 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildSectionTitle() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-      child: Text(
-        'Доступные корты',
-        style: AppTextStyles.h3,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Доступные корты',
+            style: AppTextStyles.h3,
+          ),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MapScreen(),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.map,
+                    size: AppSpacing.iconSm,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    'Карта',
+                    style: AppTextStyles.body.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

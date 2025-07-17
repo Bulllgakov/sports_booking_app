@@ -1,5 +1,6 @@
 class AppSpacing {
   // Базовые отступы
+  static const double xxs = 2.0;
   static const double xs = 4.0;
   static const double sm = 8.0;
   static const double md = 12.0;
@@ -19,6 +20,8 @@ class AppSpacing {
   static const double radiusCircle = 50.0;
   
   // Размеры иконок
+  static const double iconSizeXs = 12.0;
+  static const double iconSizeSm = 16.0;
   static const double iconXs = 16.0;
   static const double iconSm = 20.0;
   static const double iconMd = 24.0;
@@ -54,4 +57,7 @@ class AppSpacing {
   static const double headerPadding = 20.0;
   static const double cardPadding = 15.0;
   static const double screenPadding = 20.0;
+  
+  // Aspect ratios
+  static const double imageAspectRatio = 16.0 / 9.0;
 }

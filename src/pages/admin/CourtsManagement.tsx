@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { usePermission } from '../../hooks/usePermission'
+import { PermissionGate } from '../../components/PermissionGate'
 import { 
   collection, 
   query, 
@@ -8,10 +10,12 @@ import {
   addDoc, 
   updateDoc, 
   deleteDoc,
-  doc 
+  doc,
+  getDoc
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { Add, Edit, Delete, Schedule } from '@mui/icons-material'
+import { Alert, AlertTitle } from '@mui/material'
 
 interface Court {
   id: string
@@ -27,6 +31,8 @@ interface Court {
 
 export default function CourtsManagement() {
   const { admin } = useAuth()
+  const { isSuperAdmin, canManageCourts } = usePermission()
+  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null)
   const [courts, setCourts] = useState<Court[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -41,17 +47,23 @@ export default function CourtsManagement() {
   })
 
   useEffect(() => {
-    if (admin?.venueId) {
-      fetchCourts()
+    if (isSuperAdmin) {
+      const venueId = localStorage.getItem('selectedVenueId')
+      if (venueId) {
+        setSelectedVenueId(venueId)
+        fetchCourts(venueId)
+      }
+    } else if (admin?.venueId) {
+      fetchCourts(admin.venueId)
     }
-  }, [admin])
+  }, [admin, isSuperAdmin])
 
-  const fetchCourts = async () => {
-    if (!admin?.venueId) return
+  const fetchCourts = async (venueId: string) => {
+    if (!venueId) return
 
     try {
       setLoading(true)
-      const q = query(collection(db, 'courts'), where('venueId', '==', admin.venueId))
+      const q = query(collection(db, 'courts'), where('venueId', '==', venueId))
       const snapshot = await getDocs(q)
       const courtsData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -75,7 +87,9 @@ export default function CourtsManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!admin?.venueId) return
+    
+    const venueId = isSuperAdmin ? selectedVenueId : admin?.venueId
+    if (!venueId) return
 
     try {
       if (editingCourt) {
@@ -88,7 +102,7 @@ export default function CourtsManagement() {
         // Создание нового корта
         await addDoc(collection(db, 'courts'), {
           ...formData,
-          venueId: admin.venueId,
+          venueId: venueId,
           createdAt: new Date()
         })
       }
@@ -103,7 +117,7 @@ export default function CourtsManagement() {
         priceWeekend: 2400,
         status: 'active',
       })
-      fetchCourts()
+      fetchCourts(venueId)
     } catch (error) {
       console.error('Error saving court:', error)
     }
@@ -126,7 +140,8 @@ export default function CourtsManagement() {
     if (window.confirm('Вы уверены, что хотите удалить этот корт?')) {
       try {
         await deleteDoc(doc(db, 'courts', courtId))
-        fetchCourts()
+        const venueId = isSuperAdmin ? selectedVenueId : admin?.venueId
+        if (venueId) fetchCourts(venueId)
       } catch (error) {
         console.error('Error deleting court:', error)
       }
@@ -155,16 +170,35 @@ export default function CourtsManagement() {
     return <div>Загрузка...</div>
   }
 
+  if (!canManageCourts()) {
+    return (
+      <Alert severity="error">
+        <AlertTitle>Доступ запрещен</AlertTitle>
+        У вас недостаточно прав для управления кортами.
+      </Alert>
+    )
+  }
+
+  if (isSuperAdmin && !selectedVenueId) {
+    return (
+      <Alert severity="info">
+        <AlertTitle>Выберите клуб</AlertTitle>
+        Перейдите в раздел "Все клубы" и выберите клуб для управления кортами.
+      </Alert>
+    )
+  }
+
   return (
-    <div>
-      <div className="section-card">
-        <div className="section-header">
-          <h2 className="section-title">Управление кортами</h2>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-            <Add fontSize="small" />
-            Добавить корт
-          </button>
-        </div>
+    <PermissionGate permission={['manage_courts', 'manage_all_venues']}>
+      <div>
+        <div className="section-card">
+          <div className="section-header">
+            <h2 className="section-title">Управление кортами</h2>
+            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+              <Add fontSize="small" />
+              Добавить корт
+            </button>
+          </div>
         
         <div className="courts-grid">
           {courts.map(court => (
@@ -343,6 +377,7 @@ export default function CourtsManagement() {
           </form>
         </div>
       </div>
-    </div>
+      </div>
+    </PermissionGate>
   )
 }

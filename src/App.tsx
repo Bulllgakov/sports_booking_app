@@ -11,6 +11,8 @@ import CourtsManagement from './pages/admin/CourtsManagement'
 import BookingsManagement from './pages/admin/BookingsManagement'
 import CustomersManagement from './pages/admin/CustomersManagement'
 import Home from './pages/Home'
+import AdminsManagement from './pages/admin/AdminsManagement'
+import VenuesManagement from './pages/admin/VenuesManagement'
 
 const theme = createTheme({
   palette: {
@@ -62,6 +64,8 @@ function App() {
               }
             >
               <Route path="dashboard" element={<Dashboard />} />
+              <Route path="venues" element={<VenuesManagement />} />
+              <Route path="admins" element={<AdminsManagement />} />
               <Route path="club" element={<ClubManagement />} />
               <Route path="courts" element={<CourtsManagement />} />
               <Route path="bookings" element={<BookingsManagement />} />

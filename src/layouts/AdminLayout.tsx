@@ -13,32 +13,73 @@ import {
   Close,
   Notifications,
   AccountCircle,
+  SupervisorAccount,
+  Store,
+  ExitToApp,
 } from '@mui/icons-material'
 import { useAuth } from '../contexts/AuthContext'
+import { usePermission } from '../hooks/usePermission'
 import '../styles/admin.css'
 
 interface NavItem {
   path: string
   label: string
   icon: React.ReactElement
+  permission?: string | string[]
+  roles?: Array<'superadmin' | 'admin' | 'manager'>
 }
-
-const navItems: NavItem[] = [
-  { path: '/admin/dashboard', label: 'Главная', icon: <Dashboard /> },
-  { path: '/admin/club', label: 'Управление клубом', icon: <Business /> },
-  { path: '/admin/courts', label: 'Корты', icon: <SportsTennis /> },
-  { path: '/admin/bookings', label: 'Бронирования', icon: <CalendarMonth /> },
-  { path: '/admin/customers', label: 'Клиенты', icon: <People /> },
-  { path: '/admin/finance', label: 'Финансы', icon: <AttachMoney /> },
-  { path: '/admin/marketing', label: 'Маркетинг', icon: <TrendingUp /> },
-  { path: '/admin/settings', label: 'Настройки', icon: <Settings /> },
-]
 
 export default function AdminLayout() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { club } = useAuth()
+  const { club, logout, admin } = useAuth()
+  const { hasPermission, hasRole, isSuperAdmin, canViewFinance, canManageClub } = usePermission()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Динамически формируем навигационные элементы на основе прав
+  const navItems: NavItem[] = [
+    { path: '/admin/dashboard', label: 'Главная', icon: <Dashboard /> },
+    ...(isSuperAdmin ? [
+      { path: '/admin/venues', label: 'Все клубы', icon: <Store /> },
+      { path: '/admin/admins', label: 'Администраторы', icon: <SupervisorAccount /> },
+    ] : []),
+    ...(canManageClub() ? [
+      { path: '/admin/club', label: 'Управление клубом', icon: <Business /> },
+    ] : []),
+    { 
+      path: '/admin/courts', 
+      label: 'Корты', 
+      icon: <SportsTennis />,
+      permission: ['manage_courts', 'manage_all_venues']
+    },
+    { 
+      path: '/admin/bookings', 
+      label: 'Бронирования', 
+      icon: <CalendarMonth />,
+      permission: ['manage_bookings', 'manage_all_bookings', 'view_bookings']
+    },
+    { 
+      path: '/admin/customers', 
+      label: 'Клиенты', 
+      icon: <People />,
+      permission: ['manage_all_users', 'manage_club']
+    },
+    ...(canViewFinance() ? [
+      { path: '/admin/finance', label: 'Финансы', icon: <AttachMoney /> },
+    ] : []),
+    { 
+      path: '/admin/marketing', 
+      label: 'Маркетинг', 
+      icon: <TrendingUp />,
+      roles: ['superadmin', 'admin']
+    },
+    { path: '/admin/settings', label: 'Настройки', icon: <Settings /> },
+  ].filter(item => {
+    // Фильтруем элементы на основе прав
+    if (item.permission && !hasPermission(item.permission)) return false
+    if (item.roles && !hasRole(item.roles)) return false
+    return true
+  })
 
   const isActive = (path: string) => location.pathname === path
 
@@ -121,9 +162,16 @@ export default function AdminLayout() {
               <Notifications fontSize="small" />
             </button>
             
-            <button className="user-btn">
-              <AccountCircle fontSize="small" />
-            </button>
+            <div className="user-menu">
+              <button className="user-btn">
+                <AccountCircle fontSize="small" />
+                <span className="user-name">{admin?.name}</span>
+                <span className="user-role">{admin?.role}</span>
+              </button>
+              <button className="logout-btn" onClick={logout} title="Выйти">
+                <ExitToApp fontSize="small" />
+              </button>
+            </div>
           </div>
         </header>
         

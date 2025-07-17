@@ -201,6 +201,55 @@ body {
   background: var(--extra-light-gray);
 }
 
+/* User Menu */
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--dark);
+  display: none;
+}
+
+.user-role {
+  font-size: 12px;
+  color: var(--gray);
+  text-transform: capitalize;
+  display: none;
+}
+
+.logout-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  color: var(--gray);
+}
+
+.logout-btn:hover {
+  background: var(--extra-light-gray);
+  color: var(--error);
+}
+
+@media (min-width: 1024px) {
+  .user-name, .user-role {
+    display: block;
+  }
+}
+
 .content {
   padding: 32px;
 }

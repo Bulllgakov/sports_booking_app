@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { usePermission } from '../../hooks/usePermission'
+import { PermissionGate } from '../../components/PermissionGate'
 import { 
   collection, 
   query, 
@@ -13,6 +15,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
+import { Alert, AlertTitle } from '@mui/material'
 
 interface Booking {
   id: string
@@ -38,6 +41,8 @@ interface Court {
 
 export default function BookingsManagement() {
   const { admin } = useAuth()
+  const { isSuperAdmin, canManageBookings, hasPermission } = usePermission()
+  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [courts, setCourts] = useState<Court[]>([])
   const [loading, setLoading] = useState(true)
@@ -54,17 +59,24 @@ export default function BookingsManagement() {
   })
 
   useEffect(() => {
-    if (admin?.venueId) {
-      fetchCourts()
-      fetchBookings()
+    if (isSuperAdmin) {
+      const venueId = localStorage.getItem('selectedVenueId')
+      if (venueId) {
+        setSelectedVenueId(venueId)
+        fetchCourts(venueId)
+        fetchBookings(venueId)
+      }
+    } else if (admin?.venueId) {
+      fetchCourts(admin.venueId)
+      fetchBookings(admin.venueId)
     }
-  }, [admin, selectedDate])
+  }, [admin, selectedDate, isSuperAdmin])
 
-  const fetchCourts = async () => {
-    if (!admin?.venueId) return
+  const fetchCourts = async (venueId: string) => {
+    if (!venueId) return
 
     try {
-      const q = query(collection(db, 'courts'), where('venueId', '==', admin.venueId))
+      const q = query(collection(db, 'courts'), where('venueId', '==', venueId))
       const snapshot = await getDocs(q)
       const courtsData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -76,8 +88,8 @@ export default function BookingsManagement() {
     }
   }
 
-  const fetchBookings = async () => {
-    if (!admin?.venueId) return
+  const fetchBookings = async (venueId: string) => {
+    if (!venueId) return
 
     try {
       setLoading(true)
@@ -91,7 +103,7 @@ export default function BookingsManagement() {
 
       const q = query(
         collection(db, 'bookings'),
-        where('venueId', '==', admin.venueId),
+        where('venueId', '==', venueId),
         where('date', '>=', Timestamp.fromDate(startOfWeek)),
         where('date', '<=', Timestamp.fromDate(endOfWeek)),
         orderBy('date'),
@@ -123,7 +135,9 @@ export default function BookingsManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!admin?.venueId) return
+    
+    const venueId = isSuperAdmin ? selectedVenueId : admin?.venueId
+    if (!venueId) return
 
     try {
       const court = courts.find(c => c.id === formData.courtId)
@@ -135,7 +149,7 @@ export default function BookingsManagement() {
       const endTime = `${String(endHours + Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
 
       await addDoc(collection(db, 'bookings'), {
-        venueId: admin.venueId,
+        venueId: venueId,
         courtId: formData.courtId,
         courtName: court.name,
         clientName: formData.clientName,
@@ -159,7 +173,7 @@ export default function BookingsManagement() {
         duration: 1.5,
         paymentMethod: 'cash',
       })
-      fetchBookings()
+      fetchBookings(venueId)
     } catch (error) {
       console.error('Error creating booking:', error)
     }
@@ -202,7 +216,28 @@ export default function BookingsManagement() {
     return <div>Загрузка...</div>
   }
 
+  if (!hasPermission(['manage_bookings', 'manage_all_bookings', 'view_bookings'])) {
+    return (
+      <Alert severity="error">
+        <AlertTitle>Доступ запрещен</AlertTitle>
+        У вас недостаточно прав для просмотра бронирований.
+      </Alert>
+    )
+  }
+
+  if (isSuperAdmin && !selectedVenueId) {
+    return (
+      <Alert severity="info">
+        <AlertTitle>Выберите клуб</AlertTitle>
+        Перейдите в раздел "Все клубы" и выберите клуб для управления бронированиями.
+      </Alert>
+    )
+  }
+
+  const canCreateBooking = hasPermission(['manage_bookings', 'manage_all_bookings', 'create_bookings'])
+
   return (
+    <PermissionGate permission={['manage_bookings', 'manage_all_bookings', 'view_bookings']}>
     <div>
       <div className="section-card">
         <div className="calendar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -434,5 +469,6 @@ export default function BookingsManagement() {
         </form>
       </div>
     </div>
+    </PermissionGate>
   )
 }

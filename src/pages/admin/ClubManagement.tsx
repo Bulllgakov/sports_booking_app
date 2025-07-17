@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { doc, updateDoc } from 'firebase/firestore'
+import { usePermission } from '../../hooks/usePermission'
+import { PermissionGate } from '../../components/PermissionGate'
+import { doc, updateDoc, getDoc } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '../../services/firebase'
+import { Alert, AlertTitle } from '@mui/material'
 
 export default function ClubManagement() {
   const { club, admin } = useAuth()
+  const { isSuperAdmin, canManageClub } = usePermission()
+  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null)
+  const [selectedVenue, setSelectedVenue] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [formData, setFormData] = useState({
@@ -26,7 +32,15 @@ export default function ClubManagement() {
   })
 
   useEffect(() => {
-    if (club) {
+    // Для суперадмина проверяем выбранный клуб
+    if (isSuperAdmin) {
+      const venueId = localStorage.getItem('selectedVenueId')
+      if (venueId) {
+        setSelectedVenueId(venueId)
+        loadVenueData(venueId)
+      }
+    } else if (club) {
+      // Для обычных админов используем их клуб
       setFormData({
         name: club.name || '',
         phone: club.phone || '',
@@ -44,7 +58,35 @@ export default function ClubManagement() {
         bankAccount: club.bankAccount || '',
       })
     }
-  }, [club])
+  }, [club, isSuperAdmin])
+
+  const loadVenueData = async (venueId: string) => {
+    try {
+      const venueDoc = await getDoc(doc(db, 'venues', venueId))
+      if (venueDoc.exists()) {
+        const venueData = venueDoc.data()
+        setSelectedVenue({ id: venueDoc.id, ...venueData })
+        setFormData({
+          name: venueData.name || '',
+          phone: venueData.phone || '',
+          address: venueData.address || '',
+          description: venueData.description || '',
+          amenities: {
+            showers: venueData.amenities?.includes('showers') || false,
+            parking: venueData.amenities?.includes('parking') || false,
+            cafe: venueData.amenities?.includes('cafe') || false,
+            proshop: venueData.amenities?.includes('proshop') || false,
+            lockers: venueData.amenities?.includes('lockers') || false,
+          },
+          organizationType: venueData.organizationType || '',
+          inn: venueData.inn || '',
+          bankAccount: venueData.bankAccount || '',
+        })
+      }
+    } catch (error) {
+      console.error('Error loading venue:', error)
+    }
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -86,7 +128,9 @@ export default function ClubManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!admin?.venueId) return
+    
+    const venueId = isSuperAdmin ? selectedVenueId : admin?.venueId
+    if (!venueId) return
 
     try {
       setLoading(true)
@@ -95,7 +139,7 @@ export default function ClubManagement() {
         .filter(([_, value]) => value)
         .map(([key]) => key)
 
-      await updateDoc(doc(db, 'venues', admin.venueId), {
+      await updateDoc(doc(db, 'venues', venueId), {
         name: formData.name,
         phone: formData.phone,
         address: formData.address,
@@ -116,10 +160,38 @@ export default function ClubManagement() {
     }
   }
 
+  if (!canManageClub()) {
+    return (
+      <Alert severity="error">
+        <AlertTitle>Доступ запрещен</AlertTitle>
+        У вас недостаточно прав для управления клубом.
+      </Alert>
+    )
+  }
+
+  if (isSuperAdmin && !selectedVenueId) {
+    return (
+      <Alert severity="info">
+        <AlertTitle>Выберите клуб</AlertTitle>
+        Перейдите в раздел "Все клубы" и выберите клуб для управления.
+      </Alert>
+    )
+  }
+
+  const currentClub = isSuperAdmin ? selectedVenue : club
+
   return (
-    <div>
-      <div className="section-card">
-        <h2 className="section-title">Информация о клубе</h2>
+    <PermissionGate permission={['manage_club', 'manage_all_venues']}>
+      <div>
+        <div className="section-card">
+          <h2 className="section-title">
+            Информация о клубе
+            {isSuperAdmin && selectedVenue && (
+              <span style={{ fontSize: '16px', color: 'var(--gray)', marginLeft: '16px' }}>
+                {selectedVenue.name}
+              </span>
+            )}
+          </h2>
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -136,8 +208,8 @@ export default function ClubManagement() {
                 overflow: 'hidden',
                 background: 'var(--background)'
               }}>
-                {club?.logoUrl ? (
-                  <img src={club.logoUrl} alt={club.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {currentClub?.logoUrl ? (
+                  <img src={currentClub.logoUrl} alt={currentClub.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <div style={{ textAlign: 'center', color: 'var(--gray)' }}>
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="var(--light-gray)">
@@ -368,7 +440,8 @@ export default function ClubManagement() {
             <div style={{ fontSize: '14px', color: 'var(--gray)' }}>Верификация пройдена 15.01.2025</div>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </PermissionGate>
   )
 }

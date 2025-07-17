@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'venue_model.dart';
 
 enum CourtType { indoor, outdoor }
 
@@ -7,77 +6,86 @@ class CourtModel {
   final String id;
   final String venueId;
   final String name;
-  final SportType sport;
-  final CourtType type;
-  final double pricePerHour;
-  final double pricePerHalfHour;
-  final int minBookingDuration; // в минутах
-  final int maxBookingDuration; // в минутах
-  final bool isActive;
+  final String type; // 'tennis', 'padel', 'badminton'
+  final String courtType; // 'indoor' or 'outdoor'
+  final double priceWeekday;
+  final double priceWeekend;
+  final String status; // 'active', 'inactive', 'maintenance'
+  final DateTime? createdAt;
 
   CourtModel({
     required this.id,
     required this.venueId,
     required this.name,
-    required this.sport,
     required this.type,
-    required this.pricePerHour,
-    required this.pricePerHalfHour,
-    required this.minBookingDuration,
-    required this.maxBookingDuration,
-    required this.isActive,
+    required this.courtType,
+    required this.priceWeekday,
+    required this.priceWeekend,
+    required this.status,
+    this.createdAt,
   });
 
-  factory CourtModel.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+  factory CourtModel.fromMap(Map<String, dynamic> data) {
     return CourtModel(
-      id: doc.id,
+      id: data['id'] ?? '',
       venueId: data['venueId'] ?? '',
       name: data['name'] ?? '',
-      sport: SportType.values.firstWhere(
-        (e) => e.toString().split('.').last == data['sport'],
-        orElse: () => SportType.tennis,
-      ),
-      type: CourtType.values.firstWhere(
-        (e) => e.toString().split('.').last == data['type'],
-        orElse: () => CourtType.outdoor,
-      ),
-      pricePerHour: (data['pricePerHour'] ?? 0).toDouble(),
-      pricePerHalfHour: (data['pricePerHalfHour'] ?? 0).toDouble(),
-      minBookingDuration: data['minBookingDuration'] ?? 30,
-      maxBookingDuration: data['maxBookingDuration'] ?? 180,
-      isActive: data['isActive'] ?? true,
+      type: data['type'] ?? 'padel',
+      courtType: data['courtType'] ?? 'indoor',
+      priceWeekday: (data['priceWeekday'] ?? 1900).toDouble(),
+      priceWeekend: (data['priceWeekend'] ?? 2400).toDouble(),
+      status: data['status'] ?? 'active',
+      createdAt: data['createdAt']?.toDate(),
     );
+  }
+  
+  factory CourtModel.fromFirestore(DocumentSnapshot doc) {
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    data['id'] = doc.id;
+    return CourtModel.fromMap(data);
   }
 
   Map<String, dynamic> toFirestore() {
     return {
       'venueId': venueId,
       'name': name,
-      'sport': sport.toString().split('.').last,
-      'type': type.toString().split('.').last,
-      'pricePerHour': pricePerHour,
-      'pricePerHalfHour': pricePerHalfHour,
-      'minBookingDuration': minBookingDuration,
-      'maxBookingDuration': maxBookingDuration,
-      'isActive': isActive,
+      'type': type,
+      'courtType': courtType,
+      'priceWeekday': priceWeekday,
+      'priceWeekend': priceWeekend,
+      'status': status,
+      'createdAt': createdAt ?? FieldValue.serverTimestamp(),
     };
   }
 
-  double calculatePrice(int durationMinutes) {
-    if (durationMinutes <= 30) {
-      return pricePerHalfHour;
-    }
+  double calculatePrice(int durationMinutes, bool isWeekend) {
     double hours = durationMinutes / 60;
-    return pricePerHour * hours;
+    return isWeekend ? priceWeekend * hours : priceWeekday * hours;
+  }
+  
+  String get sportLabel {
+    switch (type) {
+      case 'tennis':
+        return 'Теннис';
+      case 'padel':
+        return 'Падел';
+      case 'badminton':
+        return 'Бадминтон';
+      default:
+        return type;
+    }
   }
 
-  String get typeText {
-    switch (type) {
-      case CourtType.indoor:
+  String get courtTypeText {
+    switch (courtType) {
+      case 'indoor':
         return 'Крытый';
-      case CourtType.outdoor:
+      case 'outdoor':
         return 'Открытый';
+      default:
+        return courtType;
     }
   }
+  
+  bool get isActive => status == 'active';
 }

@@ -45,5 +45,10 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Location permissions -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Приложение использует ваше местоположение для поиска ближайших спортивных кортов</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Приложение использует ваше местоположение для поиска ближайших спортивных кортов</string>
 </dict>
 </plist>

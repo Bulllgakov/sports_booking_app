@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/venue_model.dart';
 import '../models/court_model.dart';
 import '../models/booking_model.dart';
-import '../services/firestore_service.dart';
+import '../services/venue_service.dart';
 
 class VenuesProvider extends ChangeNotifier {
   List<VenueModel> _venues = [];
@@ -28,8 +28,8 @@ class VenuesProvider extends ChangeNotifier {
   String _searchQuery = '';
   String get searchQuery => _searchQuery;
 
-  SportType? _selectedSport;
-  SportType? get selectedSport => _selectedSport;
+  String? _selectedSport;
+  String? get selectedSport => _selectedSport;
 
   double _maxDistance = 10.0; // km
   double get maxDistance => _maxDistance;
@@ -37,20 +37,23 @@ class VenuesProvider extends ChangeNotifier {
   GeoPoint? _userLocation;
   GeoPoint? get userLocation => _userLocation;
 
+  final VenueService _venueService = VenueService();
+  
   // Load venues
   Future<void> loadVenues() async {
     _setLoading(true);
     _setError(null);
 
     try {
-      _venues = await FirestoreService.getVenues(
-        center: _userLocation,
-        radiusKm: _maxDistance,
-        sport: _selectedSport,
-      );
-      notifyListeners();
+      // Using stream to get real-time updates
+      _venueService.getVenues().listen((venuesList) {
+        _venues = venuesList;
+        notifyListeners();
+      }, onError: (error) {
+        _setError('Ошибка загрузки клубов: $error');
+      });
     } catch (e) {
-      _setError('Ошибка загрузки кортов: $e');
+      _setError('Ошибка загрузки клубов: $e');
     } finally {
       _setLoading(false);
     }
@@ -69,7 +72,7 @@ class VenuesProvider extends ChangeNotifier {
     _setError(null);
 
     try {
-      _venues = await FirestoreService.searchVenues(query);
+      _venues = await _venueService.searchVenues(query);
       notifyListeners();
     } catch (e) {
       _setError('Ошибка поиска: $e');
@@ -79,9 +82,9 @@ class VenuesProvider extends ChangeNotifier {
   }
 
   // Set filters
-  void setSportFilter(SportType? sport) {
+  void setSportFilter(String? sport) {
     _selectedSport = sport;
-    loadVenues();
+    notifyListeners();
   }
 
   void setMaxDistance(double distance) {
@@ -109,8 +112,13 @@ class VenuesProvider extends ChangeNotifier {
     _setError(null);
 
     try {
-      _courts = await FirestoreService.getCourtsByVenue(venueId);
-      notifyListeners();
+      // Using stream to get real-time updates
+      _venueService.getCourtsByVenueId(venueId).listen((courtsList) {
+        _courts = courtsList;
+        notifyListeners();
+      }, onError: (error) {
+        _setError('Ошибка загрузки кортов: $error');
+      });
     } catch (e) {
       _setError('Ошибка загрузки кортов: $e');
     } finally {
@@ -124,38 +132,23 @@ class VenuesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Check availability for a court
+  // Check availability for a court - TO BE IMPLEMENTED
   Future<bool> checkAvailability({
     required String courtId,
     required DateTime startTime,
     required DateTime endTime,
   }) async {
-    try {
-      return await FirestoreService.isTimeSlotAvailable(
-        courtId: courtId,
-        startTime: startTime,
-        endTime: endTime,
-      );
-    } catch (e) {
-      _setError('Ошибка проверки доступности: $e');
-      return false;
-    }
+    // TODO: Implement booking availability check
+    return true;
   }
 
-  // Get venue bookings for a specific date
+  // Get venue bookings for a specific date - TO BE IMPLEMENTED
   Future<List<BookingModel>> getVenueBookings({
     required String venueId,
     required DateTime date,
   }) async {
-    try {
-      return await FirestoreService.getVenueBookings(
-        venueId: venueId,
-        date: date,
-      );
-    } catch (e) {
-      _setError('Ошибка загрузки бронирований: $e');
-      return [];
-    }
+    // TODO: Implement bookings retrieval
+    return [];
   }
 
   // Clear selection
@@ -196,8 +189,8 @@ class VenuesProvider extends ChangeNotifier {
     }
 
     if (_selectedSport != null) {
-      filtered = filtered.where((venue) =>
-          venue.sports.contains(_selectedSport)).toList();
+      // Filter by sport type in courts
+      // TODO: Implement sport filtering based on courts
     }
 
     return filtered;
