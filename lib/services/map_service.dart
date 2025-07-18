@@ -51,7 +51,7 @@ class MapService {
     {
       "featureType": "road",
       "elementType": "labels.text.fill",
-      "stylers": [{"color": "#9ca5b3"}]
+      "stylers": [{"color": "#9ca2a0"}]
     },
     {
       "featureType": "road.highway",
@@ -98,88 +98,133 @@ class MapService {
   // Стиль карты для светлой темы
   static const String _lightMapStyle = '''[
     {
-      "featureType": "poi",
-      "elementType": "labels.text",
-      "stylers": [{"visibility": "off"}]
-    },
-    {
       "featureType": "poi.business",
       "stylers": [{"visibility": "off"}]
     },
     {
-      "featureType": "road",
-      "elementType": "labels.icon",
-      "stylers": [{"visibility": "off"}]
-    },
-    {
-      "featureType": "transit",
+      "featureType": "poi.park",
+      "elementType": "labels.text",
       "stylers": [{"visibility": "off"}]
     }
   ]''';
 
+  // Получить стиль карты в зависимости от темы
   String get mapStyle => _lightMapStyle;
 
   // Расчет расстояния между двумя точками (формула Haversine)
   double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
     const double earthRadius = 6371; // Радиус Земли в километрах
-    
-    double dLat = _toRadians(lat2 - lat1);
-    double dLon = _toRadians(lon2 - lon1);
+    double dLat = _degreesToRadians(lat2 - lat1);
+    double dLon = _degreesToRadians(lon2 - lon1);
     
     double a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(_toRadians(lat1)) * math.cos(_toRadians(lat2)) *
-        math.sin(dLon / 2) * math.sin(dLon / 2);
+        math.cos(_degreesToRadians(lat1)) *
+        math.cos(_degreesToRadians(lat2)) *
+        math.sin(dLon / 2) *
+        math.sin(dLon / 2);
     
     double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    
     return earthRadius * c;
   }
-  
-  double _toRadians(double degree) {
-    return degree * (math.pi / 180);
+
+  double _degreesToRadians(double degrees) {
+    return degrees * (math.pi / 180);
   }
 
-  // Форматирование расстояния
-  String formatDistance(double distance) {
-    if (distance < 1) {
-      return '${(distance * 1000).round()} м';
-    } else {
-      return '${distance.toStringAsFixed(1)} км';
+  // Получить границы для набора маркеров
+  LatLngBounds getBoundsFromMarkers(List<Marker> markers) {
+    if (markers.isEmpty) {
+      // Возвращаем дефолтные границы (Москва)
+      return LatLngBounds(
+        southwest: const LatLng(55.5, 37.3),
+        northeast: const LatLng(55.9, 37.9),
+      );
     }
-  }
 
-  // Получение границ для набора маркеров
-  LatLngBounds boundsFromLatLngList(List<LatLng> list) {
-    assert(list.isNotEmpty);
-    double x0 = list.first.latitude;
-    double x1 = list.first.latitude;
-    double y0 = list.first.longitude;
-    double y1 = list.first.longitude;
-    
-    for (LatLng latLng in list) {
-      if (latLng.latitude > x1) x1 = latLng.latitude;
-      if (latLng.latitude < x0) x0 = latLng.latitude;
-      if (latLng.longitude > y1) y1 = latLng.longitude;
-      if (latLng.longitude < y0) y0 = latLng.longitude;
+    double minLat = markers.first.position.latitude;
+    double maxLat = markers.first.position.latitude;
+    double minLng = markers.first.position.longitude;
+    double maxLng = markers.first.position.longitude;
+
+    for (var marker in markers) {
+      minLat = math.min(minLat, marker.position.latitude);
+      maxLat = math.max(maxLat, marker.position.latitude);
+      minLng = math.min(minLng, marker.position.longitude);
+      maxLng = math.max(maxLng, marker.position.longitude);
     }
-    
+
     return LatLngBounds(
-      northeast: LatLng(x1, y1),
-      southwest: LatLng(x0, y0),
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
     );
   }
 
-  // Создание кастомного маркера из изображения
-  Future<BitmapDescriptor> createCustomMarker(String assetPath, {int width = 100}) async {
-    final ByteData data = await rootBundle.load(assetPath);
-    final Uint8List bytes = data.buffer.asUint8List();
+  // Получить уровень зума для отображения всех маркеров
+  double getZoomLevel(LatLngBounds bounds, double mapWidth, double mapHeight) {
+    const double worldDimension = 256;
+    const double zoomMax = 21;
     
-    // Здесь можно добавить изменение размера изображения
-    return BitmapDescriptor.fromBytes(bytes);
+    double latRad(double lat) {
+      double sinValue = math.sin(lat * math.pi / 180);
+      double radValue = math.log((1 + sinValue) / (1 - sinValue)) / 2;
+      return math.max(math.min(radValue, math.pi), -math.pi) / 2;
+    }
+
+    double zoom(double mapPx, double worldPx, double fraction) {
+      return (math.log(mapPx / worldPx / fraction) / math.ln2).floorToDouble();
+    }
+
+    final LatLng ne = bounds.northeast;
+    final LatLng sw = bounds.southwest;
+
+    double latFraction = (latRad(ne.latitude) - latRad(sw.latitude)) / math.pi;
+    double lngDiff = ne.longitude - sw.longitude;
+    double lngFraction = ((lngDiff < 0) ? (lngDiff + 360) : lngDiff) / 360;
+
+    double latZoom = zoom(mapHeight, worldDimension, latFraction);
+    double lngZoom = zoom(mapWidth, worldDimension, lngFraction);
+
+    double result = math.min(latZoom, lngZoom);
+    return math.min(result, zoomMax);
   }
 
-  // Получение цвета маркера по типу спорта
-  BitmapDescriptor getMarkerIcon(String sportType) {
+  // Форматирование расстояния для отображения
+  String formatDistance(double distanceInKm) {
+    if (distanceInKm < 1) {
+      return '${(distanceInKm * 1000).round()} м';
+    } else {
+      return '${distanceInKm.toStringAsFixed(1)} км';
+    }
+  }
+
+  // Получить цвет маркера по типу спорта
+  BitmapDescriptor getMarkerColor(String sportType) {
+    switch (sportType.toLowerCase()) {
+      case 'tennis':
+        return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+      case 'padel':
+        return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+      case 'badminton':
+        return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
+      default:
+        return BitmapDescriptor.defaultMarker;
+    }
+  }
+
+  // Проверка, находится ли точка в радиусе
+  bool isWithinRadius(LatLng point1, LatLng point2, double radiusInKm) {
+    double distance = calculateDistance(
+      point1.latitude,
+      point1.longitude,
+      point2.latitude,
+      point2.longitude,
+    );
+    return distance <= radiusInKm;
+  }
+
+  // Создание кастомного маркера с иконкой
+  Future<BitmapDescriptor> createCustomMarker(String sportType) async {
+    // В будущем здесь можно добавить кастомные иконки для разных видов спорта
     switch (sportType) {
       case 'tennis':
         return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
@@ -188,108 +233,24 @@ class MapService {
       case 'badminton':
         return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
       default:
-        return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+        return BitmapDescriptor.defaultMarker;
     }
-  }
-
-  // Создание полилинии для маршрута
-  Polyline createRoute({
-    required String routeId,
-    required List<LatLng> points,
-    Color color = Colors.blue,
-    int width = 5,
-  }) {
-    return Polyline(
-      polylineId: PolylineId(routeId),
-      color: color,
-      width: width,
-      points: points,
-      patterns: [], // Можно добавить пунктирную линию
-    );
-  }
-
-  // Проверка, находится ли точка в радиусе
-  bool isPointInRadius(LatLng center, LatLng point, double radiusInKm) {
-    double distance = calculateDistance(
-      center.latitude,
-      center.longitude,
-      point.latitude,
-      point.longitude,
-    );
-    return distance <= radiusInKm;
-  }
-
-  // Группировка маркеров для кластеризации
-  List<List<MapMarker>> clusterMarkers(List<MapMarker> markers, double zoomLevel) {
-    // Простая кластеризация на основе расстояния
-    double clusterRadius = _getClusterRadius(zoomLevel);
-    List<List<MapMarker>> clusters = [];
-    List<bool> clustered = List.filled(markers.length, false);
-
-    for (int i = 0; i < markers.length; i++) {
-      if (clustered[i]) continue;
-
-      List<MapMarker> cluster = [markers[i]];
-      clustered[i] = true;
-
-      for (int j = i + 1; j < markers.length; j++) {
-        if (clustered[j]) continue;
-
-        double distance = calculateDistance(
-          markers[i].position.latitude,
-          markers[i].position.longitude,
-          markers[j].position.latitude,
-          markers[j].position.longitude,
-        );
-
-        if (distance <= clusterRadius) {
-          cluster.add(markers[j]);
-          clustered[j] = true;
-        }
-      }
-
-      clusters.add(cluster);
-    }
-
-    return clusters;
-  }
-
-  double _getClusterRadius(double zoom) {
-    // Радиус кластеризации в зависимости от уровня зума
-    if (zoom < 10) return 50;
-    if (zoom < 12) return 30;
-    if (zoom < 14) return 20;
-    if (zoom < 16) return 10;
-    return 5;
-  }
-
-  // Центр кластера
-  LatLng getClusterCenter(List<MapMarker> markers) {
-    double lat = 0;
-    double lng = 0;
-    
-    for (var marker in markers) {
-      lat += marker.position.latitude;
-      lng += marker.position.longitude;
-    }
-    
-    return LatLng(lat / markers.length, lng / markers.length);
   }
 }
 
-// Модель для маркера карты
+// Модель для хранения информации о маркере
 class MapMarker {
   final String id;
   final LatLng position;
   final String title;
-  final String? snippet;
-  final String type;
+  final String snippet;
+  final String sportType;
 
   MapMarker({
     required this.id,
     required this.position,
     required this.title,
-    this.snippet,
-    required this.type,
+    required this.snippet,
+    required this.sportType,
   });
 }
