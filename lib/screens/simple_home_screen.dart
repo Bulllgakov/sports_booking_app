@@ -192,9 +192,30 @@ class _SimpleHomeScreenState extends State<SimpleHomeScreen> {
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
       child: Consumer<VenuesProvider>(
         builder: (context, provider, _) {
-          return Text(
-            provider.searchQuery.isEmpty ? 'Рядом с вами' : 'Результаты поиска',
-            style: AppTextStyles.h2,
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                provider.searchQuery.isEmpty ? 'Рядом с вами' : 'Результаты поиска',
+                style: AppTextStyles.h2,
+              ),
+              if (provider.searchQuery.isEmpty)
+                TextButton.icon(
+                  onPressed: () {
+                    // Переключаемся на вкладку карты
+                    if (context.mounted) {
+                      final scaffold = context.findAncestorStateOfType<_MainScreenState>();
+                      scaffold?._onItemTapped(1); // Индекс 1 - это карта
+                    }
+                  },
+                  icon: const Icon(Icons.map_outlined, size: 18),
+                  label: const Text('Карта'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    textStyle: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ),
+            ],
           );
         },
       ),
