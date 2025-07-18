@@ -34,42 +34,46 @@
         - name: Setup Flutter
           uses: subosito/flutter-action@v2
           with:
-            flutter-version: '3.24.3'
+            flutter-version: '3.32.6'
             channel: 'stable'
 
-        # Шаг 4: Получаем зависимости Flutter
+        # Шаг 4: Принимаем лицензии Android SDK
+        - name: Accept Android licenses
+          run: yes | flutter doctor --android-licenses || true
+
+        # Шаг 5: Получаем зависимости Flutter
         - name: Get dependencies
           run: flutter pub get
 
-        # Шаг 5: Собираем Debug APK
+        # Шаг 6: Собираем Debug APK
         - name: Build Debug APK
           run: flutter build apk --debug
 
-        # Шаг 6: Собираем Release APK
+        # Шаг 7: Собираем Release APK
         - name: Build Release APK
           run: flutter build apk --release
 
-        # Шаг 7: Переименовываем APK файлы для удобства
+        # Шаг 8: Переименовываем APK файлы для удобства
         - name: Rename APK files
           run: |
             mv build/app/outputs/flutter-apk/app-debug.apk build/app/outputs/flutter-apk/allcourt-debug.apk
             mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/allcourt-release.apk
 
-        # Шаг 8: Загружаем Debug APK как артефакт
+        # Шаг 9: Загружаем Debug APK как артефакт
         - name: Upload Debug APK
           uses: actions/upload-artifact@v4
           with:
             name: allcourt-debug-apk
             path: build/app/outputs/flutter-apk/allcourt-debug.apk
 
-        # Шаг 9: Загружаем Release APK как артефакт
+        # Шаг 10: Загружаем Release APK как артефакт
         - name: Upload Release APK
           uses: actions/upload-artifact@v4
           with:
             name: allcourt-release-apk
             path: build/app/outputs/flutter-apk/allcourt-release.apk
 
-        # Шаг 10: Создаем релиз (если это push в main)
+        # Шаг 11: Создаем релиз (если это push в main)
         - name: Create Release
           if: github.event_name == 'push' && github.ref == 'refs/heads/main'
           uses: ncipollo/release-action@v1
