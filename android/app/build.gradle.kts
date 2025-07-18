@@ -9,7 +9,7 @@ plugins {
 android {
     namespace = "com.allcourt.app"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // ndkVersion = flutter.ndkVersion // Temporarily disabled due to NDK error
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
