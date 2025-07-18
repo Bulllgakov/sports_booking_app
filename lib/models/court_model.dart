@@ -10,6 +10,9 @@ class CourtModel {
   final String courtType; // 'indoor' or 'outdoor'
   final double priceWeekday;
   final double priceWeekend;
+  
+  // Computed property for backward compatibility
+  double get pricePerHour => priceWeekday;
   final String status; // 'active', 'inactive', 'maintenance'
   final DateTime? createdAt;
 

@@ -13,6 +13,8 @@ import CustomersManagement from './pages/admin/CustomersManagement'
 import Home from './pages/Home'
 import AdminsManagement from './pages/admin/AdminsManagement'
 import VenuesManagement from './pages/admin/VenuesManagement'
+import Subscription from './pages/admin/Subscription'
+import PaymentSettings from './pages/admin/PaymentSettings'
 
 const theme = createTheme({
   palette: {
@@ -45,18 +47,18 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <Router>
+        <Router basename="/admin">
           <Routes>
-            {/* Перенаправление с корня на админку */}
-            <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+            {/* Перенаправление с корня на дашборд */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             
             {/* Страница для информации (доступна всем) */}
             <Route path="/info" element={<Home />} />
             
             {/* Админские маршруты */}
-            <Route path="/admin/login" element={<Login />} />
+            <Route path="/login" element={<Login />} />
             <Route
-              path="/admin/*"
+              path="/*"
               element={
                 <ProtectedRoute>
                   <AdminLayout />
@@ -67,6 +69,8 @@ function App() {
               <Route path="venues" element={<VenuesManagement />} />
               <Route path="admins" element={<AdminsManagement />} />
               <Route path="club" element={<ClubManagement />} />
+              <Route path="subscription" element={<Subscription />} />
+              <Route path="payment-settings" element={<PaymentSettings />} />
               <Route path="courts" element={<CourtsManagement />} />
               <Route path="bookings" element={<BookingsManagement />} />
               <Route path="finance" element={<div>Финансы</div>} />

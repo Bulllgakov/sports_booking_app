@@ -437,29 +437,6 @@ export default function ClubManagement() {
       <div className="section-card">
         <h2 className="section-title">Настройки платежей</h2>
         
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-          padding: '16px',
-          background: 'var(--background)',
-          borderRadius: '8px',
-          marginBottom: '24px'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '14px', color: 'var(--gray)' }}>Ваш доход с каждого платежа:</span>
-            <span style={{ fontWeight: '600', color: 'var(--primary)' }}>95.5%</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '14px', color: 'var(--gray)' }}>Комиссия платформы:</span>
-            <span style={{ fontWeight: '600' }}>2%</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '14px', color: 'var(--gray)' }}>Комиссия Т-Касса:</span>
-            <span style={{ fontWeight: '600' }}>2.5%</span>
-          </div>
-        </div>
-        
         <div className="form-group" style={{ marginTop: '24px' }}>
           <label className="form-label">Тип организации</label>
           <select 
@@ -500,22 +477,25 @@ export default function ClubManagement() {
         </div>
         
         <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '12px', 
+          marginTop: '24px',
           padding: '16px', 
           background: 'var(--background)', 
-          borderRadius: '8px' 
+          borderRadius: '8px',
+          textAlign: 'center'
         }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="var(--success)">
-            <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
-          </svg>
-          <div>
-            <div style={{ fontWeight: '600', color: 'var(--success)' }}>Платежи подключены</div>
-            <div style={{ fontSize: '14px', color: 'var(--gray)' }}>Верификация пройдена 15.01.2025</div>
-          </div>
+          <p style={{ fontSize: '14px', color: 'var(--gray)', marginBottom: '12px' }}>
+            Для настройки приема платежей от клиентов
+          </p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => window.location.href = '/admin/payment-settings'}
+            style={{ width: 'auto' }}
+          >
+            Перейти к настройкам эквайринга
+          </button>
         </div>
-        </div>
+      </div>
       </div>
     </PermissionGate>
   )

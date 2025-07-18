@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'court_model.dart';
 
 enum SportType { tennis, padel, badminton }
 enum AmenityType { showers, parking, cafe, proshop, lockers }
@@ -24,8 +25,9 @@ class VenueModel {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   
-  // Runtime calculated field (not stored in Firebase)
+  // Runtime calculated fields (not stored in Firebase)
   double? distance;
+  List<CourtModel> courts = [];
 
   VenueModel({
     required this.id,

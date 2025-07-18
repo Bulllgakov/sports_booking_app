@@ -28,8 +28,8 @@ class VenuesProvider extends ChangeNotifier {
   String _searchQuery = '';
   String get searchQuery => _searchQuery;
 
-  String? _selectedSport;
-  String? get selectedSport => _selectedSport;
+  SportType? _selectedSport;
+  SportType? get selectedSport => _selectedSport;
 
   double _maxDistance = 10.0; // km
   double get maxDistance => _maxDistance;
@@ -82,7 +82,7 @@ class VenuesProvider extends ChangeNotifier {
   }
 
   // Set filters
-  void setSportFilter(String? sport) {
+  void setSportFilter(SportType? sport) {
     _selectedSport = sport;
     notifyListeners();
   }

@@ -17,12 +17,14 @@ import {
   Alert,
   CircularProgress
 } from '@mui/material'
-import { Edit, Delete, LocationOn, Phone, Email, Add } from '@mui/icons-material'
-import { collection, getDocs, updateDoc, deleteDoc, doc } from 'firebase/firestore'
+import { Edit, Delete, LocationOn, Phone, Email, Add, CardMembership, Warning } from '@mui/icons-material'
+import { collection, getDocs, updateDoc, deleteDoc, doc, query, where, addDoc } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useNavigate } from 'react-router-dom'
 import { usePermission } from '../../hooks/usePermission'
 import { PermissionGate } from '../../components/PermissionGate'
+import { SUBSCRIPTION_PLANS, SubscriptionPlan, ClubSubscription } from '../../types/subscription'
+import { Select, MenuItem, FormControl, InputLabel, List, ListItem, ListItemText } from '@mui/material'
 
 interface Venue {
   id: string
@@ -43,6 +45,7 @@ interface Venue {
     longitude: number
   }
   city?: string
+  subscription?: ClubSubscription
 }
 
 export default function VenuesManagement() {
@@ -52,6 +55,8 @@ export default function VenuesManagement() {
   const [loading, setLoading] = useState(true)
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [subscriptionDialogOpen, setSubscriptionDialogOpen] = useState(false)
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('start')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -61,22 +66,52 @@ export default function VenuesManagement() {
   const loadVenues = async () => {
     try {
       const venuesSnapshot = await getDocs(collection(db, 'venues'))
-      const venuesData = venuesSnapshot.docs.map(doc => {
-        const data = doc.data()
-        // Преобразуем GeoPoint в обычный объект для отображения
-        if (data.location && data.location._lat !== undefined) {
-          data.location = {
-            latitude: data.location._lat,
-            longitude: data.location._long
+      const venuesData = await Promise.all(
+        venuesSnapshot.docs.map(async (venueDoc) => {
+          const data = venueDoc.data()
+          
+          // Преобразуем GeoPoint в обычный объект для отображения
+          if (data.location && data.location._lat !== undefined) {
+            data.location = {
+              latitude: data.location._lat,
+              longitude: data.location._long
+            }
           }
-        }
-        return {
-          id: doc.id,
-          ...data
-        }
-      }) as Venue[]
+          
+          // Загружаем подписку для каждого клуба
+          const subscriptionQuery = query(
+            collection(db, 'subscriptions'),
+            where('venueId', '==', venueDoc.id),
+            where('status', 'in', ['active', 'trial'])
+          )
+          const subscriptionSnapshot = await getDocs(subscriptionQuery)
+          
+          let subscription = null
+          if (!subscriptionSnapshot.empty) {
+            const subData = subscriptionSnapshot.docs[0].data()
+            subscription = {
+              id: subscriptionSnapshot.docs[0].id,
+              ...subData,
+              startDate: subData.startDate?.toDate(),
+              endDate: subData.endDate?.toDate(),
+              trialEndDate: subData.trialEndDate?.toDate(),
+              nextBillingDate: subData.nextBillingDate?.toDate(),
+              usage: {
+                ...subData.usage,
+                lastUpdated: subData.usage?.lastUpdated?.toDate()
+              }
+            }
+          }
+          
+          return {
+            id: venueDoc.id,
+            ...data,
+            subscription
+          }
+        })
+      )
       
-      setVenues(venuesData)
+      setVenues(venuesData as Venue[])
       setLoading(false)
     } catch (error) {
       console.error('Error loading venues:', error)
@@ -112,6 +147,52 @@ export default function VenuesManagement() {
       } catch (error) {
         console.error('Error deleting venue:', error)
       }
+    }
+  }
+
+  const handleOpenSubscriptionDialog = (venue: Venue) => {
+    setSelectedVenue(venue)
+    setSelectedPlan(venue.subscription?.plan || 'start')
+    setSubscriptionDialogOpen(true)
+  }
+
+  const handleUpdateSubscription = async () => {
+    if (!selectedVenue) return
+
+    try {
+      const subscriptionData = {
+        venueId: selectedVenue.id,
+        plan: selectedPlan,
+        status: 'active',
+        startDate: new Date(),
+        endDate: null, // Будет установлено в зависимости от типа подписки
+        updatedAt: new Date(),
+        updatedBy: 'superadmin',
+        usage: selectedVenue.subscription?.usage || {
+          courtsCount: 0,
+          bookingsThisMonth: 0,
+          smsEmailsSent: 0,
+          lastUpdated: new Date()
+        }
+      }
+
+      if (selectedVenue.subscription?.id) {
+        // Обновляем существующую подписку
+        await updateDoc(doc(db, 'subscriptions', selectedVenue.subscription.id), {
+          plan: selectedPlan,
+          updatedAt: new Date(),
+          updatedBy: 'superadmin'
+        })
+      } else {
+        // Создаем новую подписку
+        await addDoc(collection(db, 'subscriptions'), subscriptionData)
+      }
+
+      setSubscriptionDialogOpen(false)
+      loadVenues()
+    } catch (error) {
+      console.error('Error updating subscription:', error)
+      setError('Ошибка при обновлении подписки')
     }
   }
 
@@ -208,15 +289,46 @@ export default function VenuesManagement() {
                         {venue.description}
                       </Typography>
                     )}
+
+                    {/* Информация о подписке */}
+                    <Box sx={{ mt: 2, p: 1.5, bgcolor: 'background.default', borderRadius: 1 }}>
+                      <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+                        <CardMembership fontSize="small" color="primary" />
+                        <Typography variant="subtitle2" color="primary">
+                          Тариф: {venue.subscription ? SUBSCRIPTION_PLANS[venue.subscription.plan].name : 'Не определен'}
+                        </Typography>
+                      </Box>
+                      {venue.subscription && (
+                        <Typography variant="caption" color="text.secondary">
+                          {SUBSCRIPTION_PLANS[venue.subscription.plan].price === 0 
+                            ? 'Бесплатный' 
+                            : `${SUBSCRIPTION_PLANS[venue.subscription.plan].price.toLocaleString('ru-RU')} ₽/мес`}
+                        </Typography>
+                      )}
+                      {!venue.subscription && (
+                        <Typography variant="caption" color="warning.main">
+                          <Warning fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
+                          Требуется настройка подписки
+                        </Typography>
+                      )}
+                    </Box>
                   </CardContent>
 
-                  <CardActions>
+                  <CardActions sx={{ flexWrap: 'wrap', gap: 0.5 }}>
                     <Button
                       size="small"
                       onClick={() => handleSelectVenue(venue)}
                       startIcon={<Edit fontSize="small" />}
                     >
                       Редактировать
+                    </Button>
+                    <Button
+                      size="small"
+                      onClick={() => handleOpenSubscriptionDialog(venue)}
+                      startIcon={<CardMembership fontSize="small" />}
+                      color="secondary"
+                    >
+                      Тариф
                     </Button>
                     <Button
                       size="small"
@@ -238,6 +350,76 @@ export default function VenuesManagement() {
           </Grid>
         )}
       </Box>
+
+      {/* Диалог изменения тарифа */}
+      <Dialog open={subscriptionDialogOpen} onClose={() => setSubscriptionDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          Изменение тарифа для {selectedVenue?.name}
+        </DialogTitle>
+        <DialogContent>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+          
+          <Box sx={{ mt: 2 }}>
+            <FormControl fullWidth>
+              <InputLabel>Тарифный план</InputLabel>
+              <Select
+                value={selectedPlan}
+                onChange={(e) => setSelectedPlan(e.target.value as SubscriptionPlan)}
+                label="Тарифный план"
+              >
+                {Object.entries(SUBSCRIPTION_PLANS)
+                  .filter(([key]) => key !== 'premium') // Премиум только по запросу
+                  .map(([key, plan]) => (
+                    <MenuItem key={key} value={key}>
+                      <Box>
+                        <Typography variant="body1">
+                          {plan.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {plan.price === 0 ? 'Бесплатно' : `${plan.price.toLocaleString('ru-RU')} ₽/месяц`}
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                  ))}
+              </Select>
+            </FormControl>
+
+            {selectedPlan && (
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Возможности тарифа {SUBSCRIPTION_PLANS[selectedPlan].name}:
+                </Typography>
+                <List dense>
+                  {SUBSCRIPTION_PLANS[selectedPlan].features.slice(0, 5).map((feature, index) => (
+                    <ListItem key={index} disablePadding>
+                      <ListItemText 
+                        primary={feature} 
+                        primaryTypographyProps={{ variant: 'body2' }}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Box>
+            )}
+
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Изменение тарифа вступит в силу немедленно. Клуб будет уведомлен об изменении.
+            </Alert>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSubscriptionDialogOpen(false)}>
+            Отмена
+          </Button>
+          <Button onClick={handleUpdateSubscription} variant="contained">
+            Применить
+          </Button>
+        </DialogActions>
+      </Dialog>
     </PermissionGate>
   )
 }

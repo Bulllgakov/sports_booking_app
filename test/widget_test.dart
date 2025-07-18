@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:sports_booking_app/main.dart';
+import 'package:allcourt/main.dart';
 
 void main() {
   testWidgets('App loads correctly', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const SportsBookingApp());
+    await tester.pumpWidget(const AllCourtApp());
 
     // Verify that our home screen loads
     expect(find.text('Привет! Найдём корт для игры?'), findsOneWidget);
