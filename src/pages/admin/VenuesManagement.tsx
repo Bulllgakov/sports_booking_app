@@ -61,10 +61,20 @@ export default function VenuesManagement() {
   const loadVenues = async () => {
     try {
       const venuesSnapshot = await getDocs(collection(db, 'venues'))
-      const venuesData = venuesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Venue[]
+      const venuesData = venuesSnapshot.docs.map(doc => {
+        const data = doc.data()
+        // Преобразуем GeoPoint в обычный объект для отображения
+        if (data.location && data.location._lat !== undefined) {
+          data.location = {
+            latitude: data.location._lat,
+            longitude: data.location._long
+          }
+        }
+        return {
+          id: doc.id,
+          ...data
+        }
+      }) as Venue[]
       
       setVenues(venuesData)
       setLoading(false)
@@ -157,6 +167,28 @@ export default function VenuesManagement() {
                       </Typography>
                     </Box>
 
+                    {venue.city && (
+                      <Box display="flex" alignItems="center" gap={1} mb={1}>
+                        <Typography variant="body2" color="text.secondary" sx={{ ml: 3 }}>
+                          {venue.city}
+                        </Typography>
+                      </Box>
+                    )}
+
+                    {venue.location ? (
+                      <Box display="flex" alignItems="center" gap={1} mb={1}>
+                        <Typography variant="body2" color="text.secondary" sx={{ ml: 3, fontSize: '0.75rem' }}>
+                          📍 {venue.location.latitude?.toFixed(6)}, {venue.location.longitude?.toFixed(6)}
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Box display="flex" alignItems="center" gap={1} mb={1}>
+                        <Typography variant="body2" color="warning.main" sx={{ ml: 3, fontSize: '0.75rem', fontStyle: 'italic' }}>
+                          ⚠️ Координаты не указаны
+                        </Typography>
+                      </Box>
+                    )}
+
                     <Box display="flex" alignItems="center" gap={1} mb={1}>
                       <Phone fontSize="small" color="action" />
                       <Typography variant="body2" color="text.secondary">
@@ -182,8 +214,9 @@ export default function VenuesManagement() {
                     <Button
                       size="small"
                       onClick={() => handleSelectVenue(venue)}
+                      startIcon={<Edit fontSize="small" />}
                     >
-                      Управлять
+                      Редактировать
                     </Button>
                     <Button
                       size="small"
