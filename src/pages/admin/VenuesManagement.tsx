@@ -38,6 +38,11 @@ interface Venue {
   bankAccount?: string
   status: 'active' | 'inactive'
   createdAt: Date
+  location?: {
+    latitude: number
+    longitude: number
+  }
+  city?: string
 }
 
 export default function VenuesManagement() {

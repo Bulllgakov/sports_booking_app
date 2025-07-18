@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { usePermission } from '../../hooks/usePermission'
 import { PermissionGate } from '../../components/PermissionGate'
-import { doc, updateDoc, getDoc } from 'firebase/firestore'
+import { doc, updateDoc, getDoc, GeoPoint } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '../../services/firebase'
 import { Alert, AlertTitle } from '@mui/material'
@@ -18,6 +18,9 @@ export default function ClubManagement() {
     name: '',
     phone: '',
     address: '',
+    city: '',
+    latitude: '',
+    longitude: '',
     description: '',
     amenities: {
       showers: false,
@@ -45,6 +48,9 @@ export default function ClubManagement() {
         name: club.name || '',
         phone: club.phone || '',
         address: club.address || '',
+        city: club.city || '',
+        latitude: club.location?._lat?.toString() || club.location?.latitude?.toString() || '',
+        longitude: club.location?._long?.toString() || club.location?.longitude?.toString() || '',
         description: club.description || '',
         amenities: {
           showers: club.amenities?.includes('showers') || false,
@@ -70,6 +76,9 @@ export default function ClubManagement() {
           name: venueData.name || '',
           phone: venueData.phone || '',
           address: venueData.address || '',
+          city: venueData.city || '',
+          latitude: venueData.location?._lat?.toString() || venueData.location?.latitude?.toString() || '',
+          longitude: venueData.location?._long?.toString() || venueData.location?.longitude?.toString() || '',
           description: venueData.description || '',
           amenities: {
             showers: venueData.amenities?.includes('showers') || false,
@@ -139,17 +148,28 @@ export default function ClubManagement() {
         .filter(([_, value]) => value)
         .map(([key]) => key)
 
-      await updateDoc(doc(db, 'venues', venueId), {
+      const updateData: any = {
         name: formData.name,
         phone: formData.phone,
         address: formData.address,
+        city: formData.city,
         description: formData.description,
         amenities: amenitiesList,
         organizationType: formData.organizationType,
         inn: formData.inn,
         bankAccount: formData.bankAccount,
         updatedAt: new Date(),
-      })
+      }
+
+      // Добавляем координаты, если они указаны
+      if (formData.latitude && formData.longitude) {
+        updateData.location = new GeoPoint(
+          parseFloat(formData.latitude),
+          parseFloat(formData.longitude)
+        )
+      }
+
+      await updateDoc(doc(db, 'venues', venueId), updateData)
 
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
@@ -192,6 +212,22 @@ export default function ClubManagement() {
               </span>
             )}
           </h2>
+
+          {/* Подсказка для получения координат */}
+          <div style={{ 
+            backgroundColor: '#e3f2fd', 
+            padding: '12px 16px', 
+            borderRadius: '8px', 
+            marginBottom: '20px',
+            fontSize: '14px',
+            color: '#1976d2'
+          }}>
+            <strong>💡 Как получить координаты:</strong><br />
+            1. Откройте <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" style={{color: '#1976d2'}}>Google Maps</a><br />
+            2. Найдите ваш клуб на карте<br />
+            3. Кликните правой кнопкой мыши на нужное место<br />
+            4. Скопируйте координаты (первое число - широта, второе - долгота)
+          </div>
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -276,6 +312,45 @@ export default function ClubManagement() {
               onChange={handleInputChange}
               required
             />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Город</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              name="city"
+              value={formData.city}
+              onChange={handleInputChange}
+              placeholder="Например: Москва"
+            />
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Широта (Latitude)</label>
+              <input 
+                type="number" 
+                step="0.000001"
+                className="form-input" 
+                name="latitude"
+                value={formData.latitude}
+                onChange={handleInputChange}
+                placeholder="55.755831"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Долгота (Longitude)</label>
+              <input 
+                type="number" 
+                step="0.000001"
+                className="form-input" 
+                name="longitude"
+                value={formData.longitude}
+                onChange={handleInputChange}
+                placeholder="37.617673"
+              />
+            </div>
           </div>
           
           <div className="form-group">
