@@ -8,7 +8,6 @@ import 'core/theme/spacing.dart';
 import 'providers/venues_provider.dart';
 import 'providers/location_provider.dart';
 import 'screens/simple_home_screen.dart';
-import 'screens/map_screen.dart';
 import 'screens/simple_find_game_screen.dart';
 import 'screens/simple_my_bookings_screen.dart';
 import 'screens/simple_profile_screen_v2.dart';
@@ -69,7 +68,6 @@ class _MainScreenState extends State<MainScreen> {
   
   final List<Widget> _screens = [
     const SimpleHomeScreen(),
-    const MapScreen(),
     const SimpleFindGameScreen(),
     const SimpleMyBookingsScreen(),
     const SimpleProfileScreenV2(),
@@ -119,11 +117,6 @@ class _MainScreenState extends State<MainScreen> {
                 icon: Icon(Icons.home_outlined),
                 activeIcon: Icon(Icons.home),
                 label: 'Главная',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.map_outlined),
-                activeIcon: Icon(Icons.map),
-                label: 'Карта',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.sports_tennis_outlined),

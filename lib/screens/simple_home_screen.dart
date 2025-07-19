@@ -7,6 +7,7 @@ import '../providers/venues_provider.dart';
 import '../providers/location_provider.dart';
 import '../models/venue_model.dart';
 import 'court_detail_screen.dart';
+import 'map_screen.dart';
 
 class SimpleHomeScreen extends StatefulWidget {
   const SimpleHomeScreen({super.key});
@@ -214,14 +215,17 @@ class _SimpleHomeScreenState extends State<SimpleHomeScreen> {
               if (provider.searchQuery.isEmpty)
                 TextButton.icon(
                   onPressed: () {
-                    // Переключаемся на вкладку карты
                     if (context.mounted) {
-                      // Navigate to map screen
-                      Navigator.pushNamed(context, '/map');
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MapScreen(),
+                        ),
+                      );
                     }
                   },
                   icon: const Icon(Icons.map_outlined, size: 18),
-                  label: const Text('Карта'),
+                  label: const Text('Показать на карте'),
                   style: TextButton.styleFrom(
                     foregroundColor: AppColors.primary,
                     textStyle: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600),
