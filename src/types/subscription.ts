@@ -16,15 +16,17 @@ export interface SubscriptionLimits {
 export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, {
   name: string
   price: number
+  pricePerCourt?: number
   limits: SubscriptionLimits
   features: string[]
 }> = {
   start: {
     name: 'СТАРТ',
     price: 0,
+    pricePerCourt: 0,
     limits: {
-      maxCourts: 6,
-      maxBookingsPerMonth: 100,
+      maxCourts: 2,
+      maxBookingsPerMonth: -1, // unlimited
       smsEmailNotifications: 0,
       customDesign: false,
       apiAccess: false,
@@ -35,8 +37,8 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, {
       personalManager: false
     },
     features: [
-      'До 6 кортов',
-      'До 100 бронирований в месяц',
+      'До 2 кортов бесплатно',
+      'Неограниченные бронирования',
       'Управление расписанием',
       'Онлайн-оплата (свой эквайринг)',
       'Белый лейбл (логотип клуба)',
@@ -48,11 +50,12 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, {
   },
   standard: {
     name: 'СТАНДАРТ',
-    price: 2990,
+    price: 990,
+    pricePerCourt: 990,
     limits: {
-      maxCourts: 20,
+      maxCourts: -1, // unlimited
       maxBookingsPerMonth: -1, // unlimited
-      smsEmailNotifications: 1000,
+      smsEmailNotifications: 500, // per court
       customDesign: false,
       apiAccess: false,
       multiVenue: false,
@@ -62,9 +65,10 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, {
       personalManager: false
     },
     features: [
-      'До 20 кортов',
+      '990₽ за корт в месяц',
+      'От 3 кортов',
       'Неограниченные бронирования',
-      'SMS/Email уведомления (1,000 шт/месяц)',
+      'SMS/Email уведомления (500 шт/месяц на корт)',
       'Расширенная аналитика и отчеты',
       'Управление ценами и скидками',
       'Промокоды и акции',
@@ -75,7 +79,8 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, {
   },
   pro: {
     name: 'ПРОФИ',
-    price: 5990,
+    price: 1990,
+    pricePerCourt: 1990,
     limits: {
       maxCourts: -1, // unlimited
       maxBookingsPerMonth: -1,
@@ -89,7 +94,8 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, {
       personalManager: true
     },
     features: [
-      'Неограниченное количество кортов',
+      '1,990₽ за корт в месяц',
+      'От 1 корта',
       'SMS/Email без ограничений',
       'Белый лейбл PRO (кастомизация дизайна)',
       'API доступ для интеграций',

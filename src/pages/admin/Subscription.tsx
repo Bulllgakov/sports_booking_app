@@ -151,6 +151,34 @@ export default function Subscription() {
 
   const currentPlan = SUBSCRIPTION_PLANS[subscription.plan]
   const limits = currentPlan.limits
+  const courtsCount = subscription?.usage?.courtsCount || 0
+
+  // Функция расчета стоимости подписки на основе количества кортов
+  const calculateSubscriptionPrice = (plan: SubscriptionPlan, courtsCount: number): number => {
+    const planDetails = SUBSCRIPTION_PLANS[plan]
+    
+    if (plan === 'start') {
+      return courtsCount <= 2 ? 0 : -1 // -1 означает недоступно
+    }
+    
+    if (plan === 'standard') {
+      return courtsCount >= 3 ? planDetails.pricePerCourt! * courtsCount : -1
+    }
+    
+    if (plan === 'pro') {
+      return courtsCount >= 1 ? planDetails.pricePerCourt! * courtsCount : -1
+    }
+    
+    return -1 // premium - по запросу
+  }
+  
+  // Проверка доступности тарифа для текущего количества кортов
+  const isPlanAvailable = (plan: SubscriptionPlan): boolean => {
+    if (plan === 'start') return courtsCount <= 2
+    if (plan === 'standard') return courtsCount >= 3
+    if (plan === 'pro') return courtsCount >= 1
+    return false // premium по запросу
+  }
 
   // Расчет процента использования
   const courtsUsage = limits.maxCourts > 0 
@@ -178,7 +206,12 @@ export default function Subscription() {
                 Текущий тариф: {currentPlan.name}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {currentPlan.price === 0 ? 'Бесплатно' : `${currentPlan.price.toLocaleString('ru-RU')} ₽/месяц`}
+                {(() => {
+                  const price = calculateSubscriptionPrice(subscription.plan, courtsCount)
+                  if (price === 0) return 'Бесплатно'
+                  if (price === -1) return 'По запросу'
+                  return `${price.toLocaleString('ru-RU')} ₽/месяц`
+                })()}
               </Typography>
             </Box>
             <Box display="flex" gap={1}>
@@ -300,8 +333,20 @@ export default function Subscription() {
                     {plan.name}
                   </Typography>
                   <Typography variant="h4" color="primary" gutterBottom>
-                    {plan.price === 0 ? 'Бесплатно' : `${plan.price.toLocaleString('ru-RU')} ₽`}
-                    {plan.price > 0 && <Typography variant="body2" component="span">/месяц</Typography>}
+                    {(() => {
+                      const price = calculateSubscriptionPrice(key as SubscriptionPlan, courtsCount)
+                      if (price === 0) return 'Бесплатно'
+                      if (price === -1) {
+                        if (key === 'premium') return 'По запросу'
+                        return isPlanAvailable(key as SubscriptionPlan) ? 'Недоступно' : `Нужно ${key === 'standard' ? '3+' : '1+'} кортов`
+                      }
+                      return (
+                        <>
+                          {price.toLocaleString('ru-RU')} ₽
+                          <Typography variant="body2" component="span">/месяц</Typography>
+                        </>
+                      )
+                    })()}
                   </Typography>
                   
                   <List dense sx={{ mt: 2 }}>
@@ -318,7 +363,7 @@ export default function Subscription() {
                     ))}
                   </List>
 
-                  {!isCurrentPlan && (
+                  {!isCurrentPlan && isPlanAvailable(key as SubscriptionPlan) && key !== 'premium' && (
                     <Button
                       variant={isDowngrade ? "outlined" : "contained"}
                       fullWidth
@@ -327,6 +372,16 @@ export default function Subscription() {
                       startIcon={<Upgrade />}
                     >
                       {isDowngrade ? 'Понизить тариф' : 'Повысить тариф'}
+                    </Button>
+                  )}
+                  {key === 'premium' && !isCurrentPlan && (
+                    <Button
+                      variant="outlined"
+                      fullWidth
+                      sx={{ mt: 2 }}
+                      onClick={() => window.open('mailto:sales@allcourt.ru?subject=Запрос на тариф ПРЕМИУМ', '_blank')}
+                    >
+                      Связаться с нами
                     </Button>
                   )}
                 </CardContent>
@@ -406,7 +461,12 @@ export default function Subscription() {
                 Вы собираетесь перейти на тариф <strong>{SUBSCRIPTION_PLANS[selectedPlan].name}</strong>
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                Стоимость: {SUBSCRIPTION_PLANS[selectedPlan].price.toLocaleString('ru-RU')} ₽/месяц
+                Стоимость: {(() => {
+                  const price = calculateSubscriptionPrice(selectedPlan, courtsCount)
+                  if (price === 0) return 'Бесплатно'
+                  if (price === -1) return 'По запросу'
+                  return `${price.toLocaleString('ru-RU')} ₽/месяц`
+                })()}
               </Typography>
               
               {SUBSCRIPTION_PLANS[selectedPlan].price < currentPlan.price && (
