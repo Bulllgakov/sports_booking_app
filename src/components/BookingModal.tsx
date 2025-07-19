@@ -12,7 +12,9 @@ interface BookingModalProps {
     id: string
     name: string
     type: 'padel' | 'tennis' | 'badminton'
-    pricePerHour: number
+    pricePerHour?: number
+    priceWeekday?: number
+    priceWeekend?: number
   }
   venue: {
     id: string
@@ -40,13 +42,18 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
   const [customerPhone, setCustomerPhone] = useState('')
 
   useEffect(() => {
-    if (step === 'time' && selectedDate) {
+    if (step === 'time' && selectedDate && court && venue) {
       loadTimeSlots()
     }
-  }, [step, selectedDate])
+  }, [step, selectedDate, court.id, venue.id])
 
   const loadTimeSlots = async () => {
-    console.log('Loading time slots for date:', selectedDate)
+    console.log('Loading time slots for:', {
+      date: selectedDate,
+      courtId: court.id,
+      courtName: court.name,
+      venue: venue.name
+    })
     setLoading(true)
     try {
       // Get existing bookings for the selected date
@@ -105,10 +112,15 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
           continue
         }
 
+        // Определяем цену в зависимости от дня недели
+        const dayIndex = selectedDate.getDay()
+        const isWeekend = dayIndex === 0 || dayIndex === 6
+        const price = court.pricePerHour || (isWeekend ? court.priceWeekend : court.priceWeekday) || 0
+
         slots.push({
           time: timeString,
           available: !bookedTimes.has(timeString),
-          price: court.pricePerHour
+          price: price
         })
       }
 
@@ -359,7 +371,9 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span className="body">Стоимость:</span>
-            <span className="body-bold" style={{ color: 'var(--primary)' }}>{court.pricePerHour}₽</span>
+            <span className="body-bold" style={{ color: 'var(--primary)' }}>
+              {court.pricePerHour || (selectedDate.getDay() === 0 || selectedDate.getDay() === 6 ? court.priceWeekend : court.priceWeekday) || 0}₽
+            </span>
           </div>
         </div>
       </div>

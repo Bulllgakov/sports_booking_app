@@ -31,9 +31,12 @@ interface Court {
   id: string
   name: string
   type: 'padel' | 'tennis' | 'badminton'
-  pricePerHour: number
+  pricePerHour?: number
+  priceWeekday?: number
+  priceWeekend?: number
   surface?: string
   indoor?: boolean
+  courtType?: string
   status: 'active' | 'maintenance' | 'inactive'
 }
 
@@ -385,7 +388,7 @@ export default function ClubPage() {
                         </div>
                         <div style={{ textAlign: 'right', minWidth: '120px' }}>
                           <div className="h3" style={{ color: 'var(--primary)' }}>
-                            {court.pricePerHour}₽
+                            {court.pricePerHour || court.priceWeekday || 0}₽
                           </div>
                           <div className="caption" style={{ color: 'var(--gray)' }}>за час</div>
                         </div>
@@ -413,7 +416,7 @@ export default function ClubPage() {
                       {sportLabels[selectedCourt.type]}
                     </span>
                     <span className="body-bold" style={{ color: 'var(--primary)' }}>
-                      {selectedCourt.pricePerHour}₽/час
+                      {selectedCourt.pricePerHour || selectedCourt.priceWeekday || 0}₽/час
                     </span>
                   </div>
                 </div>
