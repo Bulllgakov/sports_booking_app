@@ -12,7 +12,7 @@ class FirestoreService {
   // Collections
   static const String _usersCollection = 'users';
   static const String _venuesCollection = 'venues';
-  static const String _courtsCollection = 'courts';
+  // static const String _courtsCollection = 'courts'; // Больше не используется - корты теперь в подколлекции venues/{venueId}/courts
   static const String _bookingsCollection = 'bookings';
   static const String _openGamesCollection = 'openGames';
   static const String _paymentsCollection = 'payments';
@@ -61,8 +61,9 @@ class FirestoreService {
   // Court operations
   static Future<List<CourtModel>> getCourtsByVenue(String venueId) async {
     final querySnapshot = await _firestore
-        .collection(_courtsCollection)
-        .where('venueId', isEqualTo: venueId)
+        .collection(_venuesCollection)
+        .doc(venueId)
+        .collection('courts')
         .where('isActive', isEqualTo: true)
         .get();
 
@@ -70,9 +71,20 @@ class FirestoreService {
   }
 
   static Future<CourtModel?> getCourt(String courtId) async {
-    final doc = await _firestore.collection(_courtsCollection).doc(courtId).get();
-    if (doc.exists) {
-      return CourtModel.fromFirestore(doc);
+    // Нужно найти корт в любом клубе
+    final venuesSnapshot = await _firestore.collection(_venuesCollection).get();
+    
+    for (final venueDoc in venuesSnapshot.docs) {
+      final courtDoc = await _firestore
+          .collection(_venuesCollection)
+          .doc(venueDoc.id)
+          .collection('courts')
+          .doc(courtId)
+          .get();
+          
+      if (courtDoc.exists) {
+        return CourtModel.fromFirestore(courtDoc);
+      }
     }
     return null;
   }

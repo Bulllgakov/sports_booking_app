@@ -26,7 +26,7 @@
         "@type": "Offer",
         "price": "0",
         "priceCurrency": "RUB",
-        "name": "Бесплатный тариф до 6 кортов"
+        "name": "Бесплатный тариф до 2 кортов"
       },
       "description": "Система управления и онлайн-бронирования для клубов падела, тенниса и бадминтона"
     }
@@ -539,6 +539,64 @@
             text-decoration: line-through;
         }
 
+        /* Sport Types */
+        .sport-types-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+            text-align: center;
+        }
+        
+        .sport-type-card {
+            padding: 32px;
+            border-radius: 16px;
+            transition: transform 0.3s;
+        }
+        
+        .sport-type-card:hover {
+            transform: translateY(-4px);
+        }
+        
+        .sport-type-card.tennis {
+            background: rgba(0, 168, 107, 0.05);
+        }
+        
+        .sport-type-card.padel {
+            background: rgba(46, 134, 171, 0.05);
+        }
+        
+        .sport-type-card.badminton {
+            background: rgba(255, 107, 107, 0.05);
+        }
+        
+        .sport-type-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .sport-type-card h3 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .sport-type-card.tennis h3 {
+            color: var(--tennis);
+        }
+        
+        .sport-type-card.padel h3 {
+            color: var(--padel);
+        }
+        
+        .sport-type-card.badminton h3 {
+            color: var(--badminton);
+        }
+        
+        .sport-type-card p {
+            color: var(--gray);
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
         /* Features */
         .features {
             padding: 80px 0;
@@ -697,10 +755,69 @@
             opacity: 1;
         }
 
+        /* Tablet */
+        @media (max-width: 1024px) {
+            .container {
+                padding: 0 16px;
+            }
+            
+            .problems-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 24px;
+            }
+            
+            .pricing-grid {
+                grid-template-columns: 1fr;
+                gap: 24px;
+            }
+            
+            .pricing-card.featured {
+                transform: none;
+            }
+            
+            .hero-content {
+                gap: 40px;
+            }
+            
+            .sport-types-grid {
+                grid-template-columns: 1fr;
+                gap: 24px;
+            }
+        }
+        
         /* Mobile */
         @media (max-width: 768px) {
+            /* Navigation */
             .nav-links {
                 display: none;
+                position: fixed;
+                top: 72px;
+                left: 0;
+                right: 0;
+                background: var(--white);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                flex-direction: column;
+                padding: 20px;
+                z-index: 999;
+            }
+            
+            .nav-links.active {
+                display: flex;
+            }
+            
+            .nav-links a {
+                padding: 12px 0;
+                border-bottom: 1px solid var(--extra-light-gray);
+            }
+            
+            .nav-links .btn {
+                margin-top: 12px;
+                width: 100%;
+            }
+
+            /* Hero section */
+            .hero {
+                padding: 100px 0 60px;
             }
 
             .hero-content {
@@ -709,11 +826,17 @@
             }
 
             .hero-text h1 {
-                font-size: 32px;
+                font-size: 28px;
+                line-height: 1.3;
+            }
+            
+            .hero-text p {
+                font-size: 16px;
             }
 
             .sport-badges {
                 justify-content: center;
+                flex-wrap: wrap;
             }
 
             .sport-badge {
@@ -723,6 +846,12 @@
 
             .hero-buttons {
                 justify-content: center;
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .hero-buttons .btn {
+                width: 100%;
             }
 
             .hero-features {
@@ -732,30 +861,163 @@
 
             .hero-feature {
                 min-width: auto;
+                font-size: 14px;
             }
 
             .hero-image {
                 display: none;
             }
 
+            /* Sections */
+            section {
+                padding: 60px 0;
+            }
+            
+            .section-header h2 {
+                font-size: 28px;
+                line-height: 1.3;
+            }
+            
+            .section-header p {
+                font-size: 16px;
+            }
+
+            /* Grids */
             .problems-grid,
             .pricing-grid,
             .steps {
                 grid-template-columns: 1fr;
+                gap: 24px;
+            }
+            
+            .problem-card {
+                padding: 24px;
+            }
+            
+            .pricing-card {
+                padding: 24px;
+            }
+            
+            .pricing-price {
+                font-size: 32px;
             }
 
             .features-grid {
                 grid-template-columns: 1fr;
+                gap: 40px;
+            }
+            
+            .feature-icon {
+                width: 40px;
+                height: 40px;
+                font-size: 20px;
+            }
+            
+            .feature-content h3 {
+                font-size: 18px;
             }
 
+            /* Footer */
             .footer-content {
                 flex-direction: column;
                 gap: 24px;
                 text-align: center;
             }
+            
+            .footer-links {
+                flex-direction: column;
+                gap: 16px;
+            }
 
-            section[style*="grid-template-columns: repeat(3, 1fr)"] > div > div {
+            /* Sport types section */
+            .sport-types-grid {
                 grid-template-columns: 1fr !important;
+                gap: 16px !important;
+            }
+            
+            .sport-type-card {
+                padding: 24px;
+            }
+            
+            .sport-type-icon {
+                font-size: 36px;
+            }
+            
+            .sport-type-card h3 {
+                font-size: 20px;
+            }
+            
+            .sport-type-card p {
+                font-size: 14px;
+            }
+            
+            /* Table */
+            table {
+                font-size: 14px;
+            }
+            
+            th, td {
+                padding: 8px !important;
+                font-size: 12px;
+            }
+            
+            /* FAQ */
+            .faq-question {
+                padding: 16px;
+                font-size: 16px;
+            }
+            
+            .faq-answer {
+                padding: 0 16px 16px;
+                font-size: 14px;
+            }
+            
+            /* CTA */
+            .cta {
+                padding: 60px 0;
+            }
+            
+            .cta h2 {
+                font-size: 28px;
+                line-height: 1.3;
+            }
+            
+            .cta p {
+                font-size: 16px;
+            }
+            
+            /* Buttons */
+            .btn {
+                padding: 12px 20px;
+                font-size: 14px;
+            }
+        }
+        
+        /* Mobile menu button */
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+        }
+        
+        .mobile-menu-btn span {
+            display: block;
+            width: 24px;
+            height: 2px;
+            background: var(--dark);
+            margin-bottom: 5px;
+            transition: all 0.3s;
+        }
+        
+        .mobile-menu-btn span:last-child {
+            margin-bottom: 0;
+        }
+        
+        @media (max-width: 768px) {
+            .mobile-menu-btn {
+                display: block;
             }
         }
     </style>
@@ -773,8 +1035,14 @@
                 <a href="#pricing">Тарифы</a>
                 <a href="#features">Возможности</a>
                 <a href="#faq">FAQ</a>
-                <a href="/admin/" class="btn btn-primary">Начать бесплатно</a>
+                <a href="/register" class="btn btn-primary">Начать бесплатно</a>
             </div>
+            <!-- Mobile menu button -->
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
         </nav>
     </header>
 
@@ -800,7 +1068,7 @@
                         </div>
                     </div>
                     <div class="hero-buttons">
-                        <a href="/admin/" class="btn btn-primary">Начать бесплатно</a>
+                        <a href="/register" class="btn btn-primary">Начать бесплатно</a>
                         <a href="/demo/" class="btn btn-secondary">Смотреть демо</a>
                     </div>
                     <div class="hero-features">
@@ -860,23 +1128,23 @@
     </section>
 
     <!-- Sport Types Section -->
-    <section style="padding: 40px 0; background: var(--white);">
+    <section class="sport-types" style="padding: 40px 0; background: var(--white);">
         <div class="container">
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; text-align: center;">
-                <div style="padding: 32px; background: rgba(0, 168, 107, 0.05); border-radius: 16px;">
-                    <div style="font-size: 48px; margin-bottom: 16px;">🎾</div>
-                    <h3 style="font-size: 24px; color: var(--tennis); margin-bottom: 8px;">Теннис</h3>
-                    <p style="color: var(--gray);">Управление кортами, расписанием тренеров, групповыми занятиями</p>
+            <div class="sport-types-grid">
+                <div class="sport-type-card tennis">
+                    <div class="sport-type-icon">🎾</div>
+                    <h3>Теннис</h3>
+                    <p>Управление кортами, расписанием тренеров, групповыми занятиями</p>
                 </div>
-                <div style="padding: 32px; background: rgba(46, 134, 171, 0.05); border-radius: 16px;">
-                    <div style="font-size: 48px; margin-bottom: 16px;">🏓</div>
-                    <h3 style="font-size: 24px; color: var(--padel); margin-bottom: 8px;">Падел</h3>
-                    <p style="color: var(--gray);">Организация турниров, поиск партнеров для игры, аренда инвентаря</p>
+                <div class="sport-type-card padel">
+                    <div class="sport-type-icon">🏓</div>
+                    <h3>Падел</h3>
+                    <p>Организация турниров, поиск партнеров для игры, аренда инвентаря</p>
                 </div>
-                <div style="padding: 32px; background: rgba(255, 107, 107, 0.05); border-radius: 16px;">
-                    <div style="font-size: 48px; margin-bottom: 16px;">🏸</div>
-                    <h3 style="font-size: 24px; color: var(--badminton); margin-bottom: 8px;">Бадминтон</h3>
-                    <p style="color: var(--gray);">Почасовая аренда, абонементы, управление залами</p>
+                <div class="sport-type-card badminton">
+                    <div class="sport-type-icon">🏸</div>
+                    <h3>Бадминтон</h3>
+                    <p>Почасовая аренда, абонементы, управление залами</p>
                 </div>
             </div>
         </div>
@@ -945,8 +1213,8 @@
     <section class="pricing" id="pricing">
         <div class="container">
             <div class="section-header">
-                <h2>Прозрачные тарифы без скрытых платежей</h2>
-                <p>Начните бесплатно и масштабируйтесь по мере роста</p>
+                <h2>Платите только за используемые корты</h2>
+                <p>Справедливая цена: маленькие клубы платят меньше, большие — больше</p>
             </div>
             <div class="pricing-grid">
                 <div class="pricing-card">
@@ -957,8 +1225,8 @@
                         <div class="pricing-period">навсегда</div>
                     </div>
                     <ul class="pricing-features">
-                        <li><div class="check-icon"></div> До 6 кортов</li>
-                        <li><div class="check-icon"></div> До 100 бронирований/месяц</li>
+                        <li><div class="check-icon"></div> До 2 кортов бесплатно</li>
+                        <li><div class="check-icon"></div> Неограниченные бронирования</li>
                         <li><div class="check-icon"></div> Онлайн-оплата</li>
                         <li><div class="check-icon"></div> Белый лейбл</li>
                         <li><div class="check-icon"></div> Push-уведомления</li>
@@ -966,38 +1234,38 @@
                         <li class="disabled">SMS/Email уведомления</li>
                         <li class="disabled">Расширенная аналитика</li>
                     </ul>
-                    <a href="/admin/" class="btn btn-secondary" style="width: 100%;">Начать бесплатно</a>
+                    <a href="/register" class="btn btn-secondary" style="width: 100%;">Начать бесплатно</a>
                 </div>
                 
                 <div class="pricing-card featured">
                     <div class="pricing-header">
                         <div class="pricing-icon">💼</div>
                         <h3>СТАНДАРТ</h3>
-                        <div class="pricing-price">2,990₽</div>
-                        <div class="pricing-period">в месяц</div>
+                        <div class="pricing-price">990₽</div>
+                        <div class="pricing-period">за корт в месяц</div>
                     </div>
                     <ul class="pricing-features">
-                        <li><div class="check-icon"></div> До 20 кортов</li>
+                        <li><div class="check-icon"></div> От 3 кортов</li>
                         <li><div class="check-icon"></div> Неограниченные бронирования</li>
-                        <li><div class="check-icon"></div> SMS/Email (1000 шт/мес)</li>
+                        <li><div class="check-icon"></div> SMS/Email (500 шт/мес на корт)</li>
                         <li><div class="check-icon"></div> Расширенная аналитика</li>
                         <li><div class="check-icon"></div> Промокоды и скидки</li>
                         <li><div class="check-icon"></div> Интеграция с календарями</li>
                         <li><div class="check-icon"></div> Приоритет в поиске +10%</li>
                         <li><div class="check-icon"></div> Email поддержка</li>
                     </ul>
-                    <a href="/admin/" class="btn btn-primary" style="width: 100%;">Попробовать 14 дней</a>
+                    <a href="/register" class="btn btn-primary" style="width: 100%;">Попробовать 14 дней</a>
                 </div>
                 
                 <div class="pricing-card">
                     <div class="pricing-header">
                         <div class="pricing-icon">🚀</div>
                         <h3>ПРОФИ</h3>
-                        <div class="pricing-price">5,990₽</div>
-                        <div class="pricing-period">в месяц</div>
+                        <div class="pricing-price">1,990₽</div>
+                        <div class="pricing-period">за корт в месяц</div>
                     </div>
                     <ul class="pricing-features">
-                        <li><div class="check-icon"></div> Неограниченно кортов</li>
+                        <li><div class="check-icon"></div> От 1 корта</li>
                         <li><div class="check-icon"></div> SMS/Email без лимитов</li>
                         <li><div class="check-icon"></div> Белый лейбл PRO</li>
                         <li><div class="check-icon"></div> API доступ</li>
@@ -1006,12 +1274,61 @@
                         <li><div class="check-icon"></div> Персональный менеджер</li>
                         <li><div class="check-icon"></div> Приоритетная поддержка</li>
                     </ul>
-                    <a href="/admin/" class="btn btn-secondary" style="width: 100%;">Связаться с нами</a>
+                    <a href="mailto:sales@allcourt.ru?subject=Премиум тариф" class="btn btn-secondary" style="width: 100%;">Связаться с нами</a>
                 </div>
             </div>
             <p style="text-align: center; color: var(--gray); margin-top: 32px;">
                 💎 <strong>Премиум возможности</strong> доступны по запросу: Т-Банк Мультирасчеты, кастомная разработка, выделенный сервер
             </p>
+            
+            <!-- Price Calculator -->
+            <div style="margin-top: 48px; padding: 32px; background: var(--white); border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                <h3 style="text-align: center; margin-bottom: 24px;">Калькулятор стоимости</h3>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--background);">
+                                <th style="text-align: left; padding: 12px;">Количество кортов</th>
+                                <th style="text-align: center; padding: 12px;">СТАРТ</th>
+                                <th style="text-align: center; padding: 12px;">СТАНДАРТ</th>
+                                <th style="text-align: center; padding: 12px;">ПРОФИ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid var(--background);">
+                                <td style="padding: 12px;">1-2 корта</td>
+                                <td style="text-align: center; padding: 12px; color: var(--primary); font-weight: 600;">0₽</td>
+                                <td style="text-align: center; padding: 12px; color: var(--gray);">—</td>
+                                <td style="text-align: center; padding: 12px;">1,990-3,980₽</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--background);">
+                                <td style="padding: 12px;">3 корта</td>
+                                <td style="text-align: center; padding: 12px; color: var(--gray);">—</td>
+                                <td style="text-align: center; padding: 12px; font-weight: 600;">2,970₽</td>
+                                <td style="text-align: center; padding: 12px;">5,970₽</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--background);">
+                                <td style="padding: 12px;">5 кортов</td>
+                                <td style="text-align: center; padding: 12px; color: var(--gray);">—</td>
+                                <td style="text-align: center; padding: 12px; font-weight: 600;">4,950₽</td>
+                                <td style="text-align: center; padding: 12px;">9,950₽</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--background);">
+                                <td style="padding: 12px;">10 кортов</td>
+                                <td style="text-align: center; padding: 12px; color: var(--gray);">—</td>
+                                <td style="text-align: center; padding: 12px; font-weight: 600;">9,900₽</td>
+                                <td style="text-align: center; padding: 12px;">19,900₽</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px;">20 кортов</td>
+                                <td style="text-align: center; padding: 12px; color: var(--gray);">—</td>
+                                <td style="text-align: center; padding: 12px; font-weight: 600;">19,800₽</td>
+                                <td style="text-align: center; padding: 12px;">39,800₽</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -1101,7 +1418,7 @@
                         <span class="faq-toggle">+</span>
                     </div>
                     <div class="faq-answer">
-                        <p>Да! Тариф "Старт" абсолютно бесплатный без ограничений по времени. Вы можете использовать его для управления до 6 кортов и 100 бронирований в месяц. Никаких скрытых платежей, комиссий или обязательств.</p>
+                        <p>Да! Тариф "Старт" абсолютно бесплатный без ограничений по времени. Вы можете использовать его для управления до 2 кортов с неограниченным количеством бронирований. Никаких скрытых платежей, комиссий или обязательств.</p>
                     </div>
                 </div>
                 
@@ -1144,6 +1461,16 @@
                         <p>Конечно! Вы можете повысить тариф в любой момент - новые функции активируются сразу. При понижении тарифа изменения вступят в силу с начала следующего месяца. Никаких штрафов или долгосрочных контрактов.</p>
                     </div>
                 </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question">
+                        <span>Как работает оплата за корт?</span>
+                        <span class="faq-toggle">+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Вы платите только за количество активных кортов в вашем клубе. Например, если у вас 5 кортов на тарифе "Стандарт" (990₽ за корт), то ежемесячная оплата составит 4,950₽. При добавлении новых кортов стоимость автоматически пересчитывается. Это справедливая модель — маленькие клубы платят меньше, большие больше.</p>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
@@ -1153,7 +1480,7 @@
         <div class="container">
             <h2>Присоединяйтесь к сотням клубов падела, тенниса и бадминтона</h2>
             <p>Начните принимать онлайн-бронирования уже сегодня • Без комиссий • 100% платежей вам</p>
-            <a href="/admin/" class="btn">Начать бесплатно →</a>
+            <a href="/register" class="btn">Начать бесплатно →</a>
         </div>
     </section>
 
@@ -1166,13 +1493,35 @@
                     <a href="/privacy">Политика конфиденциальности</a>
                     <a href="/terms">Условия использования</a>
                     <a href="/support">Поддержка</a>
-                    <a href="/admin/">Вход для клубов</a>
+                    <a href="/admin/login">Вход для клубов</a>
                 </div>
             </div>
         </div>
     </footer>
 
     <script>
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const navLinks = document.querySelector('.nav-links');
+            navLinks.classList.toggle('active');
+        }
+        
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', (e) => {
+            const navLinks = document.querySelector('.nav-links');
+            const menuBtn = document.querySelector('.mobile-menu-btn');
+            if (navLinks && menuBtn && !navLinks.contains(e.target) && !menuBtn.contains(e.target)) {
+                navLinks.classList.remove('active');
+            }
+        });
+        
+        // Close mobile menu when clicking on link
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', () => {
+                document.querySelector('.nav-links').classList.remove('active');
+            });
+        });
+        
         // FAQ Toggle
         document.querySelectorAll('.faq-question').forEach(question => {
             question.addEventListener('click', () => {

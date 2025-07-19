@@ -23,7 +23,10 @@ interface Booking {
   courtName: string
   clientName: string
   clientPhone: string
+  customerName?: string // Для совместимости
+  customerPhone?: string // Для совместимости
   date: Date
+  time?: string // Для совместимости со старыми записями
   startTime: string
   endTime: string
   status: 'confirmed' | 'pending' | 'cancelled'
@@ -37,12 +40,19 @@ interface Court {
   id: string
   name: string
   type: string
+  pricePerHour: number
+}
+
+interface Venue {
+  id: string
+  name: string
 }
 
 export default function BookingsManagement() {
   const { admin } = useAuth()
   const { isSuperAdmin, canManageBookings, hasPermission } = usePermission()
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null)
+  const [venues, setVenues] = useState<Venue[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
   const [courts, setCourts] = useState<Court[]>([])
   const [loading, setLoading] = useState(true)
@@ -59,29 +69,59 @@ export default function BookingsManagement() {
   })
 
   useEffect(() => {
+    
     if (isSuperAdmin) {
+      // Загружаем список клубов для суперадмина
+      fetchVenues()
       const venueId = localStorage.getItem('selectedVenueId')
       if (venueId) {
         setSelectedVenueId(venueId)
         fetchCourts(venueId)
         fetchBookings(venueId)
+      } else {
+        setLoading(false)
       }
     } else if (admin?.venueId) {
       fetchCourts(admin.venueId)
       fetchBookings(admin.venueId)
+    } else {
+      setLoading(false)
     }
   }, [admin, selectedDate, isSuperAdmin])
+
+  const fetchVenues = async () => {
+    try {
+      const snapshot = await getDocs(collection(db, 'venues'))
+      const venuesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name
+      })) as Venue[]
+      setVenues(venuesData)
+    } catch (error) {
+      console.error('Error fetching venues:', error)
+    }
+  }
+
+  const handleVenueChange = (venueId: string) => {
+    setSelectedVenueId(venueId)
+    localStorage.setItem('selectedVenueId', venueId)
+    fetchCourts(venueId)
+    fetchBookings(venueId)
+  }
 
   const fetchCourts = async (venueId: string) => {
     if (!venueId) return
 
     try {
-      const q = query(collection(db, 'courts'), where('venueId', '==', venueId))
-      const snapshot = await getDocs(q)
+      // Корты хранятся как подколлекция внутри документа venue
+      const courtsRef = collection(db, 'venues', venueId, 'courts')
+      const snapshot = await getDocs(courtsRef)
+      
       const courtsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Court[]
+      
       setCourts(courtsData)
     } catch (error) {
       console.error('Error fetching courts:', error)
@@ -101,23 +141,56 @@ export default function BookingsManagement() {
       endOfWeek.setDate(startOfWeek.getDate() + 6)
       endOfWeek.setHours(23, 59, 59, 999)
 
-      const q = query(
-        collection(db, 'bookings'),
-        where('venueId', '==', venueId),
-        where('date', '>=', Timestamp.fromDate(startOfWeek)),
-        where('date', '<=', Timestamp.fromDate(endOfWeek)),
-        orderBy('date'),
-        orderBy('startTime')
-      )
+      // Пробуем сначала с составным индексом
+      let snapshot
+      try {
+        const q = query(
+          collection(db, 'bookings'),
+          where('venueId', '==', venueId),
+          where('date', '>=', Timestamp.fromDate(startOfWeek)),
+          where('date', '<=', Timestamp.fromDate(endOfWeek)),
+          orderBy('date'),
+          orderBy('startTime')
+        )
+        snapshot = await getDocs(q)
+      } catch (indexError) {
+        // Если составной индекс не существует, используем простой запрос по venueId
+        try {
+          const q = query(
+            collection(db, 'bookings'),
+            where('venueId', '==', venueId),
+            orderBy('date')
+          )
+          snapshot = await getDocs(q)
+        } catch (venueIndexError) {
+          // Если и этот индекс не существует, загружаем все бронирования (будет отфильтровано на клиенте)
+          const q = query(
+            collection(db, 'bookings'),
+            orderBy('date')
+          )
+          snapshot = await getDocs(q)
+        }
+      }
       
-      const snapshot = await getDocs(q)
-      const bookingsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        date: doc.data().date.toDate()
-      })) as Booking[]
+      const bookingsData = snapshot.docs.map(doc => {
+        const data = doc.data()
+        return {
+          id: doc.id,
+          ...data,
+          date: data.date.toDate()
+        }
+      }) as Booking[]
       
-      setBookings(bookingsData)
+      
+      // Фильтруем на клиенте, если не удалось отфильтровать в запросе
+      const filteredBookings = bookingsData.filter(booking => {
+        const bookingDate = new Date(booking.date)
+        const inRange = bookingDate >= startOfWeek && bookingDate <= endOfWeek
+        // ВАЖНО: фильтруем также по venueId
+        return inRange && booking.venueId === venueId
+      })
+      
+      setBookings(filteredBookings)
     } catch (error) {
       console.error('Error fetching bookings:', error)
     } finally {
@@ -155,10 +228,13 @@ export default function BookingsManagement() {
         clientName: formData.clientName,
         clientPhone: formData.clientPhone,
         date: Timestamp.fromDate(new Date(formData.date)),
+        time: formData.startTime, // Добавляем поле time для совместимости
         startTime: formData.startTime,
         endTime: endTime,
+        gameType: 'single', // По умолчанию single
         status: 'confirmed',
-        amount: formData.duration * 1900, // Примерная цена
+        amount: formData.duration * (court.pricePerHour || 1900),
+        price: court.pricePerHour || 1900, // Добавляем цену за час
         paymentMethod: formData.paymentMethod,
         createdAt: Timestamp.now()
       })
@@ -176,6 +252,7 @@ export default function BookingsManagement() {
       fetchBookings(venueId)
     } catch (error) {
       console.error('Error creating booking:', error)
+      alert('Ошибка при создании бронирования: ' + (error as Error).message)
     }
   }
 
@@ -201,8 +278,10 @@ export default function BookingsManagement() {
   const getBookingsForSlot = (date: Date, time: string, courtId: string) => {
     return bookings.filter(booking => {
       const bookingDate = new Date(booking.date)
+      // Проверяем оба поля - startTime и time для совместимости
+      const bookingTime = booking.startTime || booking.time
       return bookingDate.toDateString() === date.toDateString() &&
-             booking.startTime === time &&
+             bookingTime === time &&
              booking.courtId === courtId
     })
   }
@@ -227,10 +306,27 @@ export default function BookingsManagement() {
 
   if (isSuperAdmin && !selectedVenueId) {
     return (
-      <Alert severity="info">
-        <AlertTitle>Выберите клуб</AlertTitle>
-        Перейдите в раздел "Все клубы" и выберите клуб для управления бронированиями.
-      </Alert>
+      <div>
+        <div className="section-card">
+          <div className="section-header">
+            <h2 className="section-title">Выберите клуб</h2>
+          </div>
+          <div className="form-group" style={{ maxWidth: '400px' }}>
+            <label className="form-label">Клуб</label>
+            <select 
+              className="form-select"
+              value={selectedVenueId || ''}
+              onChange={(e) => handleVenueChange(e.target.value)}
+            >
+              <option value="">Выберите клуб для управления</option>
+              {venues.map(venue => (
+                <option key={venue.id} value={venue.id}>{venue.name}</option>
+              ))}
+            </select>
+            <p className="form-hint">Выберите клуб для просмотра календаря и создания бронирований</p>
+          </div>
+        </div>
+      </div>
     )
   }
 
@@ -239,6 +335,26 @@ export default function BookingsManagement() {
   return (
     <PermissionGate permission={['manage_bookings', 'manage_all_bookings', 'view_bookings']}>
     <div>
+      {/* Селектор клуба для суперадмина */}
+      {isSuperAdmin && (
+        <div className="section-card" style={{ marginBottom: '24px' }}>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Управление клубом</label>
+            <select 
+              className="form-select"
+              value={selectedVenueId || ''}
+              onChange={(e) => handleVenueChange(e.target.value)}
+              style={{ maxWidth: '400px' }}
+            >
+              <option value="">Выберите клуб</option>
+              {venues.map(venue => (
+                <option key={venue.id} value={venue.id}>{venue.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
       <div className="section-card">
         <div className="calendar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <h2 className="section-title">Календарь бронирований</h2>
@@ -259,7 +375,7 @@ export default function BookingsManagement() {
             >
               <ChevronLeft />
             </button>
-            <span style={{ fontWeight: '600' }}>
+            <span style={{ fontWeight: '600', minWidth: '150px', textAlign: 'center' }}>
               {monthNames[selectedDate.getMonth()]} {selectedDate.getFullYear()}
             </span>
             <button 
@@ -277,6 +393,20 @@ export default function BookingsManagement() {
               }}
             >
               <ChevronRight />
+            </button>
+            <button 
+              onClick={() => setSelectedDate(new Date())}
+              style={{ 
+                padding: '6px 12px',
+                border: '1px solid var(--extra-light-gray)',
+                background: 'var(--white)',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                marginLeft: '16px'
+              }}
+            >
+              Сегодня
             </button>
           </div>
         </div>
@@ -343,7 +473,7 @@ export default function BookingsManagement() {
                           {booking.courtName}
                         </div>
                         <div style={{ color: 'var(--gray)' }}>
-                          {booking.clientName}
+                          {booking.clientName || booking.customerName}
                         </div>
                       </div>
                     ))}

@@ -15,9 +15,11 @@ import {
   DialogActions,
   TextField,
   Alert,
-  CircularProgress
+  CircularProgress,
+  Tooltip,
+  Divider
 } from '@mui/material'
-import { Edit, Delete, LocationOn, Phone, Email, Add, CardMembership, Warning } from '@mui/icons-material'
+import { Edit, Delete, LocationOn, Phone, Email, Add, CardMembership, Warning, ContentCopy, Link, Check, QrCode2 } from '@mui/icons-material'
 import { collection, getDocs, updateDoc, deleteDoc, doc, query, where, addDoc } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { useNavigate } from 'react-router-dom'
@@ -25,6 +27,7 @@ import { usePermission } from '../../hooks/usePermission'
 import { PermissionGate } from '../../components/PermissionGate'
 import { SUBSCRIPTION_PLANS, SubscriptionPlan, ClubSubscription } from '../../types/subscription'
 import { Select, MenuItem, FormControl, InputLabel, List, ListItem, ListItemText } from '@mui/material'
+import { QRCodeSVG } from 'qrcode.react'
 
 interface Venue {
   id: string
@@ -58,6 +61,9 @@ export default function VenuesManagement() {
   const [subscriptionDialogOpen, setSubscriptionDialogOpen] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('start')
   const [error, setError] = useState('')
+  const [copiedVenueId, setCopiedVenueId] = useState<string | null>(null)
+  const [qrDialogOpen, setQrDialogOpen] = useState(false)
+  const [qrVenue, setQrVenue] = useState<Venue | null>(null)
 
   useEffect(() => {
     loadVenues()
@@ -150,6 +156,22 @@ export default function VenuesManagement() {
     }
   }
 
+  const getBookingUrl = (venueId: string) => {
+    return `https://allcourt.ru/club/${venueId}`
+  }
+
+  const handleCopyLink = (venueId: string) => {
+    const url = getBookingUrl(venueId)
+    navigator.clipboard.writeText(url)
+    setCopiedVenueId(venueId)
+    setTimeout(() => setCopiedVenueId(null), 2000)
+  }
+
+  const handleShowQR = (venue: Venue) => {
+    setQrVenue(venue)
+    setQrDialogOpen(true)
+  }
+
   const handleOpenSubscriptionDialog = (venue: Venue) => {
     setSelectedVenue(venue)
     setSelectedPlan(venue.subscription?.plan || 'start')
@@ -214,7 +236,11 @@ export default function VenuesManagement() {
           <Button
             variant="contained"
             startIcon={<Add />}
-            onClick={() => navigate('/admin/club/new')}
+            onClick={() => {
+              // Очищаем выбранный клуб и переходим к управлению
+              localStorage.removeItem('selectedVenueId')
+              navigate('/admin/club')
+            }}
           >
             Добавить клуб
           </Button>
@@ -312,6 +338,48 @@ export default function VenuesManagement() {
                         </Typography>
                       )}
                     </Box>
+
+                    {/* Ссылка для бронирования */}
+                    <Box sx={{ mt: 2, p: 1.5, bgcolor: 'background.default', borderRadius: 1 }}>
+                      <Box display="flex" alignItems="center" gap={1} mb={1}>
+                        <Link fontSize="small" color="action" />
+                        <Typography variant="caption" color="text.secondary">
+                          Ссылка для клиентов:
+                        </Typography>
+                      </Box>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            flex: 1, 
+                            fontFamily: 'monospace',
+                            wordBreak: 'break-all',
+                            p: 0.5,
+                            bgcolor: 'white',
+                            borderRadius: 0.5
+                          }}
+                        >
+                          {getBookingUrl(venue.id)}
+                        </Typography>
+                        <Tooltip title={copiedVenueId === venue.id ? "Скопировано!" : "Копировать ссылку"}>
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleCopyLink(venue.id)}
+                            color={copiedVenueId === venue.id ? "success" : "default"}
+                          >
+                            {copiedVenueId === venue.id ? <Check fontSize="small" /> : <ContentCopy fontSize="small" />}
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Показать QR код">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleShowQR(venue)}
+                          >
+                            <QrCode2 fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </Box>
                   </CardContent>
 
                   <CardActions sx={{ flexWrap: 'wrap', gap: 0.5 }}>
@@ -350,6 +418,45 @@ export default function VenuesManagement() {
           </Grid>
         )}
       </Box>
+
+      {/* QR код диалог */}
+      <Dialog open={qrDialogOpen} onClose={() => setQrDialogOpen(false)} maxWidth="sm">
+        <DialogTitle>
+          QR код для {qrVenue?.name}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ textAlign: 'center', p: 2 }}>
+            <QRCodeSVG 
+              value={qrVenue ? getBookingUrl(qrVenue.id) : ''} 
+              size={256}
+              level="H"
+              includeMargin={true}
+            />
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+              Клиенты могут отсканировать этот QR код для бронирования
+            </Typography>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
+              {qrVenue && getBookingUrl(qrVenue.id)}
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setQrDialogOpen(false)}>
+            Закрыть
+          </Button>
+          <Button 
+            variant="contained"
+            onClick={() => {
+              if (qrVenue) {
+                handleCopyLink(qrVenue.id)
+              }
+            }}
+          >
+            Копировать ссылку
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Диалог изменения тарифа */}
       <Dialog open={subscriptionDialogOpen} onClose={() => setSubscriptionDialogOpen(false)} maxWidth="sm" fullWidth>

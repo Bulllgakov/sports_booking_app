@@ -132,6 +132,19 @@ export default function Login() {
           <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 2 }}>
             Забыли пароль? Обратитесь к администратору системы
           </Typography>
+          
+          <Box sx={{ mt: 3, pt: 3, borderTop: 1, borderColor: 'divider' }}>
+            <Typography variant="body2" color="text.secondary" align="center">
+              Хотите зарегистрировать свой клуб?{' '}
+              <Button
+                variant="text"
+                onClick={() => navigate('/register')}
+                sx={{ textTransform: 'none' }}
+              >
+                Создать аккаунт
+              </Button>
+            </Typography>
+          </Box>
         </CardContent>
       </Card>
     </Box>

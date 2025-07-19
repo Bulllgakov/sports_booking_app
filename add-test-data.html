@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Добавление тестовых данных</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .status {
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .status.info {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        .status.success {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+        .status.error {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+        button {
+            background: #00A86B;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #007A4D;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .login-form {
+            margin-bottom: 30px;
+        }
+        .login-form input {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .info {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Добавление тестовых данных</h1>
+        
+        <div class="info">
+            <p><strong>Внимание!</strong> Перед добавлением тестовых данных необходимо войти с правами администратора.</p>
+            <p>Используйте ваш email администратора для входа.</p>
+        </div>
+
+        <div id="loginForm" class="login-form">
+            <h3>Вход в систему</h3>
+            <input type="email" id="email" placeholder="Email администратора" value="">
+            <input type="password" id="password" placeholder="Пароль" value="">
+            <button onclick="login()">Войти</button>
+        </div>
+
+        <div id="mainPanel" style="display: none;">
+            <p>Вы вошли как: <strong id="userEmail"></strong></p>
+            <button onclick="addTestData()">Добавить тестовые данные</button>
+            <button onclick="logout()">Выйти</button>
+        </div>
+
+        <div id="status" class="status info" style="display: none;"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+        import { 
+            getAuth, 
+            signInWithEmailAndPassword,
+            signOut,
+            onAuthStateChanged
+        } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+        import { 
+            getFirestore, 
+            collection, 
+            addDoc, 
+            updateDoc, 
+            doc, 
+            getDocs, 
+            query, 
+            where, 
+            limit,
+            writeBatch,
+            serverTimestamp,
+            Timestamp
+        } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnp3SY9XEyF-le5q_Tcv-7Le2qqvtz0ZM",
+            authDomain: "allcourt.ru",
+            projectId: "sports-booking-app-1d7e5",
+            storageBucket: "sports-booking-app-1d7e5.firebasestorage.app",
+            messagingSenderId: "648540980109",
+            appId: "1:648540980109:web:97fbe182c59bb2641ab3c4",
+            measurementId: "G-VL4MCP1PZP"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Make functions global
+        window.auth = auth;
+        window.db = db;
+
+        // Auth state observer
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('mainPanel').style.display = 'block';
+                document.getElementById('userEmail').textContent = user.email;
+            } else {
+                document.getElementById('loginForm').style.display = 'block';
+                document.getElementById('mainPanel').style.display = 'none';
+            }
+        });
+
+        window.login = async function() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                showStatus('Введите email и пароль', 'error');
+                return;
+            }
+
+            try {
+                showStatus('Выполняется вход...', 'info');
+                await signInWithEmailAndPassword(auth, email, password);
+                showStatus('Вход выполнен успешно!', 'success');
+            } catch (error) {
+                showStatus(`Ошибка входа: ${error.message}`, 'error');
+            }
+        };
+
+        window.logout = async function() {
+            try {
+                await signOut(auth);
+                showStatus('Вы вышли из системы', 'info');
+            } catch (error) {
+                showStatus(`Ошибка выхода: ${error.message}`, 'error');
+            }
+        };
+
+        window.showStatus = function(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+        };
+
+        // Test data
+        const workingHours = {
+            'понедельник': { open: '07:00', close: '23:00' },
+            'вторник': { open: '07:00', close: '23:00' },
+            'среда': { open: '07:00', close: '23:00' },
+            'четверг': { open: '07:00', close: '23:00' },
+            'пятница': { open: '07:00', close: '23:00' },
+            'суббота': { open: '08:00', close: '22:00' },
+            'воскресенье': { open: '08:00', close: '22:00' }
+        };
+
+        const amenities = {
+            smartpadel: ['parking', 'showers', 'cafe', 'lockers', 'wifi', 'changing_rooms', 'equipment_rental', 'shop'],
+            ace: ['parking', 'showers', 'lockers', 'wifi', 'changing_rooms', 'equipment_rental']
+        };
+
+        const photos = {
+            smartpadel: [
+                'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800&q=80',
+                'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=800&q=80',
+                'https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?w=800&q=80'
+            ],
+            ace: [
+                'https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?w=800&q=80',
+                'https://images.unsplash.com/photo-1622163642998-1ea32b0bbc67?w=800&q=80',
+                'https://images.unsplash.com/photo-1587280501635-68a0e82cd5ff?w=800&q=80'
+            ]
+        };
+
+        const descriptions = {
+            smartpadel: 'Современный центр падела с 8 крытыми кортами международного стандарта. Профессиональное покрытие, система климат-контроля, панорамные окна. Школа падела для всех уровней, от начинающих до профессионалов. Проводим турниры и корпоративные мероприятия.',
+            ace: 'Премиальный теннисный центр с 6 открытыми грунтовыми кортами и 4 крытыми кортами с покрытием хард. Профессиональная школа тенниса, индивидуальные и групповые занятия. Подготовка к турнирам, детские группы от 4 лет.'
+        };
+
+        async function updateVenueData() {
+            showStatus('Обновление данных клубов...', 'info');
+            
+            // Find SmartPadel
+            const smartPadelQuery = query(
+                collection(db, 'venues'),
+                where('name', '==', 'SmartPadel'),
+                limit(1)
+            );
+            const smartPadelSnapshot = await getDocs(smartPadelQuery);
+            
+            if (!smartPadelSnapshot.empty) {
+                const smartPadelDoc = smartPadelSnapshot.docs[0];
+                await updateDoc(doc(db, 'venues', smartPadelDoc.id), {
+                    workingHours: workingHours,
+                    amenities: amenities.smartpadel,
+                    photos: photos.smartpadel,
+                    description: descriptions.smartpadel,
+                    rating: 4.8,
+                    reviewsCount: 127,
+                    location: {
+                        latitude: 55.7558,
+                        longitude: 37.6173
+                    },
+                    updatedAt: serverTimestamp()
+                });
+                showStatus('SmartPadel обновлен', 'success');
+            }
+            
+            // Find Tennis Center Ace
+            const aceQuery = query(
+                collection(db, 'venues'),
+                where('name', '==', 'Теннисный центр Асе'),
+                limit(1)
+            );
+            const aceSnapshot = await getDocs(aceQuery);
+            
+            if (!aceSnapshot.empty) {
+                const aceDoc = aceSnapshot.docs[0];
+                await updateDoc(doc(db, 'venues', aceDoc.id), {
+                    workingHours: workingHours,
+                    amenities: amenities.ace,
+                    photos: photos.ace,
+                    description: descriptions.ace,
+                    rating: 4.9,
+                    reviewsCount: 89,
+                    location: {
+                        latitude: 55.7340,
+                        longitude: 37.6082
+                    },
+                    updatedAt: serverTimestamp()
+                });
+                showStatus('Теннисный центр Асе обновлен', 'success');
+            }
+        }
+
+        async function addTestBookings() {
+            showStatus('Добавление тестовых бронирований...', 'info');
+            
+            // Get venues
+            const smartPadelQuery = query(
+                collection(db, 'venues'),
+                where('name', '==', 'SmartPadel'),
+                limit(1)
+            );
+            const smartPadelSnapshot = await getDocs(smartPadelQuery);
+            
+            const aceQuery = query(
+                collection(db, 'venues'),
+                where('name', '==', 'Теннисный центр Асе'),
+                limit(1)
+            );
+            const aceSnapshot = await getDocs(aceQuery);
+            
+            if (smartPadelSnapshot.empty || aceSnapshot.empty) {
+                showStatus('Клубы не найдены', 'error');
+                return;
+            }
+            
+            const smartPadelId = smartPadelSnapshot.docs[0].id;
+            const aceId = aceSnapshot.docs[0].id;
+            
+            // Get courts for each venue
+            const smartPadelCourtsQuery = query(
+                collection(db, 'courts'),
+                where('venueId', '==', smartPadelId)
+            );
+            const smartPadelCourts = await getDocs(smartPadelCourtsQuery);
+            
+            const aceCourtsQuery = query(
+                collection(db, 'courts'),
+                where('venueId', '==', aceId)
+            );
+            const aceCourts = await getDocs(aceCourtsQuery);
+            
+            // Generate bookings for the next 7 days
+            const bookings = [];
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            // Helper function to add days
+            function addDays(date, days) {
+                const result = new Date(date);
+                result.setDate(result.getDate() + days);
+                return result;
+            }
+            
+            // SmartPadel bookings
+            smartPadelCourts.docs.forEach(court => {
+                for (let day = 0; day < 7; day++) {
+                    const date = addDays(today, day);
+                    
+                    // Popular morning slots (9-12)
+                    if (Math.random() > 0.3) {
+                        bookings.push({
+                            courtId: court.id,
+                            courtName: court.data().name,
+                            venueId: smartPadelId,
+                            venueName: 'SmartPadel',
+                            date: Timestamp.fromDate(date),
+                            time: '09:00',
+                            gameType: 'double',
+                            customerName: 'Иван Петров',
+                            customerPhone: '+7 (999) 123-45-67',
+                            price: court.data().pricePerHour,
+                            status: 'confirmed',
+                            createdAt: serverTimestamp()
+                        });
+                    }
+                    
+                    if (Math.random() > 0.4) {
+                        bookings.push({
+                            courtId: court.id,
+                            courtName: court.data().name,
+                            venueId: smartPadelId,
+                            venueName: 'SmartPadel',
+                            date: Timestamp.fromDate(date),
+                            time: '11:00',
+                            gameType: 'double',
+                            customerName: 'Мария Сидорова',
+                            customerPhone: '+7 (999) 234-56-78',
+                            price: court.data().pricePerHour,
+                            status: 'confirmed',
+                            createdAt: serverTimestamp()
+                        });
+                    }
+                    
+                    // Popular evening slots (18-21)
+                    if (Math.random() > 0.2) {
+                        bookings.push({
+                            courtId: court.id,
+                            courtName: court.data().name,
+                            venueId: smartPadelId,
+                            venueName: 'SmartPadel',
+                            date: Timestamp.fromDate(date),
+                            time: '18:00',
+                            gameType: 'double',
+                            customerName: 'Алексей Иванов',
+                            customerPhone: '+7 (999) 345-67-89',
+                            price: court.data().pricePerHour,
+                            status: 'confirmed',
+                            createdAt: serverTimestamp()
+                        });
+                    }
+                }
+            });
+            
+            // Tennis Center Ace bookings
+            aceCourts.docs.forEach(court => {
+                for (let day = 0; day < 7; day++) {
+                    const date = addDays(today, day);
+                    
+                    // Morning slots
+                    if (Math.random() > 0.5) {
+                        bookings.push({
+                            courtId: court.id,
+                            courtName: court.data().name,
+                            venueId: aceId,
+                            venueName: 'Теннисный центр Асе',
+                            date: Timestamp.fromDate(date),
+                            time: '08:00',
+                            gameType: 'single',
+                            customerName: 'Ольга Смирнова',
+                            customerPhone: '+7 (999) 678-90-12',
+                            price: court.data().pricePerHour,
+                            status: 'confirmed',
+                            createdAt: serverTimestamp()
+                        });
+                    }
+                    
+                    if (Math.random() > 0.3) {
+                        bookings.push({
+                            courtId: court.id,
+                            courtName: court.data().name,
+                            venueId: aceId,
+                            venueName: 'Теннисный центр Асе',
+                            date: Timestamp.fromDate(date),
+                            time: '17:00',
+                            gameType: 'single',
+                            customerName: 'Михаил Орлов',
+                            customerPhone: '+7 (999) 901-23-45',
+                            price: court.data().pricePerHour,
+                            status: 'confirmed',
+                            createdAt: serverTimestamp()
+                        });
+                    }
+                }
+            });
+            
+            // Add all bookings in batches
+            const batch = writeBatch(db);
+            let batchCount = 0;
+            
+            for (const booking of bookings) {
+                const bookingRef = doc(collection(db, 'bookings'));
+                batch.set(bookingRef, booking);
+                batchCount++;
+                
+                // Firestore batch limit is 500
+                if (batchCount === 500) {
+                    await batch.commit();
+                    batchCount = 0;
+                }
+            }
+            
+            if (batchCount > 0) {
+                await batch.commit();
+            }
+            
+            showStatus(`Добавлено ${bookings.length} тестовых бронирований`, 'success');
+        }
+
+        async function addTestCustomers() {
+            showStatus('Добавление тестовых клиентов...', 'info');
+            
+            const customers = [
+                {
+                    name: 'Иван Петров',
+                    phone: '+7 (999) 123-45-67',
+                    email: 'ivan.petrov@example.com',
+                    totalBookings: 24,
+                    favoriteVenue: 'SmartPadel',
+                    createdAt: serverTimestamp()
+                },
+                {
+                    name: 'Мария Сидорова',
+                    phone: '+7 (999) 234-56-78',
+                    email: 'maria.sidorova@example.com',
+                    totalBookings: 18,
+                    favoriteVenue: 'SmartPadel',
+                    createdAt: serverTimestamp()
+                },
+                {
+                    name: 'Алексей Иванов',
+                    phone: '+7 (999) 345-67-89',
+                    email: 'alexey.ivanov@example.com',
+                    totalBookings: 31,
+                    favoriteVenue: 'SmartPadel',
+                    createdAt: serverTimestamp()
+                },
+                {
+                    name: 'Ольга Смирнова',
+                    phone: '+7 (999) 678-90-12',
+                    email: 'olga.smirnova@example.com',
+                    totalBookings: 45,
+                    favoriteVenue: 'Теннисный центр Асе',
+                    createdAt: serverTimestamp()
+                },
+                {
+                    name: 'Михаил Орлов',
+                    phone: '+7 (999) 901-23-45',
+                    email: 'mikhail.orlov@example.com',
+                    totalBookings: 29,
+                    favoriteVenue: 'Теннисный центр Асе',
+                    createdAt: serverTimestamp()
+                }
+            ];
+            
+            for (const customer of customers) {
+                await addDoc(collection(db, 'customers'), customer);
+            }
+            
+            showStatus(`Добавлено ${customers.length} тестовых клиентов`, 'success');
+        }
+
+        window.addTestData = async function() {
+            if (!auth.currentUser) {
+                showStatus('Необходимо войти в систему', 'error');
+                return;
+            }
+
+            try {
+                showStatus('Начинаем добавление тестовых данных...', 'info');
+                
+                // Update venue data
+                await updateVenueData();
+                
+                // Add test bookings
+                await addTestBookings();
+                
+                // Add test customers
+                await addTestCustomers();
+                
+                showStatus('Все тестовые данные успешно добавлены!', 'success');
+            } catch (error) {
+                showStatus(`Ошибка: ${error.message}`, 'error');
+                console.error('Error:', error);
+            }
+        };
+    </script>
+</body>
+</html>

@@ -27,6 +27,50 @@
         "destination": "/demo/index.html"
       },
       {
+        "source": "/club/**",
+        "destination": "/admin/index.html"
+      },
+      {
+        "source": "/login",
+        "destination": "/admin/index.html"
+      },
+      {
+        "source": "/register",
+        "destination": "/admin/index.html"
+      },
+      {
+        "source": "/dashboard",
+        "destination": "/admin/index.html"
+      },
+      {
+        "source": "/venues",
+        "destination": "/admin/index.html"
+      },
+      {
+        "source": "/admins",
+        "destination": "/admin/index.html"
+      },
+      {
+        "source": "/courts",
+        "destination": "/admin/index.html"
+      },
+      {
+        "source": "/bookings",
+        "destination": "/admin/index.html"
+      },
+      {
+        "source": "/customers",
+        "destination": "/admin/index.html"
+      },
+      {
+        "source": "/subscription",
+        "destination": "/admin/index.html"
+      },
+      {
+        "source": "/payment-settings",
+        "destination": "/admin/index.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

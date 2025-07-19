@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Обновление дат бронирований</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #00A86B;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #007A4D;
+        }
+        .status {
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+            font-family: monospace;
+        }
+        .status.info {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        .status.success {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+        .status.error {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+        .login-form input {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Обновление дат бронирований на июль 2025</h1>
+        
+        <div id="loginForm" class="login-form">
+            <h3>Войдите как администратор</h3>
+            <input type="email" id="email" placeholder="Email" value="admin@smartpadel.com">
+            <input type="password" id="password" placeholder="Пароль" value="">
+            <button onclick="login()">Войти</button>
+        </div>
+
+        <div id="mainPanel" style="display: none;">
+            <p>Вы вошли как: <strong id="userEmail"></strong></p>
+            <button onclick="updateBookingDates()">Обновить даты бронирований на июль 2025</button>
+            <button onclick="logout()">Выйти</button>
+        </div>
+
+        <div id="status" class="status info" style="display: none;"></div>
+        <div id="results"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+        import { 
+            getAuth, 
+            signInWithEmailAndPassword,
+            signOut,
+            onAuthStateChanged
+        } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+        import { 
+            getFirestore, 
+            collection, 
+            getDocs, 
+            updateDoc,
+            doc,
+            query, 
+            where,
+            Timestamp
+        } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnp3SY9XEyF-le5q_Tcv-7Le2qqvtz0ZM",
+            authDomain: "allcourt.ru",
+            projectId: "sports-booking-app-1d7e5",
+            storageBucket: "sports-booking-app-1d7e5.firebasestorage.app",
+            messagingSenderId: "648540980109",
+            appId: "1:648540980109:web:97fbe182c59bb2641ab3c4",
+            measurementId: "G-VL4MCP1PZP"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Auth state observer
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('mainPanel').style.display = 'block';
+                document.getElementById('userEmail').textContent = user.email;
+            } else {
+                document.getElementById('loginForm').style.display = 'block';
+                document.getElementById('mainPanel').style.display = 'none';
+            }
+        });
+
+        window.showStatus = function(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+        };
+
+        window.login = async function() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                showStatus('Введите email и пароль', 'error');
+                return;
+            }
+
+            try {
+                showStatus('Выполняется вход...', 'info');
+                await signInWithEmailAndPassword(auth, email, password);
+                showStatus('Вход выполнен успешно!', 'success');
+            } catch (error) {
+                showStatus(`Ошибка входа: ${error.message}`, 'error');
+            }
+        };
+
+        window.logout = async function() {
+            try {
+                await signOut(auth);
+                showStatus('Вы вышли из системы', 'info');
+            } catch (error) {
+                showStatus(`Ошибка выхода: ${error.message}`, 'error');
+            }
+        };
+
+        window.updateBookingDates = async function() {
+            try {
+                showStatus('Загрузка бронирований...', 'info');
+                
+                // Получаем все бронирования
+                const bookingsSnapshot = await getDocs(collection(db, 'bookings'));
+                
+                let updatedCount = 0;
+                let html = '<h3>Обновленные бронирования:</h3>';
+                
+                for (const bookingDoc of bookingsSnapshot.docs) {
+                    const booking = bookingDoc.data();
+                    const oldDate = booking.date?.toDate ? booking.date.toDate() : new Date(booking.date);
+                    
+                    // Проверяем, если дата в январе 2025
+                    if (oldDate.getFullYear() === 2025 && oldDate.getMonth() === 0) {
+                        // Меняем месяц на июль (6)
+                        const newDate = new Date(oldDate);
+                        newDate.setMonth(6); // Июль
+                        
+                        // Обновляем в базе данных
+                        await updateDoc(doc(db, 'bookings', bookingDoc.id), {
+                            date: Timestamp.fromDate(newDate)
+                        });
+                        
+                        updatedCount++;
+                        html += `<p>Обновлено: ${booking.clientName || booking.customerName} - 
+                                ${oldDate.toLocaleDateString('ru-RU')} → ${newDate.toLocaleDateString('ru-RU')}</p>`;
+                    }
+                }
+                
+                html += `<p><strong>Всего обновлено: ${updatedCount} бронирований</strong></p>`;
+                
+                document.getElementById('results').innerHTML = html;
+                showStatus(`Обновлено ${updatedCount} бронирований`, 'success');
+            } catch (error) {
+                showStatus(`Ошибка: ${error.message}`, 'error');
+                console.error('Error:', error);
+            }
+        };
+    </script>
+</body>
+</html>

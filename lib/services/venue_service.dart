@@ -82,8 +82,9 @@ class VenueService {
   // Получить корты клуба
   Stream<List<CourtModel>> getCourtsByVenueId(String venueId) {
     return _firestore
+        .collection('venues')
+        .doc(venueId)
         .collection('courts')
-        .where('venueId', isEqualTo: venueId)
         .where('status', isEqualTo: 'active')
         .snapshots()
         .map((snapshot) {
@@ -98,11 +99,23 @@ class VenueService {
   // Получить корт по ID
   Future<CourtModel?> getCourtById(String courtId) async {
     try {
-      final doc = await _firestore.collection('courts').doc(courtId).get();
-      if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
-        data['id'] = doc.id;
-        return CourtModel.fromMap(data);
+      // Сначала нужно найти корт в любом клубе
+      final venuesSnapshot = await _firestore.collection('venues').get();
+      
+      for (final venueDoc in venuesSnapshot.docs) {
+        final courtDoc = await _firestore
+            .collection('venues')
+            .doc(venueDoc.id)
+            .collection('courts')
+            .doc(courtId)
+            .get();
+            
+        if (courtDoc.exists && courtDoc.data() != null) {
+          final data = courtDoc.data()!;
+          data['id'] = courtDoc.id;
+          data['venueId'] = venueDoc.id; // Добавляем venueId
+          return CourtModel.fromMap(data);
+        }
       }
       return null;
     } catch (e) {

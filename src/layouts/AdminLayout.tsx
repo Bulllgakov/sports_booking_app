@@ -40,54 +40,54 @@ export default function AdminLayout() {
 
   // Динамически формируем навигационные элементы на основе прав
   const navItems: NavItem[] = [
-    { path: '/dashboard', label: 'Главная', icon: <Dashboard /> },
+    { path: '/admin/dashboard', label: 'Главная', icon: <Dashboard /> },
+    { 
+      path: '/admin/bookings', 
+      label: 'Календарь', 
+      icon: <CalendarMonth />,
+      permission: ['manage_bookings', 'manage_all_bookings', 'view_bookings']
+    },
     ...(isSuperAdmin ? [
-      { path: '/venues', label: 'Все клубы', icon: <Store /> },
-      { path: '/admins', label: 'Администраторы', icon: <SupervisorAccount /> },
+      { path: '/admin/venues', label: 'Все клубы', icon: <Store /> },
+      { path: '/admin/admins', label: 'Администраторы', icon: <SupervisorAccount /> },
     ] : []),
     ...(canManageClub() ? [
-      { path: '/club', label: 'Управление клубом', icon: <Business /> },
+      { path: '/admin/club', label: 'Управление клубом', icon: <Business /> },
     ] : []),
     { 
-      path: '/subscription', 
+      path: '/admin/subscription', 
       label: 'Подписка', 
       icon: <CardMembership />,
       permission: ['manage_club', 'manage_all_venues']
     },
     { 
-      path: '/payment-settings', 
+      path: '/admin/payment-settings', 
       label: 'Настройки оплаты', 
       icon: <CreditCard />,
       permission: ['manage_club', 'manage_all_venues']
     },
     { 
-      path: '/courts', 
+      path: '/admin/courts', 
       label: 'Корты', 
       icon: <SportsTennis />,
       permission: ['manage_courts', 'manage_all_venues']
     },
     { 
-      path: '/bookings', 
-      label: 'Бронирования', 
-      icon: <CalendarMonth />,
-      permission: ['manage_bookings', 'manage_all_bookings', 'view_bookings']
-    },
-    { 
-      path: '/customers', 
+      path: '/admin/customers', 
       label: 'Клиенты', 
       icon: <People />,
       permission: ['manage_all_users', 'manage_club']
     },
     ...(canViewFinance() ? [
-      { path: '/finance', label: 'Финансы', icon: <AttachMoney /> },
+      { path: '/admin/finance', label: 'Финансы', icon: <AttachMoney /> },
     ] : []),
     { 
-      path: '/marketing', 
+      path: '/admin/marketing', 
       label: 'Маркетинг', 
       icon: <TrendingUp />,
       roles: ['superadmin', 'admin']
     },
-    { path: '/settings', label: 'Настройки', icon: <Settings /> },
+    { path: '/admin/settings', label: 'Настройки', icon: <Settings /> },
   ].filter(item => {
     // Фильтруем элементы на основе прав
     if (item.permission && !hasPermission(item.permission)) return false

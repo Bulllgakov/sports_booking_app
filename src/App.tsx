@@ -5,6 +5,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminLayout from './layouts/AdminLayout'
 import Login from './pages/admin/Login'
+import RegisterSimple from './pages/admin/RegisterSimple'
 import Dashboard from './pages/admin/Dashboard'
 import ClubManagement from './pages/admin/ClubManagement'
 import CourtsManagement from './pages/admin/CourtsManagement'
@@ -15,6 +16,12 @@ import AdminsManagement from './pages/admin/AdminsManagement'
 import VenuesManagement from './pages/admin/VenuesManagement'
 import Subscription from './pages/admin/Subscription'
 import PaymentSettings from './pages/admin/PaymentSettings'
+// Public pages
+import ClubPage from './pages/public/ClubPage'
+import DateSelectionPage from './pages/public/DateSelectionPage'
+import TimeSelectionPage from './pages/public/TimeSelectionPage'
+import GameTypeSelectionPage from './pages/public/GameTypeSelectionPage'
+import BookingConfirmationPage from './pages/public/BookingConfirmationPage'
 
 const theme = createTheme({
   palette: {
@@ -47,18 +54,32 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <Router basename="/admin">
+        <Router>
           <Routes>
             {/* Перенаправление с корня на дашборд */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
             
             {/* Страница для информации (доступна всем) */}
             <Route path="/info" element={<Home />} />
             
-            {/* Админские маршруты */}
+            {/* Публичные страницы бронирования */}
+            <Route path="/club/:clubId" element={<ClubPage />} />
+            <Route path="/club/:clubId/court/:courtId/date" element={<DateSelectionPage />} />
+            <Route path="/club/:clubId/court/:courtId/time" element={<TimeSelectionPage />} />
+            <Route path="/club/:clubId/court/:courtId/game-type" element={<GameTypeSelectionPage />} />
+            <Route path="/club/:clubId/booking-confirmation/:bookingId" element={<BookingConfirmationPage />} />
+            
+            {/* Публичные маршруты */}
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<RegisterSimple />} />
+            
+            {/* Редиректы для обратной совместимости */}
+            <Route path="/admin/login" element={<Navigate to="/login" replace />} />
+            <Route path="/admin/register" element={<Navigate to="/register" replace />} />
+            
+            {/* Защищенные админские маршруты */}
             <Route
-              path="/*"
+              path="/admin"
               element={
                 <ProtectedRoute>
                   <AdminLayout />

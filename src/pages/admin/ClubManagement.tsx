@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { usePermission } from '../../hooks/usePermission'
 import { PermissionGate } from '../../components/PermissionGate'
@@ -8,12 +9,14 @@ import { db, storage } from '../../services/firebase'
 import { Alert, AlertTitle } from '@mui/material'
 
 export default function ClubManagement() {
+  const navigate = useNavigate()
   const { club, admin } = useAuth()
   const { isSuperAdmin, canManageClub } = usePermission()
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null)
   const [selectedVenue, setSelectedVenue] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -53,11 +56,11 @@ export default function ClubManagement() {
         longitude: club.location?._long?.toString() || club.location?.longitude?.toString() || '',
         description: club.description || '',
         amenities: {
-          showers: club.amenities?.includes('showers') || false,
-          parking: club.amenities?.includes('parking') || false,
-          cafe: club.amenities?.includes('cafe') || false,
-          proshop: club.amenities?.includes('proshop') || false,
-          lockers: club.amenities?.includes('lockers') || false,
+          showers: Array.isArray(club.amenities) && club.amenities.includes('showers') || false,
+          parking: Array.isArray(club.amenities) && club.amenities.includes('parking') || false,
+          cafe: Array.isArray(club.amenities) && club.amenities.includes('cafe') || false,
+          proshop: Array.isArray(club.amenities) && club.amenities.includes('proshop') || false,
+          lockers: Array.isArray(club.amenities) && club.amenities.includes('lockers') || false,
         },
         organizationType: club.organizationType || '',
         inn: club.inn || '',
@@ -68,9 +71,11 @@ export default function ClubManagement() {
 
   const loadVenueData = async (venueId: string) => {
     try {
+      console.log('Loading venue data for:', venueId)
       const venueDoc = await getDoc(doc(db, 'venues', venueId))
       if (venueDoc.exists()) {
         const venueData = venueDoc.data()
+        console.log('Venue data loaded:', venueData)
         setSelectedVenue({ id: venueDoc.id, ...venueData })
         setFormData({
           name: venueData.name || '',
@@ -81,11 +86,11 @@ export default function ClubManagement() {
           longitude: venueData.location?._long?.toString() || venueData.location?.longitude?.toString() || '',
           description: venueData.description || '',
           amenities: {
-            showers: venueData.amenities?.includes('showers') || false,
-            parking: venueData.amenities?.includes('parking') || false,
-            cafe: venueData.amenities?.includes('cafe') || false,
-            proshop: venueData.amenities?.includes('proshop') || false,
-            lockers: venueData.amenities?.includes('lockers') || false,
+            showers: Array.isArray(venueData.amenities) && venueData.amenities.includes('showers') || false,
+            parking: Array.isArray(venueData.amenities) && venueData.amenities.includes('parking') || false,
+            cafe: Array.isArray(venueData.amenities) && venueData.amenities.includes('cafe') || false,
+            proshop: Array.isArray(venueData.amenities) && venueData.amenities.includes('proshop') || false,
+            lockers: Array.isArray(venueData.amenities) && venueData.amenities.includes('lockers') || false,
           },
           organizationType: venueData.organizationType || '',
           inn: venueData.inn || '',
@@ -117,19 +122,26 @@ export default function ClubManagement() {
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !admin?.venueId) return
+    if (!file) return
+    
+    const venueId = isSuperAdmin ? selectedVenueId : admin?.venueId
+    if (!venueId) {
+      setError('Не выбран клуб')
+      return
+    }
 
     try {
       setLoading(true)
-      const storageRef = ref(storage, `clubs/${admin.venueId}/logo.${file.name.split('.').pop()}`)
+      const storageRef = ref(storage, `clubs/${venueId}/logo.${file.name.split('.').pop()}`)
       const snapshot = await uploadBytes(storageRef, file)
       const logoUrl = await getDownloadURL(snapshot.ref)
       
-      await updateDoc(doc(db, 'venues', admin.venueId), { logoUrl })
+      await updateDoc(doc(db, 'venues', venueId), { logoUrl })
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
     } catch (error) {
       console.error('Error uploading logo:', error)
+      setError('Ошибка при загрузке логотипа')
     } finally {
       setLoading(false)
     }
@@ -175,6 +187,7 @@ export default function ClubManagement() {
       setTimeout(() => setSuccess(false), 3000)
     } catch (error) {
       console.error('Error updating club:', error)
+      setError('Ошибка при сохранении данных')
     } finally {
       setLoading(false)
     }
@@ -230,6 +243,12 @@ export default function ClubManagement() {
           </div>
         
         <form onSubmit={handleSubmit}>
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
+          
           <div className="form-group">
             <label className="form-label">Логотип клуба</label>
             <div className="logo-uploader" style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
@@ -326,7 +345,7 @@ export default function ClubManagement() {
             />
           </div>
 
-          <div className="form-row">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
             <div className="form-group">
               <label className="form-label">Широта (Latitude)</label>
               <input 
@@ -414,7 +433,31 @@ export default function ClubManagement() {
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? 'Сохранение...' : 'Сохранить изменения'}
             </button>
-            <button type="button" className="btn btn-secondary" onClick={() => window.location.reload()}>
+            <button type="button" className="btn btn-secondary" onClick={() => {
+              // Сбрасываем форму к исходным значениям
+              const currentClub = isSuperAdmin ? selectedVenue : club
+              if (currentClub) {
+                setFormData({
+                  name: currentClub.name || '',
+                  phone: currentClub.phone || '',
+                  address: currentClub.address || '',
+                  city: currentClub.city || '',
+                  latitude: currentClub.location?._lat?.toString() || currentClub.location?.latitude?.toString() || '',
+                  longitude: currentClub.location?._long?.toString() || currentClub.location?.longitude?.toString() || '',
+                  description: currentClub.description || '',
+                  amenities: {
+                    showers: Array.isArray(currentClub.amenities) && currentClub.amenities.includes('showers') || false,
+                    parking: Array.isArray(currentClub.amenities) && currentClub.amenities.includes('parking') || false,
+                    cafe: Array.isArray(currentClub.amenities) && currentClub.amenities.includes('cafe') || false,
+                    proshop: Array.isArray(currentClub.amenities) && currentClub.amenities.includes('proshop') || false,
+                    lockers: Array.isArray(currentClub.amenities) && currentClub.amenities.includes('lockers') || false,
+                  },
+                  organizationType: currentClub.organizationType || '',
+                  inn: currentClub.inn || '',
+                  bankAccount: currentClub.bankAccount || '',
+                })
+              }
+            }}>
               Отмена
             </button>
           </div>
@@ -432,49 +475,55 @@ export default function ClubManagement() {
             </div>
           )}
         </form>
-      </div>
-      
-      <div className="section-card">
+        </div>
+        
+        <div className="section-card">
         <h2 className="section-title">Настройки платежей</h2>
         
-        <div className="form-group" style={{ marginTop: '24px' }}>
-          <label className="form-label">Тип организации</label>
-          <select 
-            className="form-select"
-            name="organizationType"
-            value={formData.organizationType}
-            onChange={handleInputChange}
-          >
-            <option value="">Выберите тип</option>
-            <option value="ooo">ООО</option>
-            <option value="ip">ИП</option>
-            <option value="self">Самозанятый</option>
-          </select>
-        </div>
-        
-        <div className="form-group">
-          <label className="form-label">ИНН</label>
-          <input 
-            type="text" 
-            className="form-input" 
-            name="inn"
-            value={formData.inn}
-            onChange={handleInputChange}
-            placeholder="Введите ИНН"
-          />
-        </div>
-        
-        <div className="form-group">
-          <label className="form-label">Расчетный счет</label>
-          <input 
-            type="text" 
-            className="form-input" 
-            name="bankAccount"
-            value={formData.bankAccount}
-            onChange={handleInputChange}
-            placeholder="40702810900000123456"
-          />
-        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group" style={{ marginTop: '24px' }}>
+            <label className="form-label">Тип организации</label>
+            <select 
+              className="form-select"
+              name="organizationType"
+              value={formData.organizationType}
+              onChange={handleInputChange}
+            >
+              <option value="">Выберите тип</option>
+              <option value="ИП">ИП</option>
+              <option value="ООО">ООО</option>
+              <option value="Самозанятый">Самозанятый</option>
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">ИНН</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              name="inn"
+              value={formData.inn}
+              onChange={handleInputChange}
+              placeholder="Введите ИНН"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Расчетный счет</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              name="bankAccount"
+              value={formData.bankAccount}
+              onChange={handleInputChange}
+              placeholder="40702810900000123456"
+            />
+          </div>
+          
+          <button type="submit" className="btn btn-primary" disabled={loading}>
+            {loading ? 'Сохранение...' : 'Сохранить платежные данные'}
+          </button>
+        </form>
         
         <div style={{ 
           marginTop: '24px',
@@ -489,7 +538,7 @@ export default function ClubManagement() {
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => window.location.href = '/admin/payment-settings'}
+            onClick={() => navigate('/admin/payment-settings')}
             style={{ width: 'auto' }}
           >
             Перейти к настройкам эквайринга

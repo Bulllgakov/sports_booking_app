@@ -5,7 +5,7 @@ import { getStorage } from 'firebase/storage'
 
 const firebaseConfig = {
   apiKey: "AIzaSyAnp3SY9XEyF-le5q_Tcv-7Le2qqvtz0ZM",
-  authDomain: "sports-booking-app-1d7e5.firebaseapp.com",
+  authDomain: "allcourt.ru",
   projectId: "sports-booking-app-1d7e5",
   storageBucket: "sports-booking-app-1d7e5.firebasestorage.app",
   messagingSenderId: "648540980109",

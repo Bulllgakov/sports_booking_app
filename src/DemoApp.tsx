@@ -8,7 +8,7 @@ import { ru } from 'date-fns/locale'
 import { DemoAuthProvider } from './contexts/DemoAuthContext'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
-import BookingCalendar from './pages/BookingCalendar'
+import DemoBookingCalendar from './pages/DemoBookingCalendar'
 import Courts from './pages/Courts'
 import Customers from './pages/Customers'
 import Analytics from './pages/Analytics'
@@ -123,7 +123,7 @@ const DemoApp: React.FC = () => {
               <Route path="/" element={<Layout />}>
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
-                <Route path="calendar" element={<BookingCalendar />} />
+                <Route path="calendar" element={<DemoBookingCalendar />} />
                 <Route path="courts" element={<Courts />} />
                 <Route path="customers" element={<Customers />} />
                 <Route path="analytics" element={<Analytics />} />

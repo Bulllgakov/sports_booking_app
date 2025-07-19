@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import {
   CalendarMonth,
   AttachMoney,
@@ -5,8 +6,15 @@ import {
   TrendingUp,
   ArrowUpward,
   ArrowDownward,
+  QrCode2,
+  ContentCopy,
+  Check,
+  Share,
 } from '@mui/icons-material'
 import { useAuth } from '../../contexts/AuthContext'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '../../services/firebase'
+import { QRCodeSVG } from 'qrcode.react'
 import '../../styles/admin.css'
 
 // Статистическая карточка
@@ -24,36 +32,151 @@ const StatCard = ({ title, value, icon, change, isPositive }: any) => (
   </div>
 )
 
-// Компонент приветственного баннера
-const WelcomeBanner = () => (
-  <div 
-    className="section-card" 
-    style={{ 
-      background: 'linear-gradient(135deg, var(--primary), var(--primary-light))', 
-      color: 'white',
-      marginBottom: '32px'
-    }}
-  >
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <div>
-        <h3 style={{ fontSize: '18px', marginBottom: '4px' }}>🎉 Платформа полностью БЕСПЛАТНА!</h3>
-        <p style={{ opacity: 0.9, fontSize: '14px' }}>
-          Никакой абонентской платы. Комиссия всего 4.5% с бронирований через приложение.
-        </p>
-      </div>
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-        <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
-      </svg>
-    </div>
-  </div>
-)
 
 export default function Dashboard() {
-  const { } = useAuth()
+  const { currentUser } = useAuth()
+  const [venueId, setVenueId] = useState<string | null>(null)
+  const [showQRModal, setShowQRModal] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    const loadVenueId = async () => {
+      // Для суперадмина берем из localStorage
+      const selectedVenueId = localStorage.getItem('selectedVenueId')
+      if (selectedVenueId) {
+        setVenueId(selectedVenueId)
+        return
+      }
+
+      // Для обычного админа получаем из профиля
+      if (currentUser) {
+        const adminDoc = await getDoc(doc(db, 'admins', currentUser.uid))
+        if (adminDoc.exists()) {
+          const adminData = adminDoc.data()
+          if (adminData.venueId) {
+            setVenueId(adminData.venueId)
+          }
+        }
+      }
+    }
+
+    loadVenueId()
+  }, [currentUser])
+
+  const getBookingUrl = () => {
+    if (!venueId) return ''
+    return `https://allcourt.ru/club/${venueId}`
+  }
+
+  const handleCopyLink = () => {
+    const url = getBookingUrl()
+    if (url) {
+      navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const handleShare = async () => {
+    const url = getBookingUrl()
+    if (!url) return
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Забронировать корт',
+          text: 'Забронируйте корт в нашем клубе',
+          url: url,
+        })
+      } catch (err) {
+        console.log('Share failed:', err)
+      }
+    } else {
+      handleCopyLink()
+    }
+  }
 
   return (
     <div>
-      <WelcomeBanner />
+      {/* Блок с QR кодом и ссылкой для бронирования */}
+      {venueId && (
+        <div className="section-card" style={{ marginBottom: '24px' }}>
+          <div className="section-header">
+            <h2 className="section-title">Ссылка для бронирования</h2>
+          </div>
+          <div style={{ display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div 
+              onClick={() => setShowQRModal(true)}
+              style={{ 
+                cursor: 'pointer',
+                padding: '8px',
+                border: '1px solid var(--extra-light-gray)',
+                borderRadius: '8px',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
+              onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
+            >
+              <QRCodeSVG 
+                value={getBookingUrl()} 
+                size={120}
+                level="M"
+                includeMargin={true}
+              />
+              <div style={{ textAlign: 'center', marginTop: '8px' }}>
+                <button className="btn btn-secondary btn-icon">
+                  <QrCode2 fontSize="small" />
+                  <span>Увеличить</span>
+                </button>
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: '250px' }}>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '14px', color: 'var(--gray)', display: 'block', marginBottom: '4px' }}>
+                  Отправьте эту ссылку клиентам:
+                </label>
+                <div style={{ 
+                  display: 'flex', 
+                  gap: '8px',
+                  padding: '12px',
+                  background: 'var(--background)',
+                  borderRadius: '8px',
+                  alignItems: 'center'
+                }}>
+                  <input 
+                    type="text" 
+                    value={getBookingUrl()} 
+                    readOnly
+                    style={{
+                      flex: 1,
+                      border: 'none',
+                      background: 'transparent',
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                  />
+                  <button 
+                    className="btn btn-primary btn-icon"
+                    onClick={handleCopyLink}
+                  >
+                    {copied ? <Check fontSize="small" /> : <ContentCopy fontSize="small" />}
+                    <span>{copied ? 'Скопировано' : 'Копировать'}</span>
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  className="btn btn-secondary"
+                  onClick={handleShare}
+                >
+                  <Share fontSize="small" />
+                  <span>Поделиться</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Статистика */}
       <div className="stats-grid">
@@ -130,6 +253,91 @@ export default function Dashboard() {
           </table>
         </div>
       </div>
+
+      {/* Модальное окно с QR кодом */}
+      {showQRModal && (
+        <div 
+          className="modal active" 
+          onClick={() => setShowQRModal(false)}
+          style={{ 
+            display: 'flex',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.5)',
+            zIndex: 1000,
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <div 
+            className="modal-content" 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'white',
+              borderRadius: '12px',
+              padding: '24px',
+              maxWidth: '400px',
+              width: '90%',
+              textAlign: 'center'
+            }}
+          >
+            <div className="modal-header" style={{ marginBottom: '24px' }}>
+              <h2 className="modal-title">QR код для бронирования</h2>
+              <button 
+                className="modal-close" 
+                onClick={() => setShowQRModal(false)}
+                style={{
+                  position: 'absolute',
+                  right: '24px',
+                  top: '24px',
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <QRCodeSVG 
+                value={getBookingUrl()} 
+                size={256}
+                level="H"
+                includeMargin={true}
+              />
+              <p style={{ marginTop: '16px', color: 'var(--gray)', fontSize: '14px' }}>
+                Клиенты могут отсканировать этот QR код,<br />
+                чтобы забронировать корт
+              </p>
+              <div style={{ marginTop: '24px' }}>
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => {
+                    const canvas = document.querySelector('svg');
+                    if (canvas) {
+                      const svgData = new XMLSerializer().serializeToString(canvas);
+                      const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+                      const svgUrl = URL.createObjectURL(svgBlob);
+                      const downloadLink = document.createElement('a');
+                      downloadLink.href = svgUrl;
+                      downloadLink.download = `qr-code-booking-${venueId}.svg`;
+                      document.body.appendChild(downloadLink);
+                      downloadLink.click();
+                      document.body.removeChild(downloadLink);
+                    }
+                  }}
+                >
+                  Скачать QR код
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
