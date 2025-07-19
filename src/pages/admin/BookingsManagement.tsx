@@ -286,7 +286,19 @@ export default function BookingsManagement() {
     })
   }
 
-  const timeSlots = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00']
+  // Динамически создаем слоты времени на основе режима работы клуба
+  const generateTimeSlots = () => {
+    const slots = []
+    const startHour = 7 // По умолчанию с 7:00
+    const endHour = 23  // По умолчанию до 23:00
+    
+    for (let hour = startHour; hour < endHour; hour++) {
+      slots.push(`${hour.toString().padStart(2, '0')}:00`)
+    }
+    return slots
+  }
+  
+  const timeSlots = generateTimeSlots()
   const weekDates = getWeekDates()
   const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
   const monthNames = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']

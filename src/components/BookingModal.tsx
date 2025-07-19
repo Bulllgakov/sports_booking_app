@@ -20,7 +20,7 @@ interface BookingModalProps {
     id: string
     name: string
     workingHours?: {
-      [key: string]: { open: string; close: string }
+      [key: string]: string | { open: string; close: string }
     }
   }
 }
@@ -76,26 +76,29 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
       )
 
       // Generate time slots based on working hours
-      const dayOfWeek = format(selectedDate, 'EEEE', { locale: ru }).toLowerCase()
-      console.log('Day of week:', dayOfWeek, 'Working hours:', venue.workingHours)
-      const workingHours = venue.workingHours?.[dayOfWeek] || venue.workingHours?.['weekday'] || { open: '07:00', close: '23:00' }
+      const dayOfWeek = selectedDate.getDay() // 0 = Sunday, 1 = Monday, etc.
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+      console.log('Day of week:', dayOfWeek, 'Is weekend:', isWeekend, 'Working hours:', venue.workingHours)
+      
+      // Получаем режим работы для буднего дня или выходного
+      const workingHoursStr = venue.workingHours?.[isWeekend ? 'weekend' : 'weekday'] || 
+                             (isWeekend ? '08:00-22:00' : '07:00-23:00')
       
       const slots: TimeSlot[] = []
       
-      // Проверяем формат workingHours
+      // Парсим время работы из строки формата "07:00-23:00"
       let openTime = '07:00'
       let closeTime = '23:00'
       
-      if (typeof workingHours === 'string') {
-        // Формат "07:00-23:00"
-        const [open, close] = workingHours.split('-')
-        openTime = open || '07:00'
-        closeTime = close || '23:00'
-      } else if (workingHours && typeof workingHours === 'object') {
-        // Формат { open: '07:00', close: '23:00' }
-        openTime = workingHours.open || '07:00'
-        closeTime = workingHours.close || '23:00'
+      if (workingHoursStr && workingHoursStr.includes('-')) {
+        const [open, close] = workingHoursStr.split('-').map(t => t.trim())
+        if (open && close) {
+          openTime = open
+          closeTime = close
+        }
       }
+      
+      console.log('Working hours parsed:', { openTime, closeTime })
       
       const [openHour, openMinute] = openTime.split(':').map(Number)
       const [closeHour, closeMinute] = closeTime.split(':').map(Number)

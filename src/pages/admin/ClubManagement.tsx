@@ -35,6 +35,10 @@ export default function ClubManagement() {
     organizationType: '',
     inn: '',
     bankAccount: '',
+    workingHours: {
+      weekday: '07:00-23:00',
+      weekend: '08:00-22:00'
+    }
   })
 
   useEffect(() => {
@@ -65,6 +69,10 @@ export default function ClubManagement() {
         organizationType: club.organizationType || '',
         inn: club.inn || '',
         bankAccount: club.bankAccount || '',
+        workingHours: club.workingHours || {
+          weekday: '07:00-23:00',
+          weekend: '08:00-22:00'
+        }
       })
     }
   }, [club, isSuperAdmin])
@@ -95,6 +103,10 @@ export default function ClubManagement() {
           organizationType: venueData.organizationType || '',
           inn: venueData.inn || '',
           bankAccount: venueData.bankAccount || '',
+          workingHours: venueData.workingHours || {
+            weekday: '07:00-23:00',
+            weekend: '08:00-22:00'
+          }
         })
       }
     } catch (error) {
@@ -170,6 +182,7 @@ export default function ClubManagement() {
         organizationType: formData.organizationType,
         inn: formData.inn,
         bankAccount: formData.bankAccount,
+        workingHours: formData.workingHours,
         updatedAt: new Date(),
       }
 
@@ -428,6 +441,48 @@ export default function ClubManagement() {
               </label>
             </div>
           </div>
+
+          <div style={{ marginTop: '32px' }}>
+            <h3 className="section-subtitle">Режим работы</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '16px' }}>
+              <div className="form-group">
+                <label className="form-label">Будние дни (пн-пт)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  name="workingHours.weekday"
+                  value={formData.workingHours.weekday}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    workingHours: {
+                      ...prev.workingHours,
+                      weekday: e.target.value
+                    }
+                  }))}
+                  placeholder="07:00-23:00"
+                />
+                <span className="form-hint">Формат: ЧЧ:ММ-ЧЧ:ММ</span>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Выходные дни (сб-вс)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  name="workingHours.weekend"
+                  value={formData.workingHours.weekend}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    workingHours: {
+                      ...prev.workingHours,
+                      weekend: e.target.value
+                    }
+                  }))}
+                  placeholder="08:00-22:00"
+                />
+                <span className="form-hint">Формат: ЧЧ:ММ-ЧЧ:ММ</span>
+              </div>
+            </div>
+          </div>
           
           <div style={{ display: 'flex', gap: '12px' }}>
             <button type="submit" className="btn btn-primary" disabled={loading}>
@@ -455,6 +510,10 @@ export default function ClubManagement() {
                   organizationType: currentClub.organizationType || '',
                   inn: currentClub.inn || '',
                   bankAccount: currentClub.bankAccount || '',
+                  workingHours: currentClub.workingHours || {
+                    weekday: '07:00-23:00',
+                    weekend: '08:00-22:00'
+                  }
                 })
               }
             }}>
