@@ -4,6 +4,29 @@ import 'court_model.dart';
 enum SportType { tennis, padel, badminton }
 enum AmenityType { showers, parking, cafe, proshop, lockers }
 
+// Helper function to parse workingHours safely
+Map<String, String> _parseWorkingHours(dynamic data) {
+  if (data == null) {
+    return {
+      'weekday': '07:00-23:00',
+      'weekend': '08:00-22:00'
+    };
+  }
+  
+  if (data is Map) {
+    final Map<String, String> result = {};
+    data.forEach((key, value) {
+      result[key.toString()] = value.toString();
+    });
+    return result;
+  }
+  
+  return {
+    'weekday': '07:00-23:00',
+    'weekend': '08:00-22:00'
+  };
+}
+
 class VenueModel {
   final String id;
   final String name;
@@ -54,29 +77,26 @@ class VenueModel {
 
   factory VenueModel.fromMap(Map<String, dynamic> data) {
     return VenueModel(
-      id: data['id'] ?? '',
-      name: data['name'] ?? '',
-      address: data['address'] ?? '',
-      phone: data['phone'],
-      city: data['city'] ?? 'Москва',
+      id: data['id']?.toString() ?? '',
+      name: data['name']?.toString() ?? '',
+      address: data['address']?.toString() ?? '',
+      phone: data['phone']?.toString(),
+      city: data['city']?.toString() ?? 'Москва',
       location: data['location'] is GeoPoint ? data['location'] : 
                (data['location'] is Map && data['location']['latitude'] != null && data['location']['longitude'] != null
                 ? GeoPoint(data['location']['latitude'], data['location']['longitude'])
                 : null),
       photos: List<String>.from(data['photos'] ?? []),
-      logoUrl: data['logoUrl'],
+      logoUrl: data['logoUrl']?.toString(),
       rating: (data['rating'] ?? 4.5).toDouble(),
       amenities: List<String>.from(data['amenities'] ?? []),
-      workingHours: Map<String, String>.from(data['workingHours'] ?? {
-        'weekday': '07:00-23:00',
-        'weekend': '08:00-22:00'
-      }),
-      description: data['description'] ?? '',
-      organizationType: data['organizationType'],
-      inn: data['inn'],
-      bankAccount: data['bankAccount'],
+      workingHours: _parseWorkingHours(data['workingHours']),
+      description: data['description']?.toString() ?? '',
+      organizationType: data['organizationType']?.toString(),
+      inn: data['inn']?.toString(),
+      bankAccount: data['bankAccount']?.toString(),
       paymentEnabled: data['paymentEnabled'] ?? false,
-      status: data['status'] ?? 'active',
+      status: data['status']?.toString() ?? 'active',
       createdAt: data['createdAt']?.toDate(),
       updatedAt: data['updatedAt']?.toDate(),
     );
