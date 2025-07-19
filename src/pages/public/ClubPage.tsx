@@ -115,6 +115,7 @@ export default function ClubPage() {
         return
       }
 
+      console.log('Loaded venue data:', venueData)
       setVenue(venueData)
 
       // Загружаем корты из подколлекции venues/{venueId}/courts
@@ -144,6 +145,7 @@ export default function ClubPage() {
   const handleContinue = () => {
     if (selectedCourt) {
       if (window.innerWidth > 768) {
+        console.log('Opening booking modal, venue:', venue, 'court:', selectedCourt)
         setShowBookingModal(true)
       } else {
         navigate(`/club/${clubId}/court/${selectedCourt.id}/date`)
@@ -313,14 +315,18 @@ export default function ClubPage() {
                 <div className="info-section" style={{ marginBottom: 'var(--spacing-lg)' }}>
                   <h3 className="info-section-title">Часы работы</h3>
                   <div style={{ display: 'grid', gap: 'var(--spacing-xs)' }}>
-                    {Object.entries(venue.workingHours).map(([day, hours]) => (
-                      <div key={day} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span className="body">{day}</span>
-                        <span className="body" style={{ color: 'var(--gray)' }}>
-                          {hours.open} - {hours.close}
-                        </span>
-                      </div>
-                    ))}
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span className="body">Будние дни (пн-пт)</span>
+                      <span className="body" style={{ color: 'var(--gray)' }}>
+                        {venue.workingHours.weekday || '07:00-23:00'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span className="body">Выходные (сб-вс)</span>
+                      <span className="body" style={{ color: 'var(--gray)' }}>
+                        {venue.workingHours.weekend || '08:00-22:00'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -472,14 +478,18 @@ export default function ClubPage() {
               <div className="info-section" style={{ marginBottom: 'var(--spacing-lg)' }}>
                 <h3 className="info-section-title">Часы работы</h3>
                 <div style={{ display: 'grid', gap: 'var(--spacing-xs)' }}>
-                  {Object.entries(venue.workingHours).map(([day, hours]) => (
-                    <div key={day} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span className="caption">{day}</span>
-                      <span className="caption" style={{ color: 'var(--gray)' }}>
-                        {hours.open} - {hours.close}
-                      </span>
-                    </div>
-                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span className="caption">Будние дни (пн-пт)</span>
+                    <span className="caption" style={{ color: 'var(--gray)' }}>
+                      {venue.workingHours.weekday || '07:00-23:00'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span className="caption">Выходные (сб-вс)</span>
+                    <span className="caption" style={{ color: 'var(--gray)' }}>
+                      {venue.workingHours.weekend || '08:00-22:00'}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}

@@ -38,6 +38,11 @@ export default function ClubManagement() {
     workingHours: {
       weekday: '07:00-23:00',
       weekend: '08:00-22:00'
+    },
+    bookingDurations: {
+      60: true,
+      90: true,
+      120: true
     }
   })
 
@@ -72,6 +77,11 @@ export default function ClubManagement() {
         workingHours: club.workingHours || {
           weekday: '07:00-23:00',
           weekend: '08:00-22:00'
+        },
+        bookingDurations: club.bookingDurations || {
+          60: true,
+          90: true,
+          120: true
         }
       })
     }
@@ -106,6 +116,11 @@ export default function ClubManagement() {
           workingHours: venueData.workingHours || {
             weekday: '07:00-23:00',
             weekend: '08:00-22:00'
+          },
+          bookingDurations: venueData.bookingDurations || {
+            60: true,
+            90: true,
+            120: true
           }
         })
       }
@@ -183,6 +198,7 @@ export default function ClubManagement() {
         inn: formData.inn,
         bankAccount: formData.bankAccount,
         workingHours: formData.workingHours,
+        bookingDurations: formData.bookingDurations,
         updatedAt: new Date(),
       }
 
@@ -483,6 +499,57 @@ export default function ClubManagement() {
               </div>
             </div>
           </div>
+
+          <div style={{ marginTop: '32px' }}>
+            <h3 className="section-subtitle">Доступные длительности бронирования</h3>
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginTop: '16px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={formData.bookingDurations[60]}
+                  onChange={() => setFormData(prev => ({
+                    ...prev,
+                    bookingDurations: {
+                      ...prev.bookingDurations,
+                      60: !prev.bookingDurations[60]
+                    }
+                  }))}
+                /> 
+                1 час
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={formData.bookingDurations[90]}
+                  onChange={() => setFormData(prev => ({
+                    ...prev,
+                    bookingDurations: {
+                      ...prev.bookingDurations,
+                      90: !prev.bookingDurations[90]
+                    }
+                  }))}
+                /> 
+                1.5 часа
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={formData.bookingDurations[120]}
+                  onChange={() => setFormData(prev => ({
+                    ...prev,
+                    bookingDurations: {
+                      ...prev.bookingDurations,
+                      120: !prev.bookingDurations[120]
+                    }
+                  }))}
+                /> 
+                2 часа
+              </label>
+            </div>
+            <p className="form-hint" style={{ marginTop: '8px' }}>
+              Выберите, какие длительности бронирования будут доступны клиентам
+            </p>
+          </div>
           
           <div style={{ display: 'flex', gap: '12px' }}>
             <button type="submit" className="btn btn-primary" disabled={loading}>
@@ -513,6 +580,11 @@ export default function ClubManagement() {
                   workingHours: currentClub.workingHours || {
                     weekday: '07:00-23:00',
                     weekend: '08:00-22:00'
+                  },
+                  bookingDurations: currentClub.bookingDurations || {
+                    60: true,
+                    90: true,
+                    120: true
                   }
                 })
               }

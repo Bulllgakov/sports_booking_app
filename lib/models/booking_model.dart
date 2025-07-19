@@ -11,6 +11,8 @@ class BookingModel {
   final DateTime date;
   final DateTime startTime;
   final DateTime endTime;
+  final String? time; // Для совместимости со старым форматом
+  final String? startTimeStr; // Строковое представление времени начала
   final GameType gameType;
   final BookingStatus status;
   final double totalPrice;
@@ -27,6 +29,8 @@ class BookingModel {
     required this.date,
     required this.startTime,
     required this.endTime,
+    this.time,
+    this.startTimeStr,
     required this.gameType,
     required this.status,
     required this.totalPrice,
@@ -38,14 +42,45 @@ class BookingModel {
 
   factory BookingModel.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    
+    // Обрабатываем разные форматы времени
+    DateTime startTimeDate;
+    DateTime endTimeDate;
+    
+    if (data['startTime'] is Timestamp) {
+      startTimeDate = (data['startTime'] as Timestamp).toDate();
+    } else if (data['startTime'] is String) {
+      // Парсим строку времени в формате HH:mm
+      final timeParts = (data['startTime'] as String).split(':');
+      final date = (data['date'] as Timestamp).toDate();
+      startTimeDate = DateTime(date.year, date.month, date.day, 
+        int.parse(timeParts[0]), int.parse(timeParts[1]));
+    } else {
+      startTimeDate = DateTime.now();
+    }
+    
+    if (data['endTime'] is Timestamp) {
+      endTimeDate = (data['endTime'] as Timestamp).toDate();
+    } else if (data['endTime'] is String) {
+      // Парсим строку времени в формате HH:mm
+      final timeParts = (data['endTime'] as String).split(':');
+      final date = (data['date'] as Timestamp).toDate();
+      endTimeDate = DateTime(date.year, date.month, date.day, 
+        int.parse(timeParts[0]), int.parse(timeParts[1]));
+    } else {
+      endTimeDate = startTimeDate.add(Duration(hours: 1));
+    }
+    
     return BookingModel(
       id: doc.id,
       userId: data['userId'] ?? '',
       venueId: data['venueId'] ?? '',
       courtId: data['courtId'] ?? '',
       date: (data['date'] as Timestamp).toDate(),
-      startTime: (data['startTime'] as Timestamp).toDate(),
-      endTime: (data['endTime'] as Timestamp).toDate(),
+      startTime: startTimeDate,
+      endTime: endTimeDate,
+      time: data['time'],
+      startTimeStr: data['startTime'] is String ? data['startTime'] : null,
       gameType: GameType.values.firstWhere(
         (e) => e.toString().split('.').last == data['gameType'],
         orElse: () => GameType.single,

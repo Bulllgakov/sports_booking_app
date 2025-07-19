@@ -27,6 +27,34 @@ Map<String, String> _parseWorkingHours(dynamic data) {
   };
 }
 
+// Helper function to parse bookingDurations safely
+Map<int, bool> _parseBookingDurations(dynamic data) {
+  if (data == null) {
+    return {
+      60: true,
+      90: true,
+      120: true
+    };
+  }
+  
+  if (data is Map) {
+    final Map<int, bool> result = {};
+    data.forEach((key, value) {
+      final intKey = int.tryParse(key.toString());
+      if (intKey != null) {
+        result[intKey] = value == true;
+      }
+    });
+    return result.isEmpty ? {60: true, 90: true, 120: true} : result;
+  }
+  
+  return {
+    60: true,
+    90: true,
+    120: true
+  };
+}
+
 class VenueModel {
   final String id;
   final String name;
@@ -39,6 +67,7 @@ class VenueModel {
   final double rating;
   final List<String> amenities;
   final Map<String, String> workingHours;
+  final Map<int, bool> bookingDurations;
   final String description;
   final String? organizationType;
   final String? inn;
@@ -64,6 +93,7 @@ class VenueModel {
     required this.rating,
     required this.amenities,
     required this.workingHours,
+    required this.bookingDurations,
     required this.description,
     this.organizationType,
     this.inn,
@@ -91,6 +121,7 @@ class VenueModel {
       rating: (data['rating'] ?? 4.5).toDouble(),
       amenities: List<String>.from(data['amenities'] ?? []),
       workingHours: _parseWorkingHours(data['workingHours']),
+      bookingDurations: _parseBookingDurations(data['bookingDurations']),
       description: data['description']?.toString() ?? '',
       organizationType: data['organizationType']?.toString(),
       inn: data['inn']?.toString(),
@@ -120,6 +151,7 @@ class VenueModel {
       'rating': rating,
       'amenities': amenities,
       'workingHours': workingHours,
+      'bookingDurations': bookingDurations,
       'description': description,
       'organizationType': organizationType,
       'inn': inn,

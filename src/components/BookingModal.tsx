@@ -22,6 +22,9 @@ interface BookingModalProps {
     workingHours?: {
       [key: string]: string | { open: string; close: string }
     }
+    bookingDurations?: {
+      [key: number]: boolean
+    }
   }
 }
 
@@ -35,6 +38,7 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
   const [step, setStep] = useState<'date' | 'time' | 'gameType' | 'confirm'>('date')
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday())
   const [selectedTime, setSelectedTime] = useState<string>('')
+  const [selectedDuration, setSelectedDuration] = useState<number>(60)
   const [selectedGameType, setSelectedGameType] = useState<'single' | 'double'>('single')
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
   const [loading, setLoading] = useState(false)
@@ -42,17 +46,41 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
   const [customerPhone, setCustomerPhone] = useState('')
 
   useEffect(() => {
+    // При открытии модального окна устанавливаем первую доступную длительность
+    if (isOpen) {
+      console.log('Modal opened, venue:', venue, 'bookingDurations:', venue.bookingDurations)
+      
+      // Используем длительности из настроек клуба или все по умолчанию
+      const bookingDurations = venue.bookingDurations || { 60: true, 90: true, 120: true }
+      const availableDurations = [60, 90, 120].filter(d => bookingDurations[d] !== false)
+      console.log('Available durations:', availableDurations)
+      
+      if (availableDurations.length > 0 && !availableDurations.includes(selectedDuration)) {
+        setSelectedDuration(availableDurations[0])
+      }
+      
+      // Сбрасываем состояние при открытии
+      setStep('date')
+      setSelectedTime('')
+      setTimeSlots([])
+    }
+  }, [isOpen])
+
+  useEffect(() => {
     if (step === 'time' && selectedDate && court && venue) {
       loadTimeSlots()
     }
-  }, [step, selectedDate, court.id, venue.id])
+  }, [step, selectedDate, selectedDuration, court.id, venue.id])
 
-  const loadTimeSlots = async () => {
+  const loadTimeSlots = async (durationOverride?: number) => {
+    const currentDuration = durationOverride || selectedDuration
     console.log('Loading time slots for:', {
       date: selectedDate,
       courtId: court.id,
       courtName: court.name,
-      venue: venue.name
+      venue: venue.name,
+      duration: currentDuration,
+      workingHours: venue.workingHours
     })
     setLoading(true)
     try {
@@ -106,29 +134,57 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
       const currentDate = new Date()
       const isToday = format(selectedDate, 'yyyy-MM-dd') === format(currentDate, 'yyyy-MM-dd')
 
-      for (let hour = openHour; hour < closeHour; hour++) {
-        const timeString = `${hour.toString().padStart(2, '0')}:00`
-        const slotTime = setMinutes(setHours(new Date(selectedDate), hour), 0)
+      // Генерируем слоты с интервалом равным выбранной длительности
+      let currentTime = openHour * 60 + openMinute // в минутах
+      const endTimeMinutes = closeHour * 60 + closeMinute
+      
+      while (currentTime < endTimeMinutes) {
+        const hour = Math.floor(currentTime / 60)
+        const minute = currentTime % 60
+        const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+        const slotTime = setMinutes(setHours(new Date(selectedDate), hour), minute)
         
         // Skip past times for today
         if (isToday && isBefore(slotTime, currentDate)) {
+          currentTime += currentDuration
           continue
         }
+        
+        // Проверяем, что слот + длительность не выходит за время закрытия
+        if (currentTime + currentDuration > endTimeMinutes) {
+          break
+        }
 
-        // Определяем цену в зависимости от дня недели
+        // Проверяем доступность всех часовых слотов в течение длительности бронирования
+        let isAvailable = true
+        
+        for (let checkMinutes = currentTime; checkMinutes < currentTime + currentDuration; checkMinutes += 60) {
+          const checkHour = Math.floor(checkMinutes / 60)
+          const checkTime = `${checkHour.toString().padStart(2, '0')}:00`
+          if (bookedTimes.has(checkTime)) {
+            isAvailable = false
+            break
+          }
+        }
+
+        // Определяем цену в зависимости от дня недели и длительности
         const dayIndex = selectedDate.getDay()
-        const isWeekend = dayIndex === 0 || dayIndex === 6
-        const price = court.pricePerHour || (isWeekend ? court.priceWeekend : court.priceWeekday) || 0
+        const isWeekendDay = dayIndex === 0 || dayIndex === 6
+        const hourlyPrice = court.pricePerHour || (isWeekendDay ? court.priceWeekend : court.priceWeekday) || 0
+        const totalPrice = Math.round(hourlyPrice * currentDuration / 60)
 
         slots.push({
           time: timeString,
-          available: !bookedTimes.has(timeString),
-          price: price
+          available: isAvailable,
+          price: totalPrice
         })
+        
+        // Переходим к следующему слоту с интервалом равным длительности
+        currentTime += currentDuration
       }
 
       setTimeSlots(slots)
-      console.log('Loaded time slots:', slots.length)
+      console.log('Loaded time slots:', slots.length, slots)
     } catch (error) {
       console.error('Error loading time slots:', error)
       setTimeSlots([]) // Обнуляем слоты при ошибке
@@ -160,17 +216,26 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
 
     setLoading(true)
     try {
+      // Рассчитываем время окончания
+      const [hours, minutes] = selectedTime.split(':').map(Number)
+      const startTime = new Date(selectedDate)
+      startTime.setHours(hours, minutes, 0, 0)
+      const endTime = new Date(startTime.getTime() + selectedDuration * 60 * 1000)
+      
       const bookingData = {
         courtId: court.id,
         courtName: court.name,
         venueId: venue.id,
         venueName: venue.name,
         date: Timestamp.fromDate(selectedDate),
-        time: selectedTime,
+        time: selectedTime, // Для обратной совместимости
+        startTime: selectedTime,
+        endTime: `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`,
+        duration: selectedDuration,
         gameType: selectedGameType,
         customerName,
         customerPhone,
-        price: court.pricePerHour,
+        price: Math.round((court.pricePerHour || court.priceWeekday || 0) * selectedDuration / 60),
         status: 'pending',
         createdAt: Timestamp.now()
       }
@@ -227,6 +292,8 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
             )
           })}
         </div>
+        
+        
         <div style={{ marginTop: 'var(--spacing-xl)', textAlign: 'right' }}>
           <button
             className="flutter-button"
@@ -245,6 +312,55 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
       <h3 className="h3" style={{ marginBottom: 'var(--spacing-lg)' }}>
         Выберите время на {format(selectedDate, 'd MMMM', { locale: ru })}
       </h3>
+      
+      <div style={{ marginBottom: 'var(--spacing-xl)' }}>
+        <h4 className="body-bold" style={{ marginBottom: 'var(--spacing-md)' }}>
+          Длительность бронирования
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--spacing-sm)' }}>
+          {[60, 90, 120].map((duration) => {
+            const bookingDurations = venue.bookingDurations || { 60: true, 90: true, 120: true }
+            const isAvailable = bookingDurations[duration] !== false
+            return (
+              <button
+                key={duration}
+                onClick={() => {
+                  if (isAvailable && duration !== selectedDuration) {
+                    setSelectedDuration(duration)
+                    // Перезагружаем слоты при изменении длительности
+                    loadTimeSlots(duration)
+                  }
+                }}
+                disabled={!isAvailable}
+                style={{
+                  padding: 'var(--spacing-md)',
+                  border: `2px solid ${selectedDuration === duration ? 'var(--primary)' : 'var(--extra-light-gray)'}`,
+                  borderRadius: 'var(--radius-md)',
+                  background: selectedDuration === duration ? 'var(--primary-light)' : isAvailable ? 'var(--white)' : 'var(--extra-light-gray)',
+                  cursor: isAvailable ? 'pointer' : 'not-allowed',
+                  transition: 'all 0.2s',
+                  opacity: isAvailable ? 1 : 0.5
+                }}
+              >
+                <div className="body-bold">
+                  {duration === 60 ? '1 час' : duration === 90 ? '1.5 часа' : '2 часа'}
+                </div>
+                {isAvailable && (
+                  <div className="caption">
+                    {(() => {
+                      const dayIndex = selectedDate.getDay()
+                      const isWeekend = dayIndex === 0 || dayIndex === 6
+                      const hourlyPrice = court.pricePerHour || (isWeekend ? court.priceWeekend : court.priceWeekday) || 0
+                      return Math.round(hourlyPrice * duration / 60)
+                    })()}₽
+                  </div>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      
       {loading ? (
         <div style={{ textAlign: 'center', padding: 'var(--spacing-3xl)' }}>
           <div className="spinner"></div>
@@ -254,7 +370,7 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
           display: 'grid', 
           gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
           gap: 'var(--spacing-sm)',
-          maxHeight: '400px',
+          maxHeight: '300px',
           overflowY: 'auto'
         }}>
           {timeSlots.map((slot) => (
@@ -366,7 +482,21 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span className="body">Время:</span>
-            <span className="body-bold">{selectedTime}</span>
+            <span className="body-bold">
+              {selectedTime} - {(() => {
+                const [hours, minutes] = selectedTime.split(':').map(Number)
+                const endTime = new Date()
+                endTime.setHours(hours, minutes, 0, 0)
+                endTime.setTime(endTime.getTime() + selectedDuration * 60 * 1000)
+                return `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`
+              })()}
+            </span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span className="body">Длительность:</span>
+            <span className="body-bold">
+              {selectedDuration === 60 ? '1 час' : selectedDuration === 90 ? '1.5 часа' : '2 часа'}
+            </span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span className="body">Тип игры:</span>
@@ -375,7 +505,7 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span className="body">Стоимость:</span>
             <span className="body-bold" style={{ color: 'var(--primary)' }}>
-              {court.pricePerHour || (selectedDate.getDay() === 0 || selectedDate.getDay() === 6 ? court.priceWeekend : court.priceWeekday) || 0}₽
+              {Math.round((court.pricePerHour || (selectedDate.getDay() === 0 || selectedDate.getDay() === 6 ? court.priceWeekend : court.priceWeekday) || 0) * selectedDuration / 60)}₽
             </span>
           </div>
         </div>

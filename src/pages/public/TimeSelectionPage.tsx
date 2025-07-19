@@ -20,6 +20,9 @@ interface Venue {
   workingHours?: {
     [key: string]: { open: string; close: string }
   }
+  bookingDurations?: {
+    [key: number]: boolean
+  }
 }
 
 interface Booking {
@@ -56,6 +59,7 @@ export default function TimeSelectionPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [duration, setDuration] = useState<number>(60)
+  const [availableDurations, setAvailableDurations] = useState<number[]>([60, 90, 120])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
@@ -124,10 +128,21 @@ export default function TimeSelectionPage() {
 
       const venueDoc = await getDoc(doc(db, 'venues', clubId))
       if (venueDoc.exists()) {
-        setVenue({
+        const venueData = {
           id: venueDoc.id,
           ...venueDoc.data()
-        } as Venue)
+        } as Venue
+        setVenue(venueData)
+        
+        // Обновляем доступные длительности
+        if (venueData.bookingDurations) {
+          const durations = [60, 90, 120].filter(d => venueData.bookingDurations![d] !== false)
+          setAvailableDurations(durations)
+          // Если текущая длительность недоступна, выбираем первую доступную
+          if (!durations.includes(duration)) {
+            setDuration(durations[0] || 60)
+          }
+        }
       }
 
       // Load bookings for selected date
@@ -372,29 +387,36 @@ export default function TimeSelectionPage() {
           Длительность игры
         </h3>
         <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-          {[60, 90, 120].map((dur) => (
-            <button
-              key={dur}
-              onClick={() => {
-                setDuration(dur)
-                setSelectedTime(null)
-              }}
-              style={{
-                flex: 1,
-                padding: 'var(--spacing-sm)',
-                backgroundColor: duration === dur ? 'var(--primary)' : 'var(--white)',
-                color: duration === dur ? 'white' : 'var(--dark)',
-                border: `2px solid ${duration === dur ? 'var(--primary)' : 'var(--extra-light-gray)'}`,
-                borderRadius: 'var(--radius-md)',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: 'var(--text-body)',
-                transition: 'all 0.2s'
-              }}
-            >
-              {dur === 60 ? '1 час' : dur === 90 ? '1.5 часа' : '2 часа'}
-            </button>
-          ))}
+          {[60, 90, 120].map((dur) => {
+            const isAvailable = availableDurations.includes(dur)
+            return (
+              <button
+                key={dur}
+                onClick={() => {
+                  if (isAvailable) {
+                    setDuration(dur)
+                    setSelectedTime(null)
+                  }
+                }}
+                disabled={!isAvailable}
+                style={{
+                  flex: 1,
+                  padding: 'var(--spacing-sm)',
+                  backgroundColor: duration === dur ? 'var(--primary)' : isAvailable ? 'var(--white)' : 'var(--extra-light-gray)',
+                  color: duration === dur ? 'white' : isAvailable ? 'var(--dark)' : 'var(--gray)',
+                  border: `2px solid ${duration === dur ? 'var(--primary)' : 'var(--extra-light-gray)'}`,
+                  borderRadius: 'var(--radius-md)',
+                  cursor: isAvailable ? 'pointer' : 'not-allowed',
+                  fontWeight: 600,
+                  fontSize: 'var(--text-body)',
+                  transition: 'all 0.2s',
+                  opacity: isAvailable ? 1 : 0.5
+                }}
+              >
+                {dur === 60 ? '1 час' : dur === 90 ? '1.5 часа' : '2 часа'}
+              </button>
+            )
+          })}
         </div>
       </div>
 

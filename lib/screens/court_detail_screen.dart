@@ -284,7 +284,14 @@ class CourtDetailScreen extends StatelessWidget {
                     ? () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const SimpleTimeSelectionScreen()),
+                          MaterialPageRoute(
+                            builder: (context) => SimpleTimeSelectionScreen(
+                              venueId: provider.selectedVenue?.id ?? '',
+                              courtId: provider.selectedCourt!.id,
+                              venue: provider.selectedVenue,
+                              court: provider.selectedCourt,
+                            ),
+                          ),
                         );
                       }
                     : null,

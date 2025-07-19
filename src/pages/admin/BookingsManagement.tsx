@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { usePermission } from '../../hooks/usePermission'
 import { PermissionGate } from '../../components/PermissionGate'
@@ -6,7 +6,8 @@ import {
   collection, 
   query, 
   where, 
-  getDocs, 
+  getDocs,
+  getDoc, 
   addDoc,
   orderBy,
   Timestamp,
@@ -82,6 +83,8 @@ export default function BookingsManagement() {
         setLoading(false)
       }
     } else if (admin?.venueId) {
+      // Загружаем данные клуба для обычного админа
+      fetchVenueData(admin.venueId)
       fetchCourts(admin.venueId)
       fetchBookings(admin.venueId)
     } else {
@@ -89,12 +92,27 @@ export default function BookingsManagement() {
     }
   }, [admin, selectedDate, isSuperAdmin])
 
+  const fetchVenueData = async (venueId: string) => {
+    try {
+      const venueDoc = await getDoc(doc(db, 'venues', venueId))
+      if (venueDoc.exists()) {
+        const venueData = {
+          id: venueDoc.id,
+          ...venueDoc.data()
+        } as Venue
+        setVenues([venueData]) // Для обычного админа только его клуб
+      }
+    } catch (error) {
+      console.error('Error fetching venue data:', error)
+    }
+  }
+
   const fetchVenues = async () => {
     try {
       const snapshot = await getDocs(collection(db, 'venues'))
       const venuesData = snapshot.docs.map(doc => ({
         id: doc.id,
-        name: doc.data().name
+        ...doc.data()
       })) as Venue[]
       setVenues(venuesData)
     } catch (error) {
@@ -289,8 +307,30 @@ export default function BookingsManagement() {
   // Динамически создаем слоты времени на основе режима работы клуба
   const generateTimeSlots = () => {
     const slots = []
-    const startHour = 7 // По умолчанию с 7:00
-    const endHour = 23  // По умолчанию до 23:00
+    
+    // Получаем текущий клуб
+    const currentVenue = venues.find(v => v.id === (selectedVenueId || admin?.venueId))
+    
+    // Определяем, будний это день или выходной для выбранной даты
+    const isWeekend = formData.date ? 
+      (new Date(formData.date).getDay() === 0 || new Date(formData.date).getDay() === 6) :
+      false
+    
+    // Получаем режим работы
+    const workingHoursStr = currentVenue?.workingHours?.[isWeekend ? 'weekend' : 'weekday'] || 
+                           (isWeekend ? '08:00-22:00' : '07:00-23:00')
+    
+    // Парсим время работы
+    let startHour = 7
+    let endHour = 23
+    
+    if (workingHoursStr && workingHoursStr.includes('-')) {
+      const [openTime, closeTime] = workingHoursStr.split('-').map(t => t.trim())
+      if (openTime && closeTime) {
+        startHour = parseInt(openTime.split(':')[0])
+        endHour = parseInt(closeTime.split(':')[0])
+      }
+    }
     
     for (let hour = startHour; hour < endHour; hour++) {
       slots.push(`${hour.toString().padStart(2, '0')}:00`)
@@ -298,7 +338,7 @@ export default function BookingsManagement() {
     return slots
   }
   
-  const timeSlots = generateTimeSlots()
+  const timeSlots = useMemo(() => generateTimeSlots(), [venues, selectedVenueId, admin?.venueId, formData.date])
   const weekDates = getWeekDates()
   const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
   const monthNames = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']

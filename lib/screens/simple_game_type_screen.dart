@@ -2,12 +2,33 @@ import 'package:flutter/material.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/text_styles.dart';
 import '../core/theme/spacing.dart';
+import '../models/venue_model.dart';
+import '../models/court_model.dart';
 import 'payment_screen.dart';
 import 'create_open_game_screen.dart';
 import 'find_game_screen.dart';
 
 class SimpleGameTypeScreen extends StatefulWidget {
-  const SimpleGameTypeScreen({super.key});
+  final String venueId;
+  final String courtId;
+  final DateTime date;
+  final String time;
+  final int duration;
+  final int price;
+  final VenueModel? venue;
+  final CourtModel? court;
+  
+  const SimpleGameTypeScreen({
+    super.key,
+    required this.venueId,
+    required this.courtId,
+    required this.date,
+    required this.time,
+    required this.duration,
+    required this.price,
+    this.venue,
+    this.court,
+  });
 
   @override
   State<SimpleGameTypeScreen> createState() => _SimpleGameTypeScreenState();
