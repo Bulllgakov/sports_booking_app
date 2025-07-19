@@ -108,20 +108,26 @@ class VenuesProvider extends ChangeNotifier {
 
   // Load courts for venue
   Future<void> loadCourts(String venueId) async {
+    print('Загрузка кортов для клуба: $venueId');
     _setLoading(true);
     _setError(null);
+    _courts = []; // Очищаем предыдущие корты
 
     try {
       // Using stream to get real-time updates
       _venueService.getCourtsByVenueId(venueId).listen((courtsList) {
+        print('Получено кортов из стрима: ${courtsList.length}');
         _courts = courtsList;
+        _setLoading(false);
         notifyListeners();
       }, onError: (error) {
+        print('Ошибка при загрузке кортов: $error');
         _setError('Ошибка загрузки кортов: $error');
+        _setLoading(false);
       });
     } catch (e) {
+      print('Исключение при загрузке кортов: $e');
       _setError('Ошибка загрузки кортов: $e');
-    } finally {
       _setLoading(false);
     }
   }

@@ -85,12 +85,15 @@ class VenueService {
         .collection('venues')
         .doc(venueId)
         .collection('courts')
-        .where('status', isEqualTo: 'active')
+        // Временно убираем фильтр по статусу для отладки
+        // .where('status', isEqualTo: 'active')
         .snapshots()
         .map((snapshot) {
+      print('Получено кортов для клуба $venueId: ${snapshot.docs.length}');
       return snapshot.docs.map((doc) {
         final data = doc.data();
         data['id'] = doc.id;
+        print('Корт: ${data['name']}, статус: ${data['status']}');
         return CourtModel.fromMap(data);
       }).toList();
     });

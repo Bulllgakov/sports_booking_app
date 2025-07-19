@@ -309,6 +309,46 @@ class CourtDetailScreen extends StatelessWidget {
   }
 
   Widget _buildCourtsList(VenuesProvider provider) {
+    if (provider.isLoading) {
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (provider.error != null) {
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        ),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: AppColors.error,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                provider.error!,
+                style: AppTextStyles.body.copyWith(color: AppColors.error),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (provider.courts.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(AppSpacing.xl),
