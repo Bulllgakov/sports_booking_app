@@ -45,6 +45,8 @@ export default function ClubManagement() {
       120: true
     }
   })
+  const [photos, setPhotos] = useState<string[]>([])
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
 
   useEffect(() => {
     // Для суперадмина проверяем выбранный клуб
@@ -84,6 +86,7 @@ export default function ClubManagement() {
           120: true
         }
       })
+      setPhotos(club.photos || [])
     }
   }, [club, isSuperAdmin])
 
@@ -123,6 +126,7 @@ export default function ClubManagement() {
             120: true
           }
         })
+        setPhotos(venueData.photos || [])
       }
     } catch (error) {
       console.error('Error loading venue:', error)
@@ -169,6 +173,91 @@ export default function ClubManagement() {
     } catch (error) {
       console.error('Error uploading logo:', error)
       setError('Ошибка при загрузке логотипа')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    
+    const venueId = isSuperAdmin ? selectedVenueId : admin?.venueId
+    if (!venueId) {
+      setError('Не выбран клуб')
+      return
+    }
+
+    // Check total photos limit
+    if (photos.length + files.length > 5) {
+      setError('Максимальное количество фотографий - 5')
+      return
+    }
+
+    try {
+      setUploadingPhoto(true)
+      const uploadPromises: Promise<string>[] = []
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        
+        // Check file size (5MB limit)
+        if (file.size > 5 * 1024 * 1024) {
+          setError(`Файл ${file.name} превышает максимальный размер 5 МБ`)
+          continue
+        }
+
+        // Check file type
+        if (!file.type.startsWith('image/')) {
+          setError(`Файл ${file.name} не является изображением`)
+          continue
+        }
+
+        const timestamp = Date.now()
+        const fileName = `photo_${timestamp}_${i}.${file.name.split('.').pop()}`
+        const storageRef = ref(storage, `clubs/${venueId}/photos/${fileName}`)
+        
+        uploadPromises.push(
+          uploadBytes(storageRef, file).then(async (snapshot) => {
+            return await getDownloadURL(snapshot.ref)
+          })
+        )
+      }
+
+      const uploadedUrls = await Promise.all(uploadPromises)
+      const newPhotos = [...photos, ...uploadedUrls]
+      
+      setPhotos(newPhotos)
+      await updateDoc(doc(db, 'venues', venueId), { photos: newPhotos })
+      
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
+    } catch (error) {
+      console.error('Error uploading photos:', error)
+      setError('Ошибка при загрузке фотографий')
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  const handlePhotoDelete = async (photoUrl: string, index: number) => {
+    const venueId = isSuperAdmin ? selectedVenueId : admin?.venueId
+    if (!venueId) {
+      setError('Не выбран клуб')
+      return
+    }
+
+    try {
+      setLoading(true)
+      const newPhotos = photos.filter((_, i) => i !== index)
+      setPhotos(newPhotos)
+      await updateDoc(doc(db, 'venues', venueId), { photos: newPhotos })
+      
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
+    } catch (error) {
+      console.error('Error deleting photo:', error)
+      setError('Ошибка при удалении фотографии')
     } finally {
       setLoading(false)
     }
@@ -322,6 +411,118 @@ export default function ClubManagement() {
                 <p className="form-hint">Рекомендуемый размер: 500x500px<br/>Максимум 2MB. PNG, JPG или SVG</p>
               </div>
             </div>
+          </div>
+
+          {/* Photo Gallery */}
+          <div className="form-group">
+            <label className="form-label">Фотографии клуба</label>
+            <div style={{ marginBottom: '16px' }}>
+              <p className="form-hint">Максимум 5 фотографий, до 5 МБ каждая. Рекомендуемый размер: 1920x1080px</p>
+            </div>
+            
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+              gap: '16px',
+              marginBottom: '16px'
+            }}>
+              {photos.map((photo, index) => (
+                <div key={index} style={{
+                  position: 'relative',
+                  paddingBottom: '56.25%', // 16:9 aspect ratio
+                  overflow: 'hidden',
+                  borderRadius: '12px',
+                  background: 'var(--extra-light-gray)'
+                }}>
+                  <img 
+                    src={photo} 
+                    alt={`Фото ${index + 1}`} 
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handlePhotoDelete(photo, index)}
+                    style={{
+                      position: 'absolute',
+                      top: '8px',
+                      right: '8px',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}
+                    disabled={loading}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#dc2626">
+                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                  </button>
+                </div>
+              ))}
+              
+              {photos.length < 5 && (
+                <div 
+                  onClick={() => document.getElementById('photosInput')?.click()}
+                  style={{
+                    position: 'relative',
+                    paddingBottom: '56.25%',
+                    overflow: 'hidden',
+                    borderRadius: '12px',
+                    border: '2px dashed var(--extra-light-gray)',
+                    background: 'var(--background)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--primary)'
+                    e.currentTarget.style.background = 'rgba(0, 214, 50, 0.05)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--extra-light-gray)'
+                    e.currentTarget.style.background = 'var(--background)'
+                  }}
+                >
+                  <div style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    textAlign: 'center',
+                    color: 'var(--gray)'
+                  }}>
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="var(--light-gray)">
+                      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                    </svg>
+                    <p style={{ fontSize: '14px', marginTop: '8px' }}>
+                      {uploadingPhoto ? 'Загрузка...' : 'Добавить фото'}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <input 
+              type="file" 
+              id="photosInput" 
+              accept="image/*" 
+              multiple
+              style={{ display: 'none' }} 
+              onChange={handlePhotoUpload}
+              disabled={uploadingPhoto || photos.length >= 5}
+            />
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>

@@ -44,104 +44,99 @@ class _SimpleGameTypeScreenState extends State<SimpleGameTypeScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.white,
         elevation: 0,
-        leading: Container(
-          margin: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppColors.divider,
-            shape: BoxShape.circle,
-          ),
-          child: IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.dark),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
+        iconTheme: const IconThemeData(color: AppColors.dark),
         title: Text(
           'Выберите формат игры',
           style: AppTextStyles.h3.copyWith(color: AppColors.dark),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(AppSpacing.screenPadding),
-        child: Column(
-          children: [
-            // Private game card
-            _buildGameTypeCard(
-              type: 'private',
-              icon: Icons.lock,
-              iconColor: AppColors.primary,
-              title: 'Приватная игра',
-              subtitle: 'Только для вас и ваших друзей',
-              tags: ['Только для вас', 'Без посторонних'],
-              onTap: () {
-                setState(() {
-                  selectedGameType = 'private';
-                });
-              },
-            ),
-            const SizedBox(height: AppSpacing.cardPadding),
-            
-            // Open game card
-            _buildGameTypeCard(
-              type: 'open',
-              icon: Icons.group,
-              iconColor: AppColors.gray,
-              title: 'Открытая игра',
-              subtitle: 'Найдите партнёров для игры',
-              tags: ['Найти партнёров', 'Разделить оплату'],
-              onTap: () {
-                setState(() {
-                  selectedGameType = 'open';
-                });
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const CreateOpenGameScreen()),
-                );
-              },
-            ),
-            const SizedBox(height: AppSpacing.cardPadding),
-            
-            // Find game card
-            _buildGameTypeCard(
-              type: 'find',
-              icon: Icons.search,
-              iconColor: AppColors.gray,
-              title: 'Найти игру',
-              subtitle: 'Присоединитесь к существующей игре',
-              tags: ['12 открытых игр'],
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const FindGameScreen()),
-                );
-              },
-            ),
-            
-            const Spacer(),
-            
-            // Continue button
-            SizedBox(
-              width: double.infinity,
-              height: AppSpacing.buttonHeight,
-              child: ElevatedButton(
-                onPressed: selectedGameType == 'private' ? () {
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.screenPadding),
+          child: Column(
+            children: [
+              // Private game card
+              _buildGameTypeCard(
+                type: 'private',
+                icon: Icons.lock,
+                iconColor: AppColors.primary,
+                title: 'Приватная игра',
+                subtitle: 'Только для вас и ваших друзей',
+                tags: ['Только для вас', 'Без посторонних'],
+                onTap: () {
+                  setState(() {
+                    selectedGameType = 'private';
+                  });
+                },
+              ),
+              const SizedBox(height: AppSpacing.cardPadding),
+              
+              // Open game card
+              _buildGameTypeCard(
+                type: 'open',
+                icon: Icons.group,
+                iconColor: AppColors.gray,
+                title: 'Открытая игра',
+                subtitle: 'Найдите партнёров для игры',
+                tags: ['Найти партнёров', 'Разделить оплату'],
+                onTap: () {
+                  setState(() {
+                    selectedGameType = 'open';
+                  });
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const PaymentScreen()),
+                    MaterialPageRoute(builder: (context) => const CreateOpenGameScreen()),
                   );
-                } : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                },
+              ),
+              const SizedBox(height: AppSpacing.cardPadding),
+              
+              // Find game card
+              _buildGameTypeCard(
+                type: 'find',
+                icon: Icons.search,
+                iconColor: AppColors.gray,
+                title: 'Найти игру',
+                subtitle: 'Присоединитесь к существующей игре',
+                tags: ['12 открытых игр'],
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const FindGameScreen()),
+                  );
+                },
+              ),
+              
+              const Spacer(),
+              
+              // Continue button
+              SizedBox(
+                width: double.infinity,
+                height: AppSpacing.buttonHeight,
+                child: ElevatedButton(
+                  onPressed: selectedGameType == 'private' ? () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const PaymentScreen()),
+                    );
+                  } : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    disabledBackgroundColor: AppColors.lightGray,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    ),
+                  ),
+                  child: Text(
+                    'Далее к оплате',
+                    style: AppTextStyles.button.copyWith(
+                      color: AppColors.white,
+                    ),
                   ),
                 ),
-                child: Text(
-                  'Далее к оплате',
-                  style: AppTextStyles.button.copyWith(color: AppColors.white),
-                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

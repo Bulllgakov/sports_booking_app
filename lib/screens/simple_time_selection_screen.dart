@@ -526,6 +526,12 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
               height: AppSpacing.buttonHeight,
               child: ElevatedButton(
                 onPressed: selectedTimeSlot != null ? () {
+                  print('Navigating to SimpleGameTypeScreen');
+                  print('VenueId: ${widget.venueId}, CourtId: ${widget.courtId}');
+                  print('Date: ${dates[selectedDateIndex]}, Time: $selectedTimeSlot, Duration: $selectedDuration');
+                  print('Price: ${timeSlots.firstWhere((s) => s['time'] == selectedTimeSlot)['price']}');
+                  print('Venue: ${venue?.name}, Court: ${court?.name}');
+                  
                   Navigator.push(
                     context,
                     MaterialPageRoute(
