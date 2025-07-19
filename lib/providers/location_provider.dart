@@ -93,6 +93,14 @@ class LocationProvider extends ChangeNotifier {
     }
   }
   
+  // Get current location - alias for compatibility
+  Future<Position?> getCurrentLocation() async {
+    if (_currentPosition == null) {
+      await updatePosition();
+    }
+    return _currentPosition;
+  }
+  
   // Calculate distance to venue
   double? calculateDistanceToVenue(double? venueLat, double? venueLon) {
     if (_currentPosition == null || venueLat == null || venueLon == null) {

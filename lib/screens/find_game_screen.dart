@@ -173,7 +173,7 @@ class FindGameScreen extends StatelessWidget {
           vertical: AppSpacing.xs,
         ),
         decoration: BoxDecoration(
-          color: AppColors.gray.withOpacity(0.1),
+          color: AppColors.gray.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(AppSpacing.radiusRound),
         ),
         child: Text(
@@ -191,7 +191,7 @@ class FindGameScreen extends StatelessWidget {
           vertical: AppSpacing.xs,
         ),
         decoration: BoxDecoration(
-          color: AppColors.warning.withOpacity(0.1),
+          color: AppColors.warning.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(AppSpacing.radiusRound),
         ),
         child: Text(
@@ -209,7 +209,7 @@ class FindGameScreen extends StatelessWidget {
           vertical: AppSpacing.xs,
         ),
         decoration: BoxDecoration(
-          color: AppColors.success.withOpacity(0.1),
+          color: AppColors.success.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(AppSpacing.radiusRound),
         ),
         child: Text(

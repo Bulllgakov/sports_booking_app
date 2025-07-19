@@ -1,7 +1,5 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:math' as math;
-import 'package:flutter/services.dart';
-import 'package:flutter/material.dart';
 
 class MapService {
   // Стиль карты для темной темы

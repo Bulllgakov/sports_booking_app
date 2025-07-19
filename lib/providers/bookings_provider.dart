@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/booking_model.dart';
-import '../models/payment_model.dart';
 import '../services/firestore_service.dart';
 
 class BookingsProvider extends ChangeNotifier {
@@ -98,7 +97,7 @@ class BookingsProvider extends ChangeNotifier {
         createdAt: DateTime.now(),
       );
 
-      final bookingId = await FirestoreService.createBooking(booking);
+      await FirestoreService.createBooking(booking);
       
       // Reload bookings
       await loadUserBookings(userId);

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class AppColors {
   // Основные цвета согласно новому дизайну
   static const Color primary = Color(0xFF00D632);        // Основной зеленый (из дизайна)
+  static const Color secondary = Color(0xFF3B82F6);      // Вторичный синий цвет
   static const Color primaryLight = Color(0xFFD1FAE5);   // Светло-зеленый фон
   static const Color primaryDark = Color(0xFF065F46);    // Темно-зеленый текст
   
@@ -12,6 +13,10 @@ class AppColors {
   static const Color extraLightGray = Color(0xFFE5E7EB); // Очень светло-серый
   static const Color background = Color(0xFFF8F9FA);     // Фон
   static const Color white = Color(0xFFFFFFFF);         // Белый
+  
+  // Цвета текста
+  static const Color textPrimary = Color(0xFF1A1F36);   // Основной текст
+  static const Color textSecondary = Color(0xFF6B7280); // Вторичный текст
   
   // Дополнительные цвета из дизайна
   static const Color cardBackground = Color(0xFFFFFFFF); // Фон карточек

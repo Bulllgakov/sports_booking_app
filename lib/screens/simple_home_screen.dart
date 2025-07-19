@@ -6,7 +6,6 @@ import '../core/theme/spacing.dart';
 import '../providers/venues_provider.dart';
 import '../providers/location_provider.dart';
 import '../models/venue_model.dart';
-import '../services/venue_service.dart';
 import 'court_detail_screen.dart';
 
 class SimpleHomeScreen extends StatefulWidget {
@@ -19,8 +18,21 @@ class SimpleHomeScreen extends StatefulWidget {
 class _SimpleHomeScreenState extends State<SimpleHomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   String selectedSport = 'padel';
+  
+  // Convert string to SportType enum
+  SportType? _getSportType(String? sportId) {
+    switch (sportId) {
+      case 'padel':
+        return SportType.padel;
+      case 'tennis':
+        return SportType.tennis;
+      case 'badminton':
+        return SportType.badminton;
+      default:
+        return null;
+    }
+  }
 
-  final VenueService _venueService = VenueService();
   
   @override
   void initState() {
@@ -122,7 +134,7 @@ class _SimpleHomeScreenState extends State<SimpleHomeScreen> {
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 5,
               offset: const Offset(0, 2),
             ),
@@ -169,7 +181,7 @@ class _SimpleHomeScreenState extends State<SimpleHomeScreen> {
                 setState(() {
                   selectedSport = sport['id']!;
                 });
-                context.read<VenuesProvider>().setSportFilter(sport['id']);
+                context.read<VenuesProvider>().setSportFilter(_getSportType(sport['id']));
               },
               selectedColor: AppColors.primary,
               backgroundColor: AppColors.white,
@@ -204,8 +216,8 @@ class _SimpleHomeScreenState extends State<SimpleHomeScreen> {
                   onPressed: () {
                     // Переключаемся на вкладку карты
                     if (context.mounted) {
-                      final scaffold = context.findAncestorStateOfType<_MainScreenState>();
-                      scaffold?._onItemTapped(1); // Индекс 1 - это карта
+                      // Navigate to map screen
+                      Navigator.pushNamed(context, '/map');
                     }
                   },
                   icon: const Icon(Icons.map_outlined, size: 18),
@@ -328,7 +340,7 @@ class _SimpleHomeScreenState extends State<SimpleHomeScreen> {
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),

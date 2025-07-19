@@ -150,7 +150,7 @@ class _SimpleGameTypeScreenState extends State<SimpleGameTypeScreen> {
           ),
           boxShadow: isSelected ? [
             BoxShadow(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),

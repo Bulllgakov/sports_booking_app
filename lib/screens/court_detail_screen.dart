@@ -9,13 +9,22 @@ import '../models/court_model.dart';
 import 'simple_time_selection_screen.dart';
 
 class CourtDetailScreen extends StatelessWidget {
-  const CourtDetailScreen({super.key});
+  final VenueModel? venue;
+  final CourtModel? court;
+  
+  const CourtDetailScreen({
+    super.key,
+    this.venue,
+    this.court,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Consumer<VenuesProvider>(
       builder: (context, provider, _) {
-        final venue = provider.selectedVenue;
+        final venue = this.venue ?? provider.selectedVenue;
+        // ignore: unused_local_variable
+        final court = this.court ?? provider.selectedCourt;
         
         if (venue == null) {
           return Scaffold(
@@ -42,7 +51,7 @@ class CourtDetailScreen extends StatelessWidget {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -262,7 +271,7 @@ class CourtDetailScreen extends StatelessWidget {
               borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 20,
                   offset: const Offset(0, -4),
                 ),

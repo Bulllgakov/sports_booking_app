@@ -278,7 +278,7 @@ class CourtsListScreen extends StatelessWidget {
                           sport,
                           style: const TextStyle(fontSize: 12),
                         ),
-                        backgroundColor: const Color(0xFF00A86B).withOpacity(0.1),
+                        backgroundColor: const Color(0xFF00A86B).withValues(alpha: 0.1),
                         padding: EdgeInsets.zero,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       );
@@ -415,7 +415,7 @@ class CourtDetailScreen extends StatelessWidget {
                     children: sports.map((sport) {
                       return Chip(
                         label: Text(sport),
-                        backgroundColor: const Color(0xFF00A86B).withOpacity(0.1),
+                        backgroundColor: const Color(0xFF00A86B).withValues(alpha: 0.1),
                       );
                     }).toList(),
                   ),
@@ -477,7 +477,7 @@ class CourtDetailScreen extends StatelessWidget {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, -5),
             ),

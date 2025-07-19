@@ -88,7 +88,7 @@ class GameTypeScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(AppSpacing.sm),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               ),
               child: Icon(
@@ -116,7 +116,7 @@ class GameTypeScreen extends StatelessWidget {
                             vertical: AppSpacing.xs,
                           ),
                           decoration: BoxDecoration(
-                            color: color.withOpacity(0.1),
+                            color: color.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(AppSpacing.radiusRound),
                           ),
                           child: Text(

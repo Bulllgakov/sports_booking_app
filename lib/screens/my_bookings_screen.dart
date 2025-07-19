@@ -71,7 +71,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
                           vertical: AppSpacing.xs,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.success.withOpacity(0.1),
+                          color: AppColors.success.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(AppSpacing.radiusRound),
                         ),
                         child: Text(
@@ -183,8 +183,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
                       ),
                       decoration: BoxDecoration(
                         color: isCancelled
-                            ? AppColors.error.withOpacity(0.1)
-                            : AppColors.gray.withOpacity(0.1),
+                            ? AppColors.error.withValues(alpha: 0.1)
+                            : AppColors.gray.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(AppSpacing.radiusRound),
                       ),
                       child: Text(
