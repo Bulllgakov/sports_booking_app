@@ -63,7 +63,8 @@ export default function CourtsManagement() {
 
     try {
       setLoading(true)
-      const q = query(collection(db, 'courts'), where('venueId', '==', venueId))
+      // Загружаем корты из подколлекции venues/{venueId}/courts
+      const q = query(collection(db, 'venues', venueId, 'courts'))
       const snapshot = await getDocs(q)
       const courtsData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -94,15 +95,14 @@ export default function CourtsManagement() {
     try {
       if (editingCourt) {
         // Обновление существующего корта
-        await updateDoc(doc(db, 'courts', editingCourt.id), {
+        await updateDoc(doc(db, 'venues', venueId, 'courts', editingCourt.id), {
           ...formData,
           updatedAt: new Date()
         })
       } else {
         // Создание нового корта
-        await addDoc(collection(db, 'courts'), {
+        await addDoc(collection(db, 'venues', venueId, 'courts'), {
           ...formData,
-          venueId: venueId,
           createdAt: new Date()
         })
       }
@@ -139,9 +139,11 @@ export default function CourtsManagement() {
   const handleDelete = async (courtId: string) => {
     if (window.confirm('Вы уверены, что хотите удалить этот корт?')) {
       try {
-        await deleteDoc(doc(db, 'courts', courtId))
         const venueId = isSuperAdmin ? selectedVenueId : admin?.venueId
-        if (venueId) fetchCourts(venueId)
+        if (!venueId) return
+        
+        await deleteDoc(doc(db, 'venues', venueId, 'courts', courtId))
+        fetchCourts(venueId)
       } catch (error) {
         console.error('Error deleting court:', error)
       }

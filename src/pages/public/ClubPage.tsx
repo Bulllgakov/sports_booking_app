@@ -114,9 +114,9 @@ export default function ClubPage() {
 
       setVenue(venueData)
 
+      // Загружаем корты из подколлекции venues/{venueId}/courts
       const courtsQuery = query(
-        collection(db, 'courts'),
-        where('venueId', '==', clubId),
+        collection(db, 'venues', clubId, 'courts'),
         where('status', '==', 'active')
       )
       const courtsSnapshot = await getDocs(courtsQuery)
