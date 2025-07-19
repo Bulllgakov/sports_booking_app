@@ -46,6 +46,7 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
   }, [step, selectedDate])
 
   const loadTimeSlots = async () => {
+    console.log('Loading time slots for date:', selectedDate)
     setLoading(true)
     try {
       // Get existing bookings for the selected date
@@ -69,11 +70,28 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
 
       // Generate time slots based on working hours
       const dayOfWeek = format(selectedDate, 'EEEE', { locale: ru }).toLowerCase()
-      const workingHours = venue.workingHours?.[dayOfWeek] || { open: '07:00', close: '23:00' }
+      console.log('Day of week:', dayOfWeek, 'Working hours:', venue.workingHours)
+      const workingHours = venue.workingHours?.[dayOfWeek] || venue.workingHours?.['weekday'] || { open: '07:00', close: '23:00' }
       
       const slots: TimeSlot[] = []
-      const [openHour, openMinute] = workingHours.open.split(':').map(Number)
-      const [closeHour, closeMinute] = workingHours.close.split(':').map(Number)
+      
+      // Проверяем формат workingHours
+      let openTime = '07:00'
+      let closeTime = '23:00'
+      
+      if (typeof workingHours === 'string') {
+        // Формат "07:00-23:00"
+        const [open, close] = workingHours.split('-')
+        openTime = open || '07:00'
+        closeTime = close || '23:00'
+      } else if (workingHours && typeof workingHours === 'object') {
+        // Формат { open: '07:00', close: '23:00' }
+        openTime = workingHours.open || '07:00'
+        closeTime = workingHours.close || '23:00'
+      }
+      
+      const [openHour, openMinute] = openTime.split(':').map(Number)
+      const [closeHour, closeMinute] = closeTime.split(':').map(Number)
       
       const currentDate = new Date()
       const isToday = format(selectedDate, 'yyyy-MM-dd') === format(currentDate, 'yyyy-MM-dd')
@@ -95,8 +113,10 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
       }
 
       setTimeSlots(slots)
+      console.log('Loaded time slots:', slots.length)
     } catch (error) {
       console.error('Error loading time slots:', error)
+      setTimeSlots([]) // Обнуляем слоты при ошибке
     } finally {
       setLoading(false)
     }
