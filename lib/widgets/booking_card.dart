@@ -50,7 +50,7 @@ class BookingCard extends StatelessWidget {
                       vertical: AppSpacing.xs,
                     ),
                     decoration: BoxDecoration(
-                      color: (statusColor ?? AppColors.success).withValues(alpha: 0.1),
+                      color: (statusColor ?? AppColors.success).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(AppSpacing.radiusRound),
                     ),
                     child: Text(

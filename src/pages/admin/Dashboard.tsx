@@ -12,9 +12,11 @@ import {
   Share,
 } from '@mui/icons-material'
 import { useAuth } from '../../contexts/AuthContext'
-import { doc, getDoc } from 'firebase/firestore'
+import { usePermission } from '../../hooks/usePermission'
+import { doc, getDoc, collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { QRCodeSVG } from 'qrcode.react'
+import TestEmailButton from '../../components/TestEmailButton'
 import '../../styles/admin.css'
 
 // Статистическая карточка
@@ -33,35 +35,339 @@ const StatCard = ({ title, value, icon, change, isPositive }: any) => (
 )
 
 
+interface Booking {
+  id: string
+  clientName: string
+  courtName: string
+  date: Date
+  startTime: string
+  endTime: string
+  status: 'confirmed' | 'pending' | 'cancelled'
+  amount: number
+}
+
+interface Stats {
+  todayBookings: number
+  todayRevenue: number
+  utilization: number
+  activeCustomers: number
+  bookingsChange: number
+  revenueChange: number
+  utilizationChange: number
+}
+
+interface Venue {
+  id: string
+  name: string
+}
+
 export default function Dashboard() {
-  const { currentUser } = useAuth()
+  const { currentUser, admin } = useAuth()
+  const { isSuperAdmin } = usePermission()
   const [venueId, setVenueId] = useState<string | null>(null)
   const [showQRModal, setShowQRModal] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [recentBookings, setRecentBookings] = useState<Booking[]>([])
+  const [stats, setStats] = useState<Stats>({
+    todayBookings: 0,
+    todayRevenue: 0,
+    utilization: 0,
+    activeCustomers: 0,
+    bookingsChange: 0,
+    revenueChange: 0,
+    utilizationChange: 0
+  })
+  const [loading, setLoading] = useState(true)
+  const [venues, setVenues] = useState<Venue[]>([])
+  const [selectedVenueFilter, setSelectedVenueFilter] = useState<string>('all')
 
   useEffect(() => {
-    const loadVenueId = async () => {
-      // Для суперадмина берем из localStorage
-      const selectedVenueId = localStorage.getItem('selectedVenueId')
-      if (selectedVenueId) {
-        setVenueId(selectedVenueId)
-        return
-      }
-
-      // Для обычного админа получаем из профиля
-      if (currentUser) {
-        const adminDoc = await getDoc(doc(db, 'admins', currentUser.uid))
-        if (adminDoc.exists()) {
-          const adminData = adminDoc.data()
-          if (adminData.venueId) {
-            setVenueId(adminData.venueId)
-          }
+    const loadData = async () => {
+      if (isSuperAdmin) {
+        // Для суперадмина загружаем список всех клубов
+        await loadVenues()
+        // Загружаем данные в зависимости от фильтра
+        if (selectedVenueFilter === 'all') {
+          await loadAllVenuesData()
+        } else {
+          await loadDashboardData(selectedVenueFilter)
         }
+      } else if (admin?.venueId) {
+        // Для обычного админа загружаем данные его клуба
+        setVenueId(admin.venueId)
+        await loadDashboardData(admin.venueId)
       }
+      setLoading(false)
     }
 
-    loadVenueId()
-  }, [currentUser])
+    loadData()
+  }, [currentUser, admin, isSuperAdmin, selectedVenueFilter])
+
+  const loadVenues = async () => {
+    try {
+      const venuesQuery = query(
+        collection(db, 'venues'),
+        where('status', '==', 'active')
+      )
+      const snapshot = await getDocs(venuesQuery)
+      const venuesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name
+      }))
+      setVenues(venuesData)
+    } catch (error) {
+      console.error('Error loading venues:', error)
+    }
+  }
+
+  const loadAllVenuesData = async () => {
+    try {
+      const now = new Date()
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+      
+      // Сначала загружаем список клубов, если он еще не загружен
+      let venuesList = venues
+      if (venuesList.length === 0) {
+        const venuesQuery = query(
+          collection(db, 'venues'),
+          where('status', '==', 'active')
+        )
+        const venuesSnapshot = await getDocs(venuesQuery)
+        venuesList = venuesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name
+        }))
+      }
+      
+      // Загружаем все бронирования и фильтруем вручную
+      const allBookingsQuery = query(
+        collection(db, 'bookings')
+      )
+      
+      const allBookingsSnapshot = await getDocs(allBookingsQuery)
+      
+      // Фильтруем бронирования за сегодня
+      const todayBookingsDocs = allBookingsSnapshot.docs.filter(doc => {
+        const data = doc.data()
+        const bookingDate = data.date?.toDate?.()
+        if (!bookingDate) return false
+        
+        return bookingDate >= startOfToday && 
+               bookingDate <= endOfToday && 
+               data.status === 'confirmed'
+      })
+      
+      const todayBookings = todayBookingsDocs.length
+      const todayRevenue = todayBookingsDocs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0)
+      
+      // Используем уже загруженные бронирования для последних
+      const recentBookingsDocs = allBookingsSnapshot.docs
+        .sort((a, b) => {
+          const dateA = a.data().createdAt?.toDate?.() || a.data().date?.toDate?.() || new Date(0)
+          const dateB = b.data().createdAt?.toDate?.() || b.data().date?.toDate?.() || new Date(0)
+          return dateB.getTime() - dateA.getTime()
+        })
+        .slice(0, 10)
+      const bookingsData: Booking[] = []
+      
+      for (const doc of recentBookingsDocs) {
+        const data = doc.data()
+        
+        // Получаем информацию о клубе
+        let venueName = ''
+        let courtName = 'Корт'
+        
+        if (data.venueId) {
+          const venue = venuesList.find(v => v.id === data.venueId)
+          venueName = venue?.name || ''
+          
+          // Получаем информацию о корте
+          if (data.courtId) {
+            try {
+              const courtDoc = await getDoc(doc(db, 'venues', data.venueId, 'courts', data.courtId))
+              if (courtDoc.exists()) {
+                courtName = courtDoc.data().name
+              }
+            } catch (error) {
+              console.error('Error fetching court:', error)
+            }
+          }
+        }
+        
+        bookingsData.push({
+          id: doc.id,
+          clientName: data.clientName || data.customerName || 'Неизвестный клиент',
+          courtName: venueName ? `${venueName} - ${courtName}` : courtName,
+          date: data.date?.toDate() || new Date(),
+          startTime: data.startTime || data.time || '',
+          endTime: data.endTime || '',
+          status: data.status || 'pending',
+          amount: data.amount || 0
+        })
+      }
+      
+      setRecentBookings(bookingsData)
+      
+      // Расчет общей загрузки
+      let totalCourts = 0
+      for (const venue of venuesList) {
+        const courtsQuery = query(
+          collection(db, 'venues', venue.id, 'courts'),
+          where('status', '==', 'active')
+        )
+        const courtsSnapshot = await getDocs(courtsQuery)
+        totalCourts += courtsSnapshot.size
+      }
+      
+      const maxSlots = totalCourts * 16 // максимум слотов в день
+      const utilization = maxSlots > 0 ? Math.round((todayBookings / maxSlots) * 100) : 0
+      
+      // Загружаем уникальных клиентов за последние 30 дней
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      
+      // Используем уже загруженные бронирования
+      const last30DaysBookings = allBookingsSnapshot.docs.filter(doc => {
+        const data = doc.data()
+        const bookingDate = data.date?.toDate?.()
+        return bookingDate && bookingDate >= thirtyDaysAgo
+      })
+      
+      const uniqueCustomers = new Set(last30DaysBookings.map(doc => doc.data().clientPhone || doc.data().customerPhone))
+      
+      setStats({
+        todayBookings,
+        todayRevenue,
+        utilization,
+        activeCustomers: uniqueCustomers.size,
+        bookingsChange: 15, // В реальном приложении нужно сравнивать с вчерашним днем
+        revenueChange: 10,
+        utilizationChange: -3
+      })
+      
+    } catch (error) {
+      console.error('Error loading all venues data:', error)
+    }
+  }
+
+  const loadDashboardData = async (venueId: string) => {
+    try {
+      const now = new Date()
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+      
+      // Загружаем последние бронирования
+      // Упрощенный запрос без orderBy чтобы избежать проблем с индексами
+      const bookingsQuery = query(
+        collection(db, 'bookings'),
+        where('venueId', '==', venueId)
+      )
+      
+      const bookingsSnapshot = await getDocs(bookingsQuery)
+      
+      // Сортируем и ограничиваем результаты вручную
+      const allBookings = bookingsSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a, b) => {
+          const dateA = a.createdAt?.toDate?.() || a.date?.toDate?.() || new Date(0)
+          const dateB = b.createdAt?.toDate?.() || b.date?.toDate?.() || new Date(0)
+          return dateB.getTime() - dateA.getTime()
+        })
+        .slice(0, 5)
+      
+      const bookingsData: Booking[] = []
+      
+      for (const data of allBookings) {
+        // Получаем информацию о корте
+        let courtName = data.courtName || 'Корт'
+        if (data.courtId && !data.courtName) {
+          try {
+            const courtDoc = await getDoc(doc(db, 'venues', venueId, 'courts', data.courtId))
+            if (courtDoc.exists()) {
+              courtName = courtDoc.data().name
+            }
+          } catch (error) {
+            console.error('Error fetching court:', error)
+          }
+        }
+        
+        bookingsData.push({
+          id: data.id,
+          clientName: data.clientName || data.customerName || 'Неизвестный клиент',
+          courtName,
+          date: data.date?.toDate?.() || new Date(),
+          startTime: data.startTime || data.time || '',
+          endTime: data.endTime || '',
+          status: data.status || 'pending',
+          amount: data.amount || 0
+        })
+      }
+      
+      setRecentBookings(bookingsData)
+      
+      // Загружаем статистику за сегодня
+      // Упрощенный запрос - загружаем все бронирования клуба и фильтруем вручную
+      const allVenueBookingsQuery = query(
+        collection(db, 'bookings'),
+        where('venueId', '==', venueId)
+      )
+      
+      const allBookingsSnapshot = await getDocs(allVenueBookingsQuery)
+      
+      // Фильтруем бронирования за сегодня вручную
+      const todayBookingsDocs = allBookingsSnapshot.docs.filter(doc => {
+        const data = doc.data()
+        const bookingDate = data.date?.toDate?.()
+        if (!bookingDate) return false
+        
+        return bookingDate >= startOfToday && 
+               bookingDate <= endOfToday && 
+               data.status === 'confirmed'
+      })
+      
+      const todayBookings = todayBookingsDocs.length
+      const todayRevenue = todayBookingsDocs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0)
+      
+      // Загружаем количество кортов для расчета загрузки
+      const courtsQuery = query(
+        collection(db, 'venues', venueId, 'courts'),
+        where('status', '==', 'active')
+      )
+      const courtsSnapshot = await getDocs(courtsQuery)
+      const courtsCount = courtsSnapshot.size
+      
+      // Расчет загрузки (упрощенный - считаем что клуб работает 16 часов)
+      const maxSlots = courtsCount * 16 // максимум слотов в день
+      const utilization = maxSlots > 0 ? Math.round((todayBookings / maxSlots) * 100) : 0
+      
+      // Загружаем уникальных клиентов за последние 30 дней
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      
+      // Используем уже загруженные бронирования и фильтруем за последние 30 дней
+      const last30DaysBookings = allBookingsSnapshot.docs.filter(doc => {
+        const data = doc.data()
+        const bookingDate = data.date?.toDate?.()
+        return bookingDate && bookingDate >= thirtyDaysAgo
+      })
+      
+      const uniqueCustomers = new Set(last30DaysBookings.map(doc => doc.data().clientPhone || doc.data().customerPhone))
+      
+      setStats({
+        todayBookings,
+        todayRevenue,
+        utilization,
+        activeCustomers: uniqueCustomers.size,
+        bookingsChange: 12, // В реальном приложении нужно сравнивать с вчерашним днем
+        revenueChange: 8,
+        utilizationChange: -5
+      })
+      
+    } catch (error) {
+      console.error('Error loading dashboard data:', error)
+    }
+  }
 
   const getBookingUrl = () => {
     if (!venueId) return ''
@@ -96,10 +402,41 @@ export default function Dashboard() {
     }
   }
 
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <div>Загрузка...</div>
+      </div>
+    )
+  }
+
   return (
     <div>
-      {/* Блок с QR кодом и ссылкой для бронирования */}
-      {venueId && (
+      {/* Фильтр по клубам для суперадмина */}
+      {isSuperAdmin && (
+        <div className="section-card" style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <label style={{ fontWeight: '600' }}>Фильтр по клубу:</label>
+              <select 
+                className="form-select" 
+                style={{ maxWidth: '300px' }}
+                value={selectedVenueFilter}
+                onChange={(e) => setSelectedVenueFilter(e.target.value)}
+              >
+                <option value="all">Все клубы</option>
+                {venues.map(venue => (
+                  <option key={venue.id} value={venue.id}>{venue.name}</option>
+                ))}
+              </select>
+            </div>
+            <TestEmailButton defaultEmail={admin?.email || ''} />
+          </div>
+        </div>
+      )}
+
+      {/* Блок с QR кодом и ссылкой для бронирования - только для обычных админов */}
+      {!isSuperAdmin && venueId && (
         <div className="section-card" style={{ marginBottom: '24px' }}>
           <div className="section-header">
             <h2 className="section-title">Ссылка для бронирования</h2>
@@ -178,34 +515,44 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Заголовок для суперадмина */}
+      {isSuperAdmin && (
+        <h2 style={{ marginBottom: '24px', fontSize: '24px', fontWeight: '700' }}>
+          {selectedVenueFilter === 'all' 
+            ? 'Общая статистика по всем клубам' 
+            : `Статистика клуба "${venues.find(v => v.id === selectedVenueFilter)?.name}"`
+          }
+        </h2>
+      )}
+
       {/* Статистика */}
       <div className="stats-grid">
         <StatCard
           title="Бронирований сегодня"
-          value="24"
+          value={stats.todayBookings}
           icon={<CalendarMonth />}
-          change="+12% от вчера"
-          isPositive={true}
+          change={`${stats.bookingsChange > 0 ? '+' : ''}${stats.bookingsChange}% от вчера`}
+          isPositive={stats.bookingsChange > 0}
         />
         <StatCard
           title="Доход за сегодня"
-          value="48,500₽"
+          value={`${stats.todayRevenue.toLocaleString('ru-RU')}₽`}
           icon={<AttachMoney />}
-          change="+8% от вчера"
-          isPositive={true}
+          change={`${stats.revenueChange > 0 ? '+' : ''}${stats.revenueChange}% от вчера`}
+          isPositive={stats.revenueChange > 0}
         />
         <StatCard
           title="Загрузка кортов"
-          value="73%"
+          value={`${stats.utilization}%`}
           icon={<TrendingUp />}
-          change="-5% от вчера"
-          isPositive={false}
+          change={`${stats.utilizationChange > 0 ? '+' : ''}${stats.utilizationChange}% от вчера`}
+          isPositive={stats.utilizationChange > 0}
         />
         <StatCard
           title="Активных клиентов"
-          value="342"
+          value={stats.activeCustomers}
           icon={<People />}
-          change="+15 новых"
+          change="за последние 30 дней"
           isPositive={true}
         />
       </div>
@@ -214,43 +561,54 @@ export default function Dashboard() {
       <div className="section-card">
         <div className="section-header">
           <h2 className="section-title">Последние бронирования</h2>
-          <button className="btn btn-secondary">Все бронирования</button>
+          <button className="btn btn-secondary" onClick={() => window.location.href = '/admin/bookings'}>
+            Все бронирования
+          </button>
         </div>
         <div className="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Клиент</th>
-                <th>Корт</th>
-                <th>Дата и время</th>
-                <th>Статус</th>
-                <th>Сумма</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Иван Петров</td>
-                <td>Падел корт 1</td>
-                <td>16.07.2025, 18:00-19:30</td>
-                <td><span style={{ color: 'var(--success)' }}>✅ Подтверждено</span></td>
-                <td>2,850₽</td>
-              </tr>
-              <tr>
-                <td>Мария Сидорова</td>
-                <td>Падел корт 2</td>
-                <td>16.07.2025, 17:00-18:00</td>
-                <td><span style={{ color: 'var(--success)' }}>✅ Подтверждено</span></td>
-                <td>1,900₽</td>
-              </tr>
-              <tr>
-                <td>Алексей Козлов</td>
-                <td>Падел корт 3</td>
-                <td>17.07.2025, 10:00-11:30</td>
-                <td><span style={{ color: 'var(--warning)' }}>⏳ Ожидает оплаты</span></td>
-                <td>2,850₽</td>
-              </tr>
-            </tbody>
-          </table>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '40px' }}>Загрузка...</div>
+          ) : recentBookings.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--gray)' }}>
+              Пока нет бронирований
+            </div>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Клиент</th>
+                  <th>{isSuperAdmin && selectedVenueFilter === 'all' ? 'Клуб / Корт' : 'Корт'}</th>
+                  <th>Дата и время</th>
+                  <th>Статус</th>
+                  <th>Сумма</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentBookings.map((booking) => (
+                  <tr key={booking.id}>
+                    <td>{booking.clientName}</td>
+                    <td>{booking.courtName}</td>
+                    <td>
+                      {booking.date.toLocaleDateString('ru-RU')}, {booking.startTime}
+                      {booking.endTime && `-${booking.endTime}`}
+                    </td>
+                    <td>
+                      {booking.status === 'confirmed' && (
+                        <span style={{ color: 'var(--success)' }}>✅ Подтверждено</span>
+                      )}
+                      {booking.status === 'pending' && (
+                        <span style={{ color: 'var(--warning)' }}>⏳ Ожидает оплаты</span>
+                      )}
+                      {booking.status === 'cancelled' && (
+                        <span style={{ color: 'var(--danger)' }}>❌ Отменено</span>
+                      )}
+                    </td>
+                    <td>{booking.amount.toLocaleString('ru-RU')}₽</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 

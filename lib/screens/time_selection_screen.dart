@@ -38,7 +38,7 @@ class _TimeSelectionScreenState extends State<TimeSelectionScreen> {
                 shape: BoxShape.circle,
               ),
               todayDecoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.3),
+                color: AppColors.primary.withOpacity(0.3),
                 shape: BoxShape.circle,
               ),
             ),
@@ -146,7 +146,7 @@ class _TimeSelectionScreenState extends State<TimeSelectionScreen> {
           color: AppColors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withOpacity(0.05),
               blurRadius: 10,
               offset: const Offset(0, -2),
             ),

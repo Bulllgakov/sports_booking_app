@@ -5,7 +5,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminLayout from './layouts/AdminLayout'
 import Login from './pages/admin/Login'
-import RegisterSimple from './pages/admin/RegisterSimple'
+import RegisterClub from './pages/admin/RegisterClub'
 import Dashboard from './pages/admin/Dashboard'
 import ClubManagement from './pages/admin/ClubManagement'
 import CourtsManagement from './pages/admin/CourtsManagement'
@@ -15,13 +15,19 @@ import Home from './pages/Home'
 import AdminsManagement from './pages/admin/AdminsManagement'
 import VenuesManagement from './pages/admin/VenuesManagement'
 import Subscription from './pages/admin/Subscription'
+import SubscriptionManagement from './pages/admin/SubscriptionManagement'
 import PaymentSettings from './pages/admin/PaymentSettings'
+import BillingSettings from './pages/admin/BillingSettings'
+import Finance from './pages/admin/Finance'
+import Marketing from './pages/admin/Marketing'
+import ErrorBoundary from './components/ErrorBoundary'
 // Public pages
 import ClubPage from './pages/public/ClubPage'
 import DateSelectionPage from './pages/public/DateSelectionPage'
 import TimeSelectionPage from './pages/public/TimeSelectionPage'
 import GameTypeSelectionPage from './pages/public/GameTypeSelectionPage'
 import BookingConfirmationPage from './pages/public/BookingConfirmationPage'
+import UnifiedBookingPage from './pages/public/UnifiedBookingPage'
 
 const theme = createTheme({
   palette: {
@@ -53,9 +59,10 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AuthProvider>
-        <Router>
-          <Routes>
+      <ErrorBoundary>
+        <AuthProvider>
+          <Router>
+            <Routes>
             {/* Перенаправление с корня на дашборд */}
             <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
             
@@ -64,6 +71,7 @@ function App() {
             
             {/* Публичные страницы бронирования */}
             <Route path="/club/:clubId" element={<ClubPage />} />
+            <Route path="/club/:clubId/court/:courtId/booking" element={<UnifiedBookingPage />} />
             <Route path="/club/:clubId/court/:courtId/date" element={<DateSelectionPage />} />
             <Route path="/club/:clubId/court/:courtId/time" element={<TimeSelectionPage />} />
             <Route path="/club/:clubId/court/:courtId/game-type" element={<GameTypeSelectionPage />} />
@@ -71,7 +79,7 @@ function App() {
             
             {/* Публичные маршруты */}
             <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<RegisterSimple />} />
+            <Route path="/register" element={<RegisterClub />} />
             
             {/* Редиректы для обратной совместимости */}
             <Route path="/admin/login" element={<Navigate to="/login" replace />} />
@@ -88,20 +96,22 @@ function App() {
             >
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="venues" element={<VenuesManagement />} />
+              <Route path="billing-settings" element={<BillingSettings />} />
               <Route path="admins" element={<AdminsManagement />} />
               <Route path="club" element={<ClubManagement />} />
-              <Route path="subscription" element={<Subscription />} />
+              <Route path="subscription" element={<SubscriptionManagement />} />
               <Route path="payment-settings" element={<PaymentSettings />} />
               <Route path="courts" element={<CourtsManagement />} />
               <Route path="bookings" element={<BookingsManagement />} />
-              <Route path="finance" element={<div>Финансы</div>} />
+              <Route path="finance" element={<Finance />} />
               <Route path="customers" element={<CustomersManagement />} />
-              <Route path="marketing" element={<div>Маркетинг</div>} />
+              <Route path="marketing" element={<Marketing />} />
               <Route path="settings" element={<div>Настройки</div>} />
             </Route>
           </Routes>
         </Router>
       </AuthProvider>
+    </ErrorBoundary>
     </ThemeProvider>
   )
 }

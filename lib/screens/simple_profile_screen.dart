@@ -172,7 +172,7 @@ class SimpleProfileScreen extends StatelessWidget {
   }) {
     return ListTile(
       leading: CircleAvatar(
-        backgroundColor: const Color(0xFF00A86B).withValues(alpha: 0.1),
+        backgroundColor: const Color(0xFF00A86B).withOpacity(0.1),
         child: Icon(
           icon,
           color: const Color(0xFF00A86B),

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { usePermission } from '../../hooks/usePermission'
 import { PermissionGate } from '../../components/PermissionGate'
+import { VenueSelector, VenueSelectorEmpty } from '../../components/VenueSelector'
 import { 
   collection, 
   query, 
@@ -25,9 +26,29 @@ interface Court {
   priceWeekday: number
   priceWeekend: number
   status: 'active' | 'inactive' | 'maintenance'
+  color?: string
   venueId: string
   createdAt: Date
 }
+
+// Предопределенные цвета для кортов
+const DEFAULT_COURT_COLORS = [
+  '#00A86B', // Зеленый
+  '#2E86AB', // Синий
+  '#FF6B6B', // Красный
+  '#F39C12', // Оранжевый
+  '#8E44AD', // Фиолетовый
+  '#E91E63', // Розовый
+  '#00BCD4', // Бирюзовый
+  '#795548', // Коричневый
+  '#607D8B', // Серо-синий
+  '#FF5722', // Глубокий оранжевый
+  '#009688', // Тил
+  '#3F51B5', // Индиго
+  '#FFEB3B', // Желтый
+  '#4CAF50', // Светло-зеленый
+  '#FF9800', // Янтарный
+]
 
 export default function CourtsManagement() {
   const { admin } = useAuth()
@@ -44,6 +65,7 @@ export default function CourtsManagement() {
     priceWeekday: 1900,
     priceWeekend: 2400,
     status: 'active' as Court['status'],
+    color: '#00A86B',
   })
 
   useEffect(() => {
@@ -58,6 +80,14 @@ export default function CourtsManagement() {
     }
   }, [admin, isSuperAdmin])
 
+  const handleVenueChange = (venueId: string) => {
+    setSelectedVenueId(venueId)
+    localStorage.setItem('selectedVenueId', venueId)
+    if (venueId) {
+      fetchCourts(venueId)
+    }
+  }
+
   const fetchCourts = async (venueId: string) => {
     if (!venueId) return
 
@@ -66,16 +96,47 @@ export default function CourtsManagement() {
       // Загружаем корты из подколлекции venues/{venueId}/courts
       const q = query(collection(db, 'venues', venueId, 'courts'))
       const snapshot = await getDocs(q)
-      const courtsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Court[]
+      const courtsData = snapshot.docs.map((doc, index) => {
+        const data = doc.data()
+        // Если у корта нет цвета, назначаем цвет из палитры
+        if (!data.color) {
+          const colorIndex = index % DEFAULT_COURT_COLORS.length
+          data.color = DEFAULT_COURT_COLORS[colorIndex]
+          // Обновляем корт в базе данных с новым цветом
+          updateDoc(doc.ref, { color: data.color })
+        }
+        return {
+          id: doc.id,
+          ...data
+        }
+      }) as Court[]
       setCourts(courtsData)
     } catch (error) {
       console.error('Error fetching courts:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  // Функция для получения следующего доступного цвета
+  const getNextAvailableColor = () => {
+    // Получаем все используемые цвета
+    const usedColors = courts.map(court => court.color).filter(Boolean)
+    
+    // Находим первый неиспользованный цвет из палитры
+    for (const color of DEFAULT_COURT_COLORS) {
+      if (!usedColors.includes(color)) {
+        return color
+      }
+    }
+    
+    // Если все цвета использованы, возвращаем цвет с наименьшим количеством использований
+    const colorCounts = DEFAULT_COURT_COLORS.reduce((acc, color) => {
+      acc[color] = usedColors.filter(c => c === color).length
+      return acc
+    }, {} as Record<string, number>)
+    
+    return Object.entries(colorCounts).sort((a, b) => a[1] - b[1])[0][0]
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -109,6 +170,7 @@ export default function CourtsManagement() {
       
       setShowModal(false)
       setEditingCourt(null)
+      const nextColor = getNextAvailableColor()
       setFormData({
         name: '',
         type: 'padel',
@@ -116,6 +178,7 @@ export default function CourtsManagement() {
         priceWeekday: 1900,
         priceWeekend: 2400,
         status: 'active',
+        color: nextColor,
       })
       fetchCourts(venueId)
     } catch (error) {
@@ -132,6 +195,7 @@ export default function CourtsManagement() {
       priceWeekday: court.priceWeekday,
       priceWeekend: court.priceWeekend,
       status: court.status,
+      color: court.color || '#00A86B',
     })
     setShowModal(true)
   }
@@ -182,21 +246,27 @@ export default function CourtsManagement() {
   }
 
   if (isSuperAdmin && !selectedVenueId) {
-    return (
-      <Alert severity="info">
-        <AlertTitle>Выберите клуб</AlertTitle>
-        Перейдите в раздел "Все клубы" и выберите клуб для управления кортами.
-      </Alert>
-    )
+    return <VenueSelectorEmpty title="Выберите клуб для управления кортами" />
   }
 
   return (
     <PermissionGate permission={['manage_courts', 'manage_all_venues']}>
       <div>
+        {/* Селектор клуба для суперадмина */}
+        {isSuperAdmin && (
+          <VenueSelector
+            selectedVenueId={selectedVenueId}
+            onVenueChange={handleVenueChange}
+          />
+        )}
         <div className="section-card">
           <div className="section-header">
             <h2 className="section-title">Управление кортами</h2>
-            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            <button className="btn btn-primary" onClick={() => {
+              const nextColor = getNextAvailableColor()
+              setFormData(prev => ({ ...prev, color: nextColor }))
+              setShowModal(true)
+            }}>
               <Add fontSize="small" />
               Добавить корт
             </button>
@@ -206,11 +276,24 @@ export default function CourtsManagement() {
           {courts.map(court => (
             <div key={court.id} className="court-card">
               <div className="court-header">
-                <div>
-                  <div className="court-name">{court.name}</div>
-                  <span className={`court-type ${getTypeColor(court.type)}`}>
-                    {getTypeLabel(court.type)}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {court.color && (
+                    <div 
+                      style={{ 
+                        width: '24px', 
+                        height: '24px', 
+                        borderRadius: '4px', 
+                        backgroundColor: court.color,
+                        border: '1px solid #e5e7eb'
+                      }} 
+                    />
+                  )}
+                  <div>
+                    <div className="court-name">{court.name}</div>
+                    <span className={`court-type ${getTypeColor(court.type)}`}>
+                      {getTypeLabel(court.type)}
+                    </span>
+                  </div>
                 </div>
               </div>
               <div className="court-details">
@@ -260,6 +343,7 @@ export default function CourtsManagement() {
               onClick={() => {
                 setShowModal(false)
                 setEditingCourt(null)
+                const nextColor = getNextAvailableColor()
                 setFormData({
                   name: '',
                   type: 'padel',
@@ -267,6 +351,7 @@ export default function CourtsManagement() {
                   priceWeekday: 1900,
                   priceWeekend: 2400,
                   status: 'active',
+                  color: nextColor,
                 })
               }}
             >
@@ -358,6 +443,29 @@ export default function CourtsManagement() {
                   <option value="maintenance">На обслуживании</option>
                   <option value="inactive">Неактивен</option>
                 </select>
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">Цвет корта</label>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <input 
+                    type="color" 
+                    className="form-input" 
+                    name="color"
+                    value={formData.color}
+                    onChange={handleInputChange}
+                    style={{ width: '80px', height: '48px', padding: '4px', cursor: 'pointer' }}
+                  />
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={formData.color}
+                    onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
+                    placeholder="#00A86B"
+                    style={{ flex: 1 }}
+                  />
+                </div>
+                <div className="form-hint">Этот цвет будет использоваться для визуального отображения корта в календаре</div>
               </div>
             </div>
             

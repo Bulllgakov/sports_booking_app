@@ -10,6 +10,9 @@
       "npm --prefix \"$RESOURCE_DIR\" run build"
     ]
   },
+  "storage": {
+    "rules": "storage.rules"
+  },
   "hosting": {
     "public": "dist",
     "ignore": [
@@ -75,5 +78,9 @@
         "destination": "/index.html"
       }
     ]
+  },
+  "extensions": {
+    "firestore-send-email": "firebase/firestore-send-email@0.2.4",
+    "firestore-send-email-cgjv": "firebase/firestore-send-email@0.2.4"
   }
 }

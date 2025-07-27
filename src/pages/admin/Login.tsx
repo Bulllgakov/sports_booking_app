@@ -10,26 +10,37 @@ import {
   Alert,
   InputAdornment,
   IconButton,
+  CircularProgress
 } from '@mui/material'
 import { Visibility, VisibilityOff } from '@mui/icons-material'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth, db } from '../../services/firebase'
 import { doc, getDoc } from 'firebase/firestore'
+import { handleError, getErrorMessage, logError } from '../../utils/errorHandler'
 
 export default function Login() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
+    setError(null)
     setLoading(true)
 
     try {
+      // Валидация полей
+      if (!email.trim()) {
+        throw new Error('Email обязателен')
+      }
+      
+      if (!password) {
+        throw new Error('Пароль обязателен')
+      }
+
       // Авторизация через Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
       
@@ -42,17 +53,10 @@ export default function Login() {
 
       // Перенаправление на dashboard
       navigate('/admin/dashboard')
-    } catch (error: any) {
-      console.error('Login error:', error)
-      if (error.code === 'auth/user-not-found') {
-        setError('Пользователь не найден')
-      } else if (error.code === 'auth/wrong-password') {
-        setError('Неверный пароль')
-      } else if (error.code === 'auth/invalid-email') {
-        setError('Неверный формат email')
-      } else {
-        setError(error.message || 'Ошибка авторизации')
-      }
+    } catch (err: any) {
+      const appError = handleError(err)
+      logError(appError, { component: 'Login', email })
+      setError(getErrorMessage(appError))
     } finally {
       setLoading(false)
     }
@@ -123,7 +127,8 @@ export default function Login() {
               variant="contained"
               size="large"
               sx={{ mt: 3, mb: 2 }}
-              disabled={loading}
+              disabled={loading || !email || !password}
+              startIcon={loading && <CircularProgress size={20} color="inherit" />}
             >
               {loading ? 'Вход...' : 'Войти'}
             </Button>

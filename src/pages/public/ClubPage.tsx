@@ -2,8 +2,12 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore'
 import { db } from '../../services/firebase'
-import BookingModal from '../../components/BookingModal'
+import { styles, mobileStyles, desktopStyles } from './ClubPage.styles'
+import OptimizedImage from '../../components/OptimizedImage'
 import '../../styles/flutter-theme.css'
+
+// Lazy load BookingModal for better performance
+const BookingModal = React.lazy(() => import('../../components/BookingModal'))
 
 interface Venue {
   id: string
@@ -84,10 +88,49 @@ export default function ClubPage() {
   const [error, setError] = useState('')
   const [selectedCourt, setSelectedCourt] = useState<Court | null>(null)
   const [showBookingModal, setShowBookingModal] = useState(false)
+  const [showPhotoModal, setShowPhotoModal] = useState(false)
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0)
+
+  // Preload hero image for better performance
+  useEffect(() => {
+    if (venue?.photos?.[0]) {
+      const link = document.createElement('link')
+      link.rel = 'preload'
+      link.as = 'image'
+      link.href = venue.photos[0]
+      document.head.appendChild(link)
+      return () => {
+        document.head.removeChild(link)
+      }
+    }
+  }, [venue?.photos])
 
   useEffect(() => {
-    loadVenueAndCourts()
+    const startTime = performance.now()
+    loadVenueAndCourts().then(() => {
+      const loadTime = performance.now() - startTime
+      console.log(`ClubPage loaded in ${loadTime.toFixed(0)}ms`)
+    })
   }, [clubId])
+
+  useEffect(() => {
+    if (showPhotoModal) {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          closePhotoModal()
+        } else if (e.key === 'ArrowLeft') {
+          navigatePhoto('prev')
+        } else if (e.key === 'ArrowRight') {
+          navigatePhoto('next')
+        }
+      }
+
+      document.addEventListener('keydown', handleKeyDown)
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown)
+      }
+    }
+  }, [showPhotoModal])
 
   const loadVenueAndCourts = async () => {
     if (!clubId) {
@@ -97,7 +140,15 @@ export default function ClubPage() {
     }
 
     try {
-      const venueDoc = await getDoc(doc(db, 'venues', clubId))
+      // Загружаем данные параллельно для улучшения производительности
+      const [venueDoc, courtsSnapshot] = await Promise.all([
+        getDoc(doc(db, 'venues', clubId)),
+        getDocs(query(
+          collection(db, 'venues', clubId, 'courts'),
+          where('status', '==', 'active')
+        ))
+      ])
+
       if (!venueDoc.exists()) {
         setError('Клуб не найден')
         setLoading(false)
@@ -116,19 +167,13 @@ export default function ClubPage() {
       }
 
       console.log('Loaded venue data:', venueData)
-      setVenue(venueData)
 
-      // Загружаем корты из подколлекции venues/{venueId}/courts
-      const courtsQuery = query(
-        collection(db, 'venues', clubId, 'courts'),
-        where('status', '==', 'active')
-      )
-      const courtsSnapshot = await getDocs(courtsQuery)
       const courtsData = courtsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Court[]
 
+      setVenue(venueData)
       setCourts(courtsData)
       setLoading(false)
     } catch (err) {
@@ -144,34 +189,44 @@ export default function ClubPage() {
 
   const handleContinue = () => {
     if (selectedCourt) {
-      if (window.innerWidth > 768) {
-        console.log('Opening booking modal, venue:', venue, 'court:', selectedCourt)
-        setShowBookingModal(true)
-      } else {
-        navigate(`/club/${clubId}/court/${selectedCourt.id}/date`)
+      // Проверяем статус клуба перед открытием модального окна
+      if (!isClubActive) {
+        alert('Этот клуб находится на модерации и временно недоступен для бронирования.')
+        return
       }
+      console.log('Opening booking modal, venue:', venue, 'court:', selectedCourt)
+      setShowBookingModal(true)
+    }
+  }
+
+  const openPhotoModal = (index: number) => {
+    setSelectedPhotoIndex(index)
+    setShowPhotoModal(true)
+  }
+
+  const closePhotoModal = () => {
+    setShowPhotoModal(false)
+  }
+
+  const navigatePhoto = (direction: 'prev' | 'next') => {
+    if (!venue?.photos) return
+    
+    if (direction === 'prev') {
+      setSelectedPhotoIndex((prev) => 
+        prev === 0 ? venue.photos!.length - 1 : prev - 1
+      )
+    } else {
+      setSelectedPhotoIndex((prev) => 
+        prev === venue.photos!.length - 1 ? 0 : prev + 1
+      )
     }
   }
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '100vh',
-        backgroundColor: 'var(--background)'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div className="spinner" style={{
-            width: '40px',
-            height: '40px',
-            border: '3px solid var(--extra-light-gray)',
-            borderTopColor: 'var(--primary)',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 16px'
-          }}></div>
+      <div style={styles.loadingContainer}>
+        <div style={styles.loadingContent}>
+          <div className="spinner" style={styles.spinner}></div>
           <p className="body-small">Загрузка...</p>
         </div>
         <style>
@@ -187,23 +242,11 @@ export default function ClubPage() {
 
   if (error) {
     return (
-      <div style={{ 
-        minHeight: '100vh', 
-        backgroundColor: 'var(--background)',
-        padding: 'var(--spacing-xl)'
-      }}>
-        <div className="flutter-card" style={{ 
-          maxWidth: '600px', 
-          margin: '0 auto',
-          textAlign: 'center',
-          padding: 'var(--spacing-2xl)'
-        }}>
-          <div style={{ 
-            fontSize: '48px', 
-            marginBottom: 'var(--spacing-md)' 
-          }}>❌</div>
-          <h2 className="h2" style={{ marginBottom: 'var(--spacing-sm)' }}>Ошибка</h2>
-          <p className="body" style={{ color: 'var(--text-secondary)' }}>{error}</p>
+      <div style={styles.errorContainer}>
+        <div className="flutter-card" style={styles.errorCard}>
+          <div style={styles.errorIcon}>❌</div>
+          <h2 className="h2" style={styles.errorTitle}>Ошибка</h2>
+          <p className="body" style={styles.errorText}>{error}</p>
         </div>
       </div>
     )
@@ -212,26 +255,44 @@ export default function ClubPage() {
   if (!venue) return null
 
   const isDesktop = window.innerWidth > 768
+  const isClubActive = venue.status === 'active'
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--background)' }}>
+    <div style={styles.pageContainer}>
+      {/* Status warning for pending clubs */}
+      {!isClubActive && (
+        <div style={{
+          backgroundColor: '#fff3cd',
+          borderBottom: '1px solid #ffeaa7',
+          padding: 'var(--spacing-lg)',
+          textAlign: 'center'
+        }}>
+          <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+            <h3 className="h3" style={{ color: '#856404', marginBottom: 'var(--spacing-sm)' }}>
+              Клуб находится на модерации
+            </h3>
+            <p className="body" style={{ color: '#856404' }}>
+              Данный клуб еще не прошел проверку и временно недоступен для бронирования. 
+              Страница будет активирована после проверки администратором.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Hero section with image */}
       <div className="hero-image">
-        {venue.photos && venue.photos.length > 0 && !venue.photos[0].includes('unsplash') ? (
-          <img src={venue.photos[0]} alt={venue.name} />
+        {venue.photos && venue.photos.length > 0 ? (
+          <OptimizedImage 
+            loading="eager"
+            src={venue.photos[0]} 
+            alt={venue.name}
+            style={styles.heroImage}
+            onClick={() => openPhotoModal(0)}
+          />
         ) : (
-          <div style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: 'column',
-            gap: '8px',
-            backgroundColor: 'var(--extra-light-gray)'
-          }}>
-            <span style={{ fontSize: '48px', color: 'var(--light-gray)' }}>🏸</span>
-            <span className="body-small" style={{ color: 'var(--gray)' }}>Фото клуба</span>
+          <div style={styles.heroPlaceholder}>
+            <span style={styles.heroPlaceholderIcon}>🏸</span>
+            <span className="body-small" style={styles.heroPlaceholderText}>Фото клуба</span>
           </div>
         )}
         
@@ -245,71 +306,134 @@ export default function ClubPage() {
       </div>
 
       {/* Main content */}
-      <div className={isDesktop ? 'desktop-container' : ''} style={{ padding: isDesktop ? '' : 'var(--spacing-xl)' }}>
-        <div className={isDesktop ? 'desktop-main-content' : ''}>
+      <div style={isDesktop ? desktopStyles.container : {...mobileStyles.contentPadding, paddingBottom: 'calc(140px + var(--spacing-xl))'}}>
+        <div style={isDesktop ? desktopStyles.mainContent : {}}>
           {/* Image gallery for desktop */}
-          {isDesktop && venue.photos && venue.photos.length > 1 && (
-            <div className="image-gallery">
-              {venue.photos
-                .filter(photo => !photo.includes('unsplash'))
-                .map((photo, index) => (
-                  <img 
-                    key={index}
-                    src={photo} 
-                    alt={`${venue.name} - фото ${index + 1}`}
-                    className="gallery-image"
-                    onClick={() => window.open(photo, '_blank')}
-                  />
-                ))}
+          {isDesktop && venue.photos && venue.photos.length > 0 && (
+            <div style={styles.desktopGallery}>
+              {venue.photos.map((photo, index) => (
+                <OptimizedImage 
+                  key={index}
+                  loading="lazy"
+                  src={photo} 
+                  alt={`${venue.name} - фото ${index + 1}`}
+                  className="gallery-image"
+                  style={styles.galleryImage}
+                  onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                  onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  onClick={() => openPhotoModal(index)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Mobile only - Image gallery */}
+          {!isDesktop && venue.photos && venue.photos.length > 1 && (
+            <div style={styles.mobileGallery}>
+              {venue.photos.slice(1).map((photo, index) => (
+                <OptimizedImage 
+                  key={index}
+                  loading="lazy"
+                  src={photo} 
+                  alt={`${venue.name} - фото ${index + 2}`}
+                  style={styles.mobileGalleryImage}
+                  onClick={() => openPhotoModal(index + 1)}
+                />
+              ))}
             </div>
           )}
 
           {/* Club info */}
-          <div style={{ marginBottom: 'var(--spacing-xl)' }}>
-            <h1 className="h1" style={{ marginBottom: 'var(--spacing-sm)' }}>{venue.name}</h1>
+          <div style={styles.clubInfoWrapper}>
+            <h1 className="h1" style={styles.clubTitle}>{venue.name}</h1>
             
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-lg)', marginBottom: 'var(--spacing-lg)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-                <span style={{ color: 'var(--gray)', fontSize: 'var(--icon-size-md)' }}>📍</span>
+            <div style={styles.clubInfoItems}>
+              <div style={styles.infoItem}>
+                <span style={styles.infoIcon}>📍</span>
                 <span className="body">{venue.address}</span>
               </div>
               
               {venue.phone && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-                  <span style={{ color: 'var(--gray)', fontSize: 'var(--icon-size-md)' }}>📞</span>
+                <div style={styles.infoItem}>
+                  <span style={styles.infoIcon}>📞</span>
                   <span className="body">{venue.phone}</span>
                 </div>
               )}
               
-              {venue.rating && (
-                <div className="rating-chip">
-                  <span className="star-icon">⭐</span>
-                  <span className="caption-bold" style={{ color: 'var(--primary-dark)' }}>
-                    {venue.rating.toFixed(1)}
-                  </span>
-                  {venue.reviewsCount && (
-                    <span className="caption" style={{ color: 'var(--gray)' }}>
-                      ({venue.reviewsCount} отзывов)
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
           </div>
 
           {/* Description - only on desktop in main content, on mobile in regular flow */}
           {venue.description && (
-            <div className="info-section" style={{ marginBottom: 'var(--spacing-lg)' }}>
+            <div className="info-section" style={styles.descriptionSection}>
               <h3 className="info-section-title">О клубе</h3>
-              <p className="body" style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              <p className="body" style={styles.descriptionText}>
                 {venue.description}
               </p>
             </div>
           )}
 
-          {/* Mobile only - Amenities and Working Hours */}
+          {/* Mobile only - Courts section right after About */}
+          {!isDesktop && (
+            <div style={styles.courtsWrapper}>
+              <h3 className="h2" style={styles.courtsTitle}>Доступные корты</h3>
+              
+              {courts.length === 0 ? (
+                <div className="flutter-card" style={styles.noCourtsCard}>
+                  <span style={styles.noCourtsIcon}>🎾</span>
+                  <p className="body" style={styles.noCourtsText}>
+                    Нет доступных кортов
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  {courts.map((court) => {
+                    const isSelected = selectedCourt?.id === court.id
+                    return (
+                      <div
+                        key={court.id}
+                        className={`court-card ${isSelected ? 'selected' : ''}`}
+                        onClick={() => handleCourtSelect(court)}
+                      >
+                        <div style={styles.courtCardContent}>
+                          <div style={styles.courtInfo}>
+                            <h4 className="body-bold" style={styles.courtName}>
+                              {court.name}
+                            </h4>
+                            <div style={styles.courtDetails}>
+                              <span 
+                                className={`sport-chip ${court.type}`}
+                                style={{ backgroundColor: sportColors[court.type] }}
+                              >
+                                {sportLabels[court.type]}
+                              </span>
+                              {court.indoor && (
+                                <span className="caption" style={styles.courtIndoor}>Крытый</span>
+                              )}
+                              {court.surface && (
+                                <span className="caption" style={styles.courtSurface}>• {court.surface}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div style={styles.courtPricing}>
+                            <div className="h3" style={styles.courtPrice}>
+                              {court.pricePerHour || court.priceWeekday || 0}₽
+                            </div>
+                            <div className="caption" style={styles.courtPriceUnit}>за час</div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Mobile only - Working Hours and Amenities */}
           {!isDesktop && (
             <>
+              
               {/* Working hours */}
               {venue.workingHours && (
                 <div className="info-section" style={{ marginBottom: 'var(--spacing-lg)' }}>
@@ -348,80 +472,80 @@ export default function ClubPage() {
             </>
           )}
 
-          {/* Courts section */}
-          <div style={{ marginBottom: isDesktop ? '0' : 'calc(140px + var(--spacing-xl))' }}>
-            <h3 className="h2" style={{ marginBottom: 'var(--spacing-lg)' }}>Доступные корты</h3>
-            
-            {courts.length === 0 ? (
-              <div className="flutter-card" style={{ 
-                textAlign: 'center', 
-                padding: 'var(--spacing-3xl)'
-              }}>
-                <span style={{ fontSize: '48px', color: 'var(--light-gray)' }}>🎾</span>
-                <p className="body" style={{ color: 'var(--gray)', marginTop: 'var(--spacing-md)' }}>
-                  Нет доступных кортов
-                </p>
-              </div>
-            ) : (
-              <div className={isDesktop ? 'courts-grid' : ''}>
-                {courts.map((court) => {
-                  const isSelected = selectedCourt?.id === court.id
-                  return (
-                    <div
-                      key={court.id}
-                      className={`court-card ${isSelected ? 'selected' : ''}`}
-                      onClick={() => handleCourtSelect(court)}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ flex: 1 }}>
-                          <h4 className="body-bold" style={{ marginBottom: 'var(--spacing-xs)' }}>
-                            {court.name}
-                          </h4>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
-                            <span 
-                              className={`sport-chip ${court.type}`}
-                              style={{ backgroundColor: sportColors[court.type] }}
-                            >
-                              {sportLabels[court.type]}
-                            </span>
-                            {court.indoor && (
-                              <span className="caption" style={{ color: 'var(--gray)' }}>Крытый</span>
-                            )}
-                            {court.surface && (
-                              <span className="caption" style={{ color: 'var(--gray)' }}>• {court.surface}</span>
-                            )}
+
+          {/* Courts section - Desktop only */}
+          {isDesktop && (
+            <div style={styles.courtsWrapperDesktop}>
+              <h3 className="h2" style={styles.courtsTitle}>Доступные корты</h3>
+              
+              {courts.length === 0 ? (
+                <div className="flutter-card" style={styles.noCourtsCard}>
+                  <span style={styles.noCourtsIcon}>🎾</span>
+                  <p className="body" style={styles.noCourtsText}>
+                    Нет доступных кортов
+                  </p>
+                </div>
+              ) : (
+                <div className="courts-grid">
+                  {courts.map((court) => {
+                    const isSelected = selectedCourt?.id === court.id
+                    return (
+                      <div
+                        key={court.id}
+                        className={`court-card ${isSelected ? 'selected' : ''}`}
+                        onClick={() => handleCourtSelect(court)}
+                      >
+                        <div style={styles.courtCardContent}>
+                          <div style={styles.courtInfo}>
+                            <h4 className="body-bold" style={styles.courtName}>
+                              {court.name}
+                            </h4>
+                            <div style={styles.courtDetails}>
+                              <span 
+                                className={`sport-chip ${court.type}`}
+                                style={{ backgroundColor: sportColors[court.type] }}
+                              >
+                                {sportLabels[court.type]}
+                              </span>
+                              {court.indoor && (
+                                <span className="caption" style={styles.courtIndoor}>Крытый</span>
+                              )}
+                              {court.surface && (
+                                <span className="caption" style={styles.courtSurface}>• {court.surface}</span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <div style={{ textAlign: 'right', minWidth: '120px' }}>
-                          <div className="h3" style={{ color: 'var(--primary)' }}>
-                            {court.pricePerHour || court.priceWeekday || 0}₽
+                          <div style={styles.courtPricing}>
+                            <div className="h3" style={styles.courtPrice}>
+                              {court.pricePerHour || court.priceWeekday || 0}₽
+                            </div>
+                            <div className="caption" style={styles.courtPriceUnit}>за час</div>
                           </div>
-                          <div className="caption" style={{ color: 'var(--gray)' }}>за час</div>
                         </div>
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Sidebar for desktop */}
         {isDesktop && (
-          <div className="desktop-sidebar">
+          <div style={desktopStyles.sidebar}>
             {/* Booking card */}
-            <div className="sticky-bottom-bar" style={{ marginBottom: 'var(--spacing-lg)' }}>
+            <div className="sticky-bottom-bar" style={styles.sidebarBookingCard}>
               {selectedCourt && (
                 <div className="selected-court-summary">
-                  <h4 className="body-bold" style={{ marginBottom: 'var(--spacing-xs)' }}>
+                  <h4 className="body-bold" style={styles.selectedCourtSection}>
                     {selectedCourt.name}
                   </h4>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className="body-small" style={{ color: 'var(--gray)' }}>
+                  <div style={styles.selectedCourtDetails}>
+                    <span className="body-small" style={styles.selectedCourtType}>
                       {sportLabels[selectedCourt.type]}
                     </span>
-                    <span className="body-bold" style={{ color: 'var(--primary)' }}>
+                    <span className="body-bold" style={styles.selectedCourtPrice}>
                       {selectedCourt.pricePerHour || selectedCourt.priceWeekday || 0}₽/час
                     </span>
                   </div>
@@ -565,14 +689,160 @@ export default function ClubPage() {
         </div>
       )}
 
-      {/* Booking Modal */}
+
+      {/* Booking Modal - Lazy loaded */}
       {selectedCourt && venue && (
-        <BookingModal
-          isOpen={showBookingModal}
-          onClose={() => setShowBookingModal(false)}
-          court={selectedCourt}
-          venue={venue}
-        />
+        <React.Suspense fallback={<div />}>
+          <BookingModal
+            isOpen={showBookingModal}
+            onClose={() => setShowBookingModal(false)}
+            court={selectedCourt}
+            venue={venue}
+          />
+        </React.Suspense>
+      )}
+
+      {/* Photo Gallery Modal */}
+      {showPhotoModal && venue?.photos && (
+        <div 
+          className="modal-backdrop"
+          onClick={closePhotoModal}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.95)',
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 'var(--spacing-xl)'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'relative',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {/* Close button */}
+            <button
+              onClick={closePhotoModal}
+              style={{
+                position: 'absolute',
+                top: '-40px',
+                right: '0',
+                background: 'none',
+                border: 'none',
+                color: 'white',
+                fontSize: '28px',
+                cursor: 'pointer',
+                padding: '8px',
+                zIndex: 10,
+                lineHeight: 1
+              }}
+              aria-label="Закрыть"
+            >
+              ✕
+            </button>
+
+            {/* Previous button */}
+            {venue.photos.length > 1 && (
+              <button
+                onClick={() => navigatePhoto('prev')}
+                style={{
+                  position: 'absolute',
+                  left: window.innerWidth > 768 ? '-50px' : '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: 'none',
+                  color: 'white',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'background 0.2s',
+                  zIndex: 5
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                aria-label="Предыдущее фото"
+              >
+                ←
+              </button>
+            )}
+
+            {/* Photo */}
+            <img
+              src={venue.photos[selectedPhotoIndex]}
+              alt={`${venue.name} - фото ${selectedPhotoIndex + 1}`}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '90vh',
+                objectFit: 'contain',
+                borderRadius: 'var(--radius-md)'
+              }}
+            />
+
+            {/* Next button */}
+            {venue.photos.length > 1 && (
+              <button
+                onClick={() => navigatePhoto('next')}
+                style={{
+                  position: 'absolute',
+                  right: window.innerWidth > 768 ? '-50px' : '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: 'none',
+                  color: 'white',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'background 0.2s',
+                  zIndex: 5
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                aria-label="Следующее фото"
+              >
+                →
+              </button>
+            )}
+
+            {/* Photo counter */}
+            {venue.photos.length > 1 && (
+              <div style={{
+                position: 'absolute',
+                bottom: '-30px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                color: 'white',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}>
+                {selectedPhotoIndex + 1} / {venue.photos.length}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

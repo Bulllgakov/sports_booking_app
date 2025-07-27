@@ -40,6 +40,8 @@ import {
   Save
 } from '@mui/icons-material'
 import { useAuth } from '../../contexts/AuthContext'
+import { usePermission } from '../../hooks/usePermission'
+import { VenueSelector, VenueSelectorEmpty } from '../../components/VenueSelector'
 import { doc, updateDoc, getDoc } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 
@@ -104,6 +106,8 @@ const PAYMENT_PROVIDERS: PaymentProvider[] = [
 
 export default function PaymentSettings() {
   const { admin, club } = useAuth()
+  const { isSuperAdmin } = usePermission()
+  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [testMode, setTestMode] = useState(true)
@@ -115,14 +119,34 @@ export default function PaymentSettings() {
   const [activeStep, setActiveStep] = useState(0)
 
   useEffect(() => {
-    loadPaymentSettings()
-  }, [admin])
+    if (isSuperAdmin) {
+      const venueId = localStorage.getItem('selectedVenueId')
+      if (venueId) {
+        setSelectedVenueId(venueId)
+        loadPaymentSettings(venueId)
+      } else {
+        setLoading(false)
+      }
+    } else if (admin?.venueId) {
+      loadPaymentSettings(admin.venueId)
+    }
+  }, [admin, isSuperAdmin])
 
-  const loadPaymentSettings = async () => {
-    if (!admin?.venueId) return
+  const handleVenueChange = (venueId: string) => {
+    setSelectedVenueId(venueId)
+    localStorage.setItem('selectedVenueId', venueId)
+    if (venueId) {
+      loadPaymentSettings(venueId)
+    }
+  }
+
+  const loadPaymentSettings = async (venueId?: string) => {
+    const targetVenueId = venueId || admin?.venueId
+    if (!targetVenueId) return
 
     try {
-      const venueDoc = await getDoc(doc(db, 'venues', admin.venueId))
+      setLoading(true)
+      const venueDoc = await getDoc(doc(db, 'venues', targetVenueId))
       if (venueDoc.exists()) {
         const data = venueDoc.data()
         setPaymentEnabled(data.paymentEnabled || false)
@@ -159,12 +183,13 @@ export default function PaymentSettings() {
   }
 
   const handleSave = async () => {
-    if (!admin?.venueId || !selectedProvider) return
+    const venueId = isSuperAdmin ? selectedVenueId : admin?.venueId
+    if (!venueId || !selectedProvider) return
 
     setSaving(true)
     try {
       // В реальном приложении нужно шифровать учетные данные перед сохранением
-      await updateDoc(doc(db, 'venues', admin.venueId), {
+      await updateDoc(doc(db, 'venues', venueId), {
         paymentEnabled,
         paymentTestMode: testMode,
         paymentProvider: selectedProvider,
@@ -206,10 +231,21 @@ export default function PaymentSettings() {
     )
   }
 
+  if (isSuperAdmin && !selectedVenueId) {
+    return <VenueSelectorEmpty title="Выберите клуб для настройки оплаты" />
+  }
+
   const selectedProviderData = PAYMENT_PROVIDERS.find(p => p.id === selectedProvider)
 
   return (
     <Box>
+      {/* Селектор клуба для суперадмина */}
+      {isSuperAdmin && (
+        <VenueSelector
+          selectedVenueId={selectedVenueId}
+          onVenueChange={handleVenueChange}
+        />
+      )}
       <Typography variant="h5" component="h2" gutterBottom>
         Настройки эквайринга
       </Typography>

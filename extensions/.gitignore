@@ -1,0 +1,5 @@
+# Не коммитить файлы с паролями
+*.env
+firestore-send-email.env
+firestore-send-email.config.yaml
+../scripts/extension-params.txt

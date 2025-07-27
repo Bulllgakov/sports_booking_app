@@ -40,10 +40,12 @@ import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firesto
 import { db } from '../../services/firebase'
 import { SUBSCRIPTION_PLANS, SubscriptionPlan, ClubSubscription } from '../../types/subscription'
 import { usePermission } from '../../hooks/usePermission'
+import { VenueSelector, VenueSelectorEmpty } from '../../components/VenueSelector'
 
 export default function Subscription() {
   const { admin, club } = useAuth()
   const { isSuperAdmin } = usePermission()
+  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null)
   const [subscription, setSubscription] = useState<ClubSubscription | null>(null)
   const [loading, setLoading] = useState(true)
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false)
@@ -51,17 +53,37 @@ export default function Subscription() {
   const [paymentHistory, setPaymentHistory] = useState<any[]>([])
 
   useEffect(() => {
-    loadSubscriptionData()
-  }, [admin])
+    if (isSuperAdmin) {
+      const venueId = localStorage.getItem('selectedVenueId')
+      if (venueId) {
+        setSelectedVenueId(venueId)
+        loadSubscriptionData(venueId)
+      } else {
+        setLoading(false)
+      }
+    } else if (admin?.venueId) {
+      loadSubscriptionData(admin.venueId)
+    }
+  }, [admin, isSuperAdmin])
 
-  const loadSubscriptionData = async () => {
-    if (!admin?.venueId) return
+  const handleVenueChange = (venueId: string) => {
+    setSelectedVenueId(venueId)
+    localStorage.setItem('selectedVenueId', venueId)
+    if (venueId) {
+      loadSubscriptionData(venueId)
+    }
+  }
+
+  const loadSubscriptionData = async (venueId?: string) => {
+    const targetVenueId = venueId || admin?.venueId
+    if (!targetVenueId) return
 
     try {
+      setLoading(true)
       // Загружаем данные о подписке
       const subQuery = query(
         collection(db, 'subscriptions'),
-        where('venueId', '==', admin.venueId),
+        where('venueId', '==', targetVenueId),
         where('status', 'in', ['active', 'trial'])
       )
       const subSnapshot = await getDocs(subQuery)
@@ -85,7 +107,7 @@ export default function Subscription() {
         // Если подписки нет, создаем бесплатную
         setSubscription({
           id: '',
-          venueId: admin.venueId,
+          venueId: targetVenueId,
           plan: 'start',
           status: 'active',
           startDate: new Date(),
@@ -145,6 +167,10 @@ export default function Subscription() {
     )
   }
 
+  if (isSuperAdmin && !selectedVenueId) {
+    return <VenueSelectorEmpty title="Выберите клуб для управления подпиской" />
+  }
+
   if (!subscription) {
     return <Alert severity="error">Ошибка загрузки данных подписки</Alert>
   }
@@ -193,6 +219,13 @@ export default function Subscription() {
 
   return (
     <Box>
+      {/* Селектор клуба для суперадмина */}
+      {isSuperAdmin && (
+        <VenueSelector
+          selectedVenueId={selectedVenueId}
+          onVenueChange={handleVenueChange}
+        />
+      )}
       <Typography variant="h5" component="h2" gutterBottom>
         Управление подпиской
       </Typography>

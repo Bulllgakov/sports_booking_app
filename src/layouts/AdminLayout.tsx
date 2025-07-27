@@ -18,9 +18,11 @@ import {
   ExitToApp,
   CreditCard,
   CardMembership,
+  Payment,
 } from '@mui/icons-material'
 import { useAuth } from '../contexts/AuthContext'
 import { usePermission } from '../hooks/usePermission'
+import AllCourtsLogo from '../components/AllCourtsLogo'
 import '../styles/admin.css'
 
 interface NavItem {
@@ -49,6 +51,7 @@ export default function AdminLayout() {
     },
     ...(isSuperAdmin ? [
       { path: '/admin/venues', label: 'Все клубы', icon: <Store /> },
+      { path: '/admin/billing-settings', label: 'Настройки биллинга', icon: <Payment /> },
       { path: '/admin/admins', label: 'Администраторы', icon: <SupervisorAccount /> },
     ] : []),
     ...(canManageClub() ? [
@@ -130,20 +133,30 @@ export default function AdminLayout() {
         
         <div className="logo-section">
           <div className="platform-logo">
-            <div className="logo-icon">ВК</div>
+            <AllCourtsLogo size={40} />
             <div className="logo-text">Все Корты</div>
           </div>
           
-          <div className="club-info">
-            <div className="club-logo">
-              {club?.logoUrl ? (
-                <img src={club.logoUrl} alt={club.name} />
-              ) : (
-                club?.name?.substring(0, 2).toUpperCase() || 'CL'
-              )}
+          {!isSuperAdmin && (
+            <div className="club-info">
+              <div className="club-logo">
+                {club?.logoUrl ? (
+                  <img src={club.logoUrl} alt={club.name} />
+                ) : (
+                  club?.name?.substring(0, 2).toUpperCase() || 'CL'
+                )}
+              </div>
+              <div className="club-name">{club?.name || 'Загрузка...'}</div>
             </div>
-            <div className="club-name">{club?.name || 'Загрузка...'}</div>
-          </div>
+          )}
+          {isSuperAdmin && (
+            <div className="club-info">
+              <div className="club-logo" style={{ background: '#ef4444' }}>
+                SA
+              </div>
+              <div className="club-name">Суперадминистратор</div>
+            </div>
+          )}
         </div>
         
         <nav className="nav-menu">
@@ -177,10 +190,12 @@ export default function AdminLayout() {
             </button>
             
             <div className="user-menu">
-              <button className="user-btn">
-                <AccountCircle fontSize="small" />
+              <div className="user-info">
                 <span className="user-name">{admin?.name}</span>
                 <span className="user-role">{admin?.role}</span>
+              </div>
+              <button className="user-btn">
+                <AccountCircle fontSize="small" />
               </button>
               <button className="logout-btn" onClick={logout} title="Выйти">
                 <ExitToApp fontSize="small" />

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { usePermission } from '../../hooks/usePermission'
 import { PermissionGate } from '../../components/PermissionGate'
+import { VenueSelector, VenueSelectorEmpty } from '../../components/VenueSelector'
 import { doc, updateDoc, getDoc, GeoPoint } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '../../services/firebase'
@@ -10,7 +11,7 @@ import { Alert, AlertTitle } from '@mui/material'
 
 export default function ClubManagement() {
   const navigate = useNavigate()
-  const { club, admin } = useAuth()
+  const { club, admin, refreshClubData } = useAuth()
   const { isSuperAdmin, canManageClub } = usePermission()
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null)
   const [selectedVenue, setSelectedVenue] = useState<any>(null)
@@ -90,6 +91,14 @@ export default function ClubManagement() {
     }
   }, [club, isSuperAdmin])
 
+  const handleVenueChange = (venueId: string) => {
+    setSelectedVenueId(venueId)
+    localStorage.setItem('selectedVenueId', venueId)
+    if (venueId) {
+      loadVenueData(venueId)
+    }
+  }
+
   const loadVenueData = async (venueId: string) => {
     try {
       console.log('Loading venue data for:', venueId)
@@ -168,6 +177,15 @@ export default function ClubManagement() {
       const logoUrl = await getDownloadURL(snapshot.ref)
       
       await updateDoc(doc(db, 'venues', venueId), { logoUrl })
+      
+      // Update local state to show the logo immediately
+      if (isSuperAdmin && selectedVenue) {
+        setSelectedVenue({ ...selectedVenue, logoUrl })
+      } else {
+        // For regular admins, refresh club data from AuthContext
+        await refreshClubData()
+      }
+      
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
     } catch (error) {
@@ -230,6 +248,14 @@ export default function ClubManagement() {
       setPhotos(newPhotos)
       await updateDoc(doc(db, 'venues', venueId), { photos: newPhotos })
       
+      // Update local state for superadmin
+      if (isSuperAdmin && selectedVenue) {
+        setSelectedVenue({ ...selectedVenue, photos: newPhotos })
+      } else {
+        // For regular admins, refresh club data from AuthContext
+        await refreshClubData()
+      }
+      
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
     } catch (error) {
@@ -237,6 +263,35 @@ export default function ClubManagement() {
       setError('Ошибка при загрузке фотографий')
     } finally {
       setUploadingPhoto(false)
+    }
+  }
+
+  const handleLogoDelete = async () => {
+    const venueId = isSuperAdmin ? selectedVenueId : admin?.venueId
+    if (!venueId) {
+      setError('Не выбран клуб')
+      return
+    }
+
+    try {
+      setLoading(true)
+      await updateDoc(doc(db, 'venues', venueId), { logoUrl: null })
+      
+      // Update local state to remove the logo immediately
+      if (isSuperAdmin && selectedVenue) {
+        setSelectedVenue({ ...selectedVenue, logoUrl: null })
+      } else {
+        // For regular admins, refresh club data from AuthContext
+        await refreshClubData()
+      }
+      
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
+    } catch (error) {
+      console.error('Error deleting logo:', error)
+      setError('Ошибка при удалении логотипа')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -252,6 +307,14 @@ export default function ClubManagement() {
       const newPhotos = photos.filter((_, i) => i !== index)
       setPhotos(newPhotos)
       await updateDoc(doc(db, 'venues', venueId), { photos: newPhotos })
+      
+      // Update local state for superadmin
+      if (isSuperAdmin && selectedVenue) {
+        setSelectedVenue({ ...selectedVenue, photos: newPhotos })
+      } else {
+        // For regular admins, refresh club data from AuthContext
+        await refreshClubData()
+      }
       
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
@@ -301,6 +364,14 @@ export default function ClubManagement() {
 
       await updateDoc(doc(db, 'venues', venueId), updateData)
 
+      // Update local state for superadmin
+      if (isSuperAdmin && selectedVenue) {
+        await loadVenueData(venueId)
+      } else {
+        // For regular admins, refresh club data from AuthContext
+        await refreshClubData()
+      }
+
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
     } catch (error) {
@@ -321,12 +392,7 @@ export default function ClubManagement() {
   }
 
   if (isSuperAdmin && !selectedVenueId) {
-    return (
-      <Alert severity="info">
-        <AlertTitle>Выберите клуб</AlertTitle>
-        Перейдите в раздел "Все клубы" и выберите клуб для управления.
-      </Alert>
-    )
+    return <VenueSelectorEmpty title="Выберите клуб для управления" />
   }
 
   const currentClub = isSuperAdmin ? selectedVenue : club
@@ -334,6 +400,13 @@ export default function ClubManagement() {
   return (
     <PermissionGate permission={['manage_club', 'manage_all_venues']}>
       <div>
+        {/* Селектор клуба для суперадмина */}
+        {isSuperAdmin && (
+          <VenueSelector
+            selectedVenueId={selectedVenueId}
+            onVenueChange={handleVenueChange}
+          />
+        )}
         <div className="section-card">
           <h2 className="section-title">
             Информация о клубе
@@ -370,19 +443,58 @@ export default function ClubManagement() {
           <div className="form-group">
             <label className="form-label">Логотип клуба</label>
             <div className="logo-uploader" style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-              <div className="logo-preview" style={{
-                width: '120px',
-                height: '120px',
-                border: '2px dashed var(--extra-light-gray)',
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-                background: 'var(--background)'
-              }}>
+              <div 
+                className="logo-preview" 
+                style={{
+                  width: '120px',
+                  height: '120px',
+                  border: '2px dashed var(--extra-light-gray)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                  background: 'var(--background)',
+                  position: 'relative'
+                }}
+                onMouseEnter={(e) => {
+                  const deleteBtn = e.currentTarget.querySelector('button')
+                  if (deleteBtn) deleteBtn.style.opacity = '1'
+                }}
+                onMouseLeave={(e) => {
+                  const deleteBtn = e.currentTarget.querySelector('button')
+                  if (deleteBtn) deleteBtn.style.opacity = '0'
+                }}>
                 {currentClub?.logoUrl ? (
-                  <img src={currentClub.logoUrl} alt={currentClub.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <>
+                    <img src={currentClub.logoUrl} alt={currentClub.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <button
+                      type="button"
+                      onClick={handleLogoDelete}
+                      style={{
+                        position: 'absolute',
+                        top: '4px',
+                        right: '4px',
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '50%',
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                        opacity: 0,
+                        transition: 'opacity 0.2s'
+                      }}
+                      disabled={loading}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="#dc2626">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                      </svg>
+                    </button>
+                  </>
                 ) : (
                   <div style={{ textAlign: 'center', color: 'var(--gray)' }}>
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="var(--light-gray)">

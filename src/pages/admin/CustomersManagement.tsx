@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { usePermission } from '../../hooks/usePermission'
+import { VenueSelector, VenueSelectorEmpty } from '../../components/VenueSelector'
 import { 
   collection, 
   query, 
@@ -26,18 +28,37 @@ interface Customer {
 
 export default function CustomersManagement() {
   const { admin } = useAuth()
+  const { isSuperAdmin } = usePermission()
+  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
-    if (admin?.venueId) {
-      fetchCustomers()
+    if (isSuperAdmin) {
+      const venueId = localStorage.getItem('selectedVenueId')
+      if (venueId) {
+        setSelectedVenueId(venueId)
+        fetchCustomers(venueId)
+      } else {
+        setLoading(false)
+      }
+    } else if (admin?.venueId) {
+      fetchCustomers(admin.venueId)
     }
-  }, [admin])
+  }, [admin, isSuperAdmin])
 
-  const fetchCustomers = async () => {
-    if (!admin?.venueId) return
+  const handleVenueChange = (venueId: string) => {
+    setSelectedVenueId(venueId)
+    localStorage.setItem('selectedVenueId', venueId)
+    if (venueId) {
+      fetchCustomers(venueId)
+    }
+  }
+
+  const fetchCustomers = async (venueId?: string) => {
+    const targetVenueId = venueId || admin?.venueId
+    if (!targetVenueId) return
 
     try {
       setLoading(true)
@@ -45,7 +66,7 @@ export default function CustomersManagement() {
       // Сейчас мы соберем их из бронирований
       const bookingsQuery = query(
         collection(db, 'bookings'),
-        where('venueId', '==', admin.venueId),
+        where('venueId', '==', targetVenueId),
         orderBy('createdAt', 'desc'),
         limit(100)
       )
@@ -144,8 +165,19 @@ export default function CustomersManagement() {
     return <div>Загрузка...</div>
   }
 
+  if (isSuperAdmin && !selectedVenueId) {
+    return <VenueSelectorEmpty title="Выберите клуб для просмотра клиентов" />
+  }
+
   return (
     <div>
+      {/* Селектор клуба для суперадмина */}
+      {isSuperAdmin && (
+        <VenueSelector
+          selectedVenueId={selectedVenueId}
+          onVenueChange={handleVenueChange}
+        />
+      )}
       <div className="section-card">
         <div className="section-header">
           <h2 className="section-title">База клиентов</h2>

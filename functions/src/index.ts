@@ -1,22 +1,14 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import * as nodemailer from "nodemailer";
+import {sendEmail} from "./services/emailService";
 
 admin.initializeApp();
 
-// Конфигурация для nodemailer (нужно настроить с реальными данными)
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
-  auth: {
-    user: functions.config().email?.user || "noreply@allcourt.ru",
-    pass: functions.config().email?.password || "",
-  },
-});
+// Устанавливаем регион для всех функций
+const region = "europe-west1";
 
 // Функция для отправки приветственного email с доступами
-export const sendWelcomeEmail = functions.firestore
+export const sendWelcomeEmail = functions.region(region).firestore
   .document("admins/{adminId}")
   .onCreate(async (snap, context) => {
     const adminData = snap.data();
@@ -147,7 +139,8 @@ export const sendWelcomeEmail = functions.firestore
         <a href="${resetLink}" class="button">Войти в админ-панель</a>
       </div>
       
-      <p><small>Эта ссылка действительна в течение 24 часов. После первого входа вы сможете использовать ваш email и пароль для авторизации.</small></p>
+      <p><small>Эта ссылка действительна в течение 24 часов. 
+      После первого входа вы сможете использовать ваш email и пароль для авторизации.</small></p>
       
       <h3>Что дальше?</h3>
       <ol>
@@ -174,16 +167,23 @@ export const sendWelcomeEmail = functions.firestore
         `,
       };
 
-      await transporter.sendMail(mailOptions);
-      
-      console.log("Welcome email sent to:", adminData.email);
+      // Отправляем через Firebase Extension
+      await sendEmail({
+        to: adminData.email,
+        message: {
+          subject: mailOptions.subject,
+          html: mailOptions.html,
+        },
+      });
+
+      console.log("Welcome email queued for:", adminData.email);
     } catch (error) {
       console.error("Error sending welcome email:", error);
     }
   });
 
 // Функция для отправки кода верификации email
-export const sendVerificationCode = functions.https.onCall(async (data, context) => {
+export const sendVerificationCode = functions.region(region).https.onCall(async (data, _context) => {
   const {email} = data;
 
   if (!email) {
@@ -251,7 +251,13 @@ export const sendVerificationCode = functions.https.onCall(async (data, context)
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    await sendEmail({
+      to: email,
+      message: {
+        subject: mailOptions.subject,
+        html: mailOptions.html,
+      },
+    });
     return {success: true};
   } catch (error) {
     console.error("Error sending verification email:", error);
@@ -263,7 +269,7 @@ export const sendVerificationCode = functions.https.onCall(async (data, context)
 });
 
 // Функция для проверки кода верификации
-export const verifyCode = functions.https.onCall(async (data, context) => {
+export const verifyCode = functions.region(region).https.onCall(async (data, _context) => {
   const {email, code} = data;
 
   if (!email || !code) {
@@ -316,3 +322,235 @@ export const verifyCode = functions.https.onCall(async (data, context) => {
 
   return {success: true};
 });
+
+// Функция для создания клуба после регистрации
+export const createClubAfterRegistration = functions.region(region).auth.user()
+  .onCreate(async (user) => {
+    console.log("New user created:", user.uid, user.email);
+
+    // Проверяем, есть ли данные о регистрации клуба в metadata
+    const customClaims = user.customClaims;
+    if (!customClaims?.pendingClubRegistration) {
+      console.log("No pending club registration for user:", user.uid);
+      return;
+    }
+
+    const registrationData = customClaims.pendingClubRegistration;
+    console.log("Processing club registration:", registrationData);
+
+    try {
+    // Создаем клуб в коллекции venues
+      const venueRef = await admin.firestore().collection("venues").add({
+        ...registrationData.venueData,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      console.log("Club created with ID:", venueRef.id);
+
+      // Создаем бесплатную подписку
+      await admin.firestore().collection("subscriptions").add({
+        venueId: venueRef.id,
+        plan: "start",
+        status: "active",
+        startDate: admin.firestore.FieldValue.serverTimestamp(),
+        endDate: null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        usage: {
+          courtsCount: 0,
+          bookingsThisMonth: 0,
+          smsEmailsSent: 0,
+          lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      });
+
+      console.log("Subscription created for venue:", venueRef.id);
+
+      // Создаем администратора
+      await admin.firestore().collection("admins").add({
+        name: "Администратор",
+        email: user.email,
+        role: "admin",
+        venueId: venueRef.id,
+        permissions: [
+          "manage_bookings", "manage_courts", "manage_clients", "manage_settings",
+        ],
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      console.log("Admin created for venue:", venueRef.id);
+
+      // Удаляем временные данные из custom claims
+      await admin.auth().setCustomUserClaims(user.uid, {
+        ...customClaims,
+        pendingClubRegistration: null,
+        venueId: venueRef.id,
+      });
+
+      console.log("Club registration completed successfully");
+    } catch (error) {
+      console.error("Error creating club:", error);
+      throw error;
+    }
+  });
+
+// HTTP функция для создания клуба (альтернативный способ)
+export const createClub = functions.region(region).runWith({
+  invoker: "public",
+}).https.onCall(async (data, context) => {
+  // Проверяем авторизацию
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "User must be authenticated"
+    );
+  }
+
+  const {venueData} = data;
+  const userId = context.auth.uid;
+  const userEmail = context.auth.token.email;
+
+  console.log("Creating club for user:", userId, userEmail);
+
+  try {
+    // Создаем клуб
+    const venueRef = await admin.firestore().collection("venues").add({
+      ...venueData,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Создаем подписку
+    await admin.firestore().collection("subscriptions").add({
+      venueId: venueRef.id,
+      plan: "start",
+      status: "active",
+      startDate: admin.firestore.FieldValue.serverTimestamp(),
+      endDate: null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      usage: {
+        courtsCount: 0,
+        bookingsThisMonth: 0,
+        smsEmailsSent: 0,
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+      },
+    });
+
+    // Создаем администратора
+    await admin.firestore().collection("admins").add({
+      name: "Администратор",
+      email: userEmail,
+      role: "admin",
+      venueId: venueRef.id,
+      permissions: [
+        "manage_bookings", "manage_courts", "manage_clients", "manage_settings",
+      ],
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Обновляем custom claims пользователя
+    await admin.auth().setCustomUserClaims(userId, {
+      venueId: venueRef.id,
+    });
+
+    return {
+      success: true,
+      venueId: venueRef.id,
+    };
+  } catch (error) {
+    console.error("Error in createClub function:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "Failed to create club"
+    );
+  }
+});
+
+// HTTP функция для создания клуба (обход CORS)
+export const createClubHttp = functions.region(region).https.onRequest(async (req, res) => {
+  // Настраиваем CORS
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.status(405).send("Method Not Allowed");
+    return;
+  }
+
+  try {
+    const {venueData, password, userId} = req.body;
+
+    if (!venueData || !password || !userId) {
+      res.status(400).json({error: "Missing required fields"});
+      return;
+    }
+
+    console.log("Creating club via HTTP for user:", userId);
+
+    // Создаем клуб
+    const venueRef = await admin.firestore().collection("venues").add({
+      ...venueData,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Создаем подписку
+    await admin.firestore().collection("subscriptions").add({
+      venueId: venueRef.id,
+      plan: "start",
+      status: "active",
+      startDate: admin.firestore.FieldValue.serverTimestamp(),
+      endDate: null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      usage: {
+        courtsCount: 0,
+        bookingsThisMonth: 0,
+        smsEmailsSent: 0,
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+      },
+    });
+
+    // Создаем администратора
+    await admin.firestore().collection("admins").add({
+      name: "Администратор",
+      email: venueData.email,
+      role: "admin",
+      venueId: venueRef.id,
+      permissions: [
+        "manage_bookings", "manage_courts", "manage_clients", "manage_settings",
+      ],
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    res.status(200).json({
+      success: true,
+      venueId: venueRef.id,
+    });
+  } catch (error) {
+    console.error("Error in createClubHttp:", error);
+    res.status(500).json({error: "Internal server error"});
+  }
+});
+
+// Экспорт функций для биллинга
+export {initSubscriptionPayment} from "./billing/initPayment";
+export {tbankWebhook} from "./billing/webhooks";
+export {processRecurringPayment, monthlyBilling} from "./billing/recurringPayment";
+
+// Экспорт функций для уведомлений о бронировании
+export {sendBookingNotifications, resendBookingNotification} from "./booking/notifications";
+
+// Экспорт функции для тестирования email
+export {testEmailSending} from "./test/testEmail";

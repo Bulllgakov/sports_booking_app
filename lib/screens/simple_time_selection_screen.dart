@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/text_styles.dart';
 import '../core/theme/spacing.dart';
@@ -45,9 +46,19 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
   List<DateTime> dates = [];
   List<int> availableDurations = [60, 90, 120];
   
+  // Для real-time обновлений
+  Stream<QuerySnapshot>? _bookingsStream;
+  List<BookingModel> _currentBookings = [];
+  
   @override
   void initState() {
     super.initState();
+    // Initialize date formatting for Russian locale
+    initializeDateFormatting('ru', null).then((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
     _initializeDates();
     _loadData();
   }
@@ -93,19 +104,44 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
             .toList()
           ..sort();
         
-        // Устанавливаем первую доступную длительность
-        if (availableDurations.isNotEmpty) {
-          selectedDuration = availableDurations.first;
+        // Если после фильтрации нет доступных длительностей, используем все
+        if (availableDurations.isEmpty) {
+          availableDurations = [60, 90, 120];
         }
+      } else {
+        // Используем длительности по умолчанию
+        availableDurations = [60, 90, 120];
+      }
+      
+      // Устанавливаем первую доступную длительность
+      if (availableDurations.isNotEmpty && !availableDurations.contains(selectedDuration)) {
+        selectedDuration = availableDurations.first;
       }
       
       // Загружаем временные слоты
       await _loadTimeSlots();
+      
+      // Настраиваем real-time подписку на бронирования
+      _setupBookingsStream();
     } catch (e) {
       print('Error loading data: $e');
     } finally {
       setState(() => isLoading = false);
     }
+  }
+  
+  void _setupBookingsStream() {
+    final selectedDate = dates[selectedDateIndex];
+    final startOfDay = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+    final endOfDay = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, 23, 59, 59);
+    
+    _bookingsStream = FirebaseFirestore.instance
+        .collection('bookings')
+        .where('courtId', isEqualTo: widget.courtId)
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+        .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
+        .where('status', whereIn: ['confirmed', 'pending'])
+        .snapshots();
   }
   
   Future<void> _loadTimeSlots() async {
@@ -204,17 +240,12 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
   int _calculatePrice(DateTime time, bool isWeekend) {
     if (court == null) return 0;
     
+    // Используем базовые цены без динамических коэффициентов
     final basePrice = isWeekend 
         ? (court!.priceWeekend ?? court!.pricePerHour ?? 0)
         : (court!.priceWeekday ?? court!.pricePerHour ?? 0);
     
-    // Применяем множитель для вечернего времени
-    if (time.hour >= 18 && time.hour < 21) {
-      return (basePrice * 1.2 * selectedDuration / 60).round();
-    } else if (time.hour >= 21 || time.hour < 7) {
-      return (basePrice * 0.8 * selectedDuration / 60).round();
-    }
-    
+    // Простой расчет: цена за час * длительность в часах
     return (basePrice * selectedDuration / 60).round();
   }
   
@@ -228,6 +259,138 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
     final endMinute = totalMinutes % 60;
     
     return '${endHour.toString().padLeft(2, '0')}:${endMinute.toString().padLeft(2, '0')}';
+  }
+  
+  String _getMonthName(int month) {
+    const months = [
+      'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+      'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'
+    ];
+    return months[month - 1];
+  }
+
+  void _rebuildTimeSlotsWithBookings() {
+    if (venue == null || court == null || _currentBookings.isEmpty) return;
+    
+    final selectedDate = dates[selectedDateIndex];
+    final isWeekend = selectedDate.weekday == DateTime.saturday || 
+                      selectedDate.weekday == DateTime.sunday;
+    
+    // Обновляем статус слотов на основе текущих бронирований
+    for (var slot in timeSlots) {
+      final slotTime = slot['time'] as String;
+      bool isAvailable = true;
+      
+      // Проверяем все часовые слоты в течение длительности бронирования
+      final parts = slotTime.split(':');
+      final slotHour = int.parse(parts[0]);
+      final slotMinute = int.parse(parts[1]);
+      
+      DateTime slotStartTime = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+        slotHour,
+        slotMinute,
+      );
+      DateTime slotEndTime = slotStartTime.add(Duration(minutes: selectedDuration));
+      
+      // Проверяем пересечение с существующими бронированиями
+      for (var booking in _currentBookings) {
+        // Используем startTime и endTime из модели бронирования
+        DateTime bookingStartTime = booking.startTime;
+        DateTime bookingEndTime = booking.endTime;
+        
+        // Проверяем пересечение времени
+        if ((slotStartTime.isBefore(bookingEndTime) && slotEndTime.isAfter(bookingStartTime))) {
+          isAvailable = false;
+          break;
+        }
+      }
+      
+      // Пропускаем прошедшее время для сегодня
+      if (selectedDate.day == DateTime.now().day && 
+          slotStartTime.isBefore(DateTime.now())) {
+        isAvailable = false;
+      }
+      
+      slot['status'] = isAvailable ? 'available' : 'busy';
+    }
+  }
+  
+  Widget _buildTimeSlotGrid() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+      child: GridView.builder(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: 1.8,
+        ),
+        itemCount: timeSlots.length,
+        itemBuilder: (context, index) {
+          final slot = timeSlots[index];
+          final isSelected = selectedTimeSlot == slot['time'];
+          final isBusy = slot['status'] == 'busy';
+          
+          return GestureDetector(
+            onTap: isBusy ? null : () {
+              setState(() {
+                selectedTimeSlot = slot['time'];
+              });
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                color: isSelected 
+                    ? AppColors.primary 
+                    : isBusy 
+                        ? AppColors.busy 
+                        : AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                border: Border.all(
+                  color: isSelected 
+                      ? AppColors.primary 
+                      : isBusy 
+                          ? AppColors.busy 
+                          : AppColors.available,
+                  width: 2,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '${slot['time']}-${_calculateEndTime(slot['time'], selectedDuration)}',
+                    style: AppTextStyles.bodyBold.copyWith(
+                      color: isSelected 
+                          ? AppColors.white 
+                          : isBusy 
+                              ? AppColors.busyText 
+                              : AppColors.dark,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isBusy 
+                        ? 'Занято' 
+                        : isSelected 
+                            ? 'Выбрано' 
+                            : '',
+                    style: AppTextStyles.caption.copyWith(
+                      color: isSelected 
+                          ? AppColors.white 
+                          : AppColors.busyText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -298,6 +461,7 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
                         selectedTimeSlot = null;
                       });
                       _loadTimeSlots();
+                      _setupBookingsStream(); // Обновляем stream для новой даты
                     },
                     child: Container(
                       width: 60,
@@ -335,7 +499,7 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
           ),
           
           // Duration selector
-          if (availableDurations.length > 1) ...[
+          if (availableDurations.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
               child: Align(
@@ -348,52 +512,50 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
             ),
             const SizedBox(height: AppSpacing.sm),
             Container(
-              height: 50,
+              height: 40,
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: availableDurations.length,
-                itemBuilder: (context, index) {
-                  final duration = availableDurations[index];
+              child: Row(
+                children: availableDurations.map((duration) {
                   final isSelected = selectedDuration == duration;
                   
-                  return Padding(
-                    padding: const EdgeInsets.only(right: AppSpacing.sm),
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          selectedDuration = duration;
-                          selectedTimeSlot = null;
-                        });
-                        _loadTimeSlots();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.lg,
-                          vertical: AppSpacing.sm,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppColors.primary : AppColors.white,
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                          border: Border.all(
-                            color: isSelected ? AppColors.primary : AppColors.extraLightGray,
-                            width: 2,
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        right: duration != availableDurations.last ? AppSpacing.xs : 0,
+                      ),
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            selectedDuration = duration;
+                            selectedTimeSlot = null;
+                          });
+                          _loadTimeSlots();
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppColors.primary : AppColors.white,
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                            border: Border.all(
+                              color: isSelected ? AppColors.primary : AppColors.extraLightGray,
+                              width: 2,
+                            ),
                           ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            duration == 60 ? '1 час' : 
-                            duration == 90 ? '1.5 часа' : 
-                            '2 часа',
-                            style: AppTextStyles.bodyBold.copyWith(
-                              color: isSelected ? AppColors.white : AppColors.dark,
+                          child: Center(
+                            child: Text(
+                              duration == 60 ? '1 час' : 
+                              duration == 90 ? '1.5 часа' : 
+                              '2 часа',
+                              style: AppTextStyles.caption.copyWith(
+                                color: isSelected ? AppColors.white : AppColors.dark,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
                   );
-                },
+                }).toList(),
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -410,81 +572,26 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          // Time slots grid
+          // Time slots grid with real-time updates
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 2.2,
-                ),
-                itemCount: timeSlots.length,
-                itemBuilder: (context, index) {
-                  final slot = timeSlots[index];
-                  final isSelected = selectedTimeSlot == slot['time'];
-                  final isBusy = slot['status'] == 'busy';
-                  
-                  return GestureDetector(
-                    onTap: isBusy ? null : () {
-                      setState(() {
-                        selectedTimeSlot = slot['time'];
-                      });
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: isSelected 
-                            ? AppColors.primary 
-                            : isBusy 
-                                ? AppColors.busy 
-                                : AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                        border: Border.all(
-                          color: isSelected 
-                              ? AppColors.primary 
-                              : isBusy 
-                                  ? AppColors.busy 
-                                  : AppColors.available,
-                          width: 2,
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            slot['time'],
-                            style: AppTextStyles.bodyBold.copyWith(
-                              color: isSelected 
-                                  ? AppColors.white 
-                                  : isBusy 
-                                      ? AppColors.busyText 
-                                      : AppColors.dark,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            isBusy 
-                                ? 'Занято' 
-                                : isSelected 
-                                    ? 'Выбрано' 
-                                    : '${slot['price']}₽',
-                            style: AppTextStyles.caption.copyWith(
-                              color: isSelected 
-                                  ? AppColors.white 
-                                  : isBusy 
-                                      ? AppColors.busyText 
-                                      : AppColors.primaryDark,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
+            child: _bookingsStream != null 
+              ? StreamBuilder<QuerySnapshot>(
+                  stream: _bookingsStream,
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData) {
+                      // Обновляем список бронирований
+                      _currentBookings = snapshot.data!.docs
+                          .map((doc) => BookingModel.fromFirestore(doc))
+                          .toList();
+                      
+                      // Перестраиваем слоты с новыми данными
+                      _rebuildTimeSlotsWithBookings();
+                    }
+                    
+                    return _buildTimeSlotGrid();
+                  },
+                )
+              : _buildTimeSlotGrid(),
           ),
         ],
       ),
@@ -495,7 +602,7 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
+              color: Colors.black.withOpacity(0.1),
               blurRadius: 20,
               offset: const Offset(0, -4),
             ),
@@ -509,12 +616,12 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '${DateFormat('d MMMM', 'ru').format(dates[selectedDateIndex])}, '
+                    '${dates[selectedDateIndex].day} ${_getMonthName(dates[selectedDateIndex].month)}, '
                     '$selectedTimeSlot-${_calculateEndTime(selectedTimeSlot!, selectedDuration)}',
                     style: AppTextStyles.bodySmall.copyWith(color: AppColors.gray),
                   ),
                   Text(
-                    '${timeSlots.firstWhere((s) => s['time'] == selectedTimeSlot)['price']} ₽',
+                    '${timeSlots.firstWhere((s) => s['time'] == selectedTimeSlot, orElse: () => {'price': 0})['price']} ₽',
                     style: AppTextStyles.h2,
                   ),
                 ],
@@ -525,28 +632,107 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
               width: double.infinity,
               height: AppSpacing.buttonHeight,
               child: ElevatedButton(
-                onPressed: selectedTimeSlot != null ? () {
-                  print('Navigating to SimpleGameTypeScreen');
-                  print('VenueId: ${widget.venueId}, CourtId: ${widget.courtId}');
-                  print('Date: ${dates[selectedDateIndex]}, Time: $selectedTimeSlot, Duration: $selectedDuration');
-                  print('Price: ${timeSlots.firstWhere((s) => s['time'] == selectedTimeSlot)['price']}');
-                  print('Venue: ${venue?.name}, Court: ${court?.name}');
+                onPressed: selectedTimeSlot != null ? () async {
+                  final selectedSlot = timeSlots.firstWhere(
+                    (s) => s['time'] == selectedTimeSlot,
+                    orElse: () => {'price': 0, 'status': 'busy'},
+                  );
                   
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SimpleGameTypeScreen(
-                        venueId: widget.venueId,
-                        courtId: widget.courtId,
-                        date: dates[selectedDateIndex],
-                        time: selectedTimeSlot!,
-                        duration: selectedDuration,
-                        price: timeSlots.firstWhere((s) => s['time'] == selectedTimeSlot)['price'],
-                        venue: venue,
-                        court: court,
+                  // Проверяем доступность слота перед навигацией
+                  if (selectedSlot['status'] == 'busy') {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Этот слот уже занят. Пожалуйста, выберите другое время.'),
+                        backgroundColor: Colors.red,
                       ),
+                    );
+                    // Обновляем слоты
+                    await _loadTimeSlots();
+                    return;
+                  }
+                  
+                  // Дополнительная проверка в базе данных перед навигацией
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => const Center(
+                      child: CircularProgressIndicator(),
                     ),
                   );
+                  
+                  try {
+                    // Проверяем актуальную доступность в базе
+                    final selectedDate = dates[selectedDateIndex];
+                    final bookings = await _bookingService.getBookingsForDateAndCourt(
+                      selectedDate,
+                      widget.courtId,
+                    );
+                    
+                    // Проверяем пересечение времени
+                    final parts = selectedTimeSlot!.split(':');
+                    final slotHour = int.parse(parts[0]);
+                    final slotMinute = int.parse(parts[1]);
+                    
+                    DateTime slotStartTime = DateTime(
+                      selectedDate.year,
+                      selectedDate.month,
+                      selectedDate.day,
+                      slotHour,
+                      slotMinute,
+                    );
+                    DateTime slotEndTime = slotStartTime.add(Duration(minutes: selectedDuration));
+                    
+                    bool isStillAvailable = true;
+                    for (var booking in bookings) {
+                      // Используем startTime и endTime из модели бронирования
+                      DateTime bookingStartTime = booking.startTime;
+                      DateTime bookingEndTime = booking.endTime;
+                      
+                      if ((slotStartTime.isBefore(bookingEndTime) && slotEndTime.isAfter(bookingStartTime))) {
+                        isStillAvailable = false;
+                        break;
+                      }
+                    }
+                    
+                    Navigator.pop(context); // Закрываем диалог загрузки
+                    
+                    if (!isStillAvailable) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('К сожалению, это время было только что забронировано. Пожалуйста, выберите другое время.'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      // Обновляем слоты
+                      await _loadTimeSlots();
+                      return;
+                    }
+                    
+                    // Если все проверки пройдены, переходим на следующий экран
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SimpleGameTypeScreen(
+                          venueId: widget.venueId,
+                          courtId: widget.courtId,
+                          date: dates[selectedDateIndex],
+                          time: selectedTimeSlot!,
+                          duration: selectedDuration,
+                          price: selectedSlot['price'] as int? ?? 0,
+                          venue: venue,
+                          court: court,
+                        ),
+                      ),
+                    );
+                  } catch (e) {
+                    Navigator.pop(context); // Закрываем диалог загрузки
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Ошибка проверки доступности: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 } : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
@@ -564,5 +750,12 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
         ),
       ),
     );
+  }
+  
+  @override
+  void dispose() {
+    // Clean up stream subscription
+    _bookingsStream = null;
+    super.dispose();
   }
 }

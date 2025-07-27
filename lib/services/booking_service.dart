@@ -36,6 +36,7 @@ class BookingService {
     required String venueId,
     required String venueName,
     required DateTime date,
+    required String dateString,
     required String time,
     required String startTime,
     required String endTime,
@@ -44,6 +45,8 @@ class BookingService {
     required String customerName,
     required String customerPhone,
     required int price,
+    required String source,
+    String? customerEmail,
   }) async {
     try {
       final bookingData = {
@@ -51,7 +54,7 @@ class BookingService {
         'courtName': courtName,
         'venueId': venueId,
         'venueName': venueName,
-        'date': Timestamp.fromDate(date),
+        'date': dateString, // Используем строковый формат для совместимости
         'time': time, // Для обратной совместимости
         'startTime': startTime,
         'endTime': endTime,
@@ -59,11 +62,21 @@ class BookingService {
         'gameType': gameType,
         'customerName': customerName,
         'customerPhone': customerPhone,
+        'customerEmail': customerEmail ?? '',
         'clientName': customerName, // Для совместимости с веб-версией
         'clientPhone': customerPhone,
         'price': price,
+        'amount': price, // Для совместимости с админской версией
         'status': 'pending',
+        'paymentStatus': 'awaiting_payment',
+        'paymentMethod': 'mobile_app',
+        'source': source,
         'createdAt': FieldValue.serverTimestamp(),
+        'createdBy': {
+          'userId': 'mobile-user',
+          'userName': customerName,
+          'userRole': 'client'
+        }
       };
       
       final docRef = await _firestore.collection('bookings').add(bookingData);

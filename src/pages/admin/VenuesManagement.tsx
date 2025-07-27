@@ -19,12 +19,13 @@ import {
   Tooltip,
   Divider
 } from '@mui/material'
-import { Edit, Delete, LocationOn, Phone, Email, Add, CardMembership, Warning, ContentCopy, Link, Check, QrCode2 } from '@mui/icons-material'
+import { Edit, Delete, LocationOn, Phone, Email, Add, CardMembership, Warning, ContentCopy, Link, Check, QrCode2, CheckCircle } from '@mui/icons-material'
 import { collection, getDocs, updateDoc, deleteDoc, doc, query, where, addDoc } from 'firebase/firestore'
-import { db } from '../../services/firebase'
+import { db, auth } from '../../services/firebase'
 import { useNavigate } from 'react-router-dom'
 import { usePermission } from '../../hooks/usePermission'
 import { PermissionGate } from '../../components/PermissionGate'
+import { useAuth } from '../../contexts/AuthContext'
 import { SUBSCRIPTION_PLANS, SubscriptionPlan, ClubSubscription } from '../../types/subscription'
 import { Select, MenuItem, FormControl, InputLabel, List, ListItem, ListItemText } from '@mui/material'
 import { QRCodeSVG } from 'qrcode.react'
@@ -54,6 +55,7 @@ interface Venue {
 export default function VenuesManagement() {
   const navigate = useNavigate()
   const { isSuperAdmin } = usePermission()
+  const { admin } = useAuth()
   const [venues, setVenues] = useState<Venue[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null)
@@ -64,6 +66,18 @@ export default function VenuesManagement() {
   const [copiedVenueId, setCopiedVenueId] = useState<string | null>(null)
   const [qrDialogOpen, setQrDialogOpen] = useState(false)
   const [qrVenue, setQrVenue] = useState<Venue | null>(null)
+  const [addClubDialogOpen, setAddClubDialogOpen] = useState(false)
+  const [newClub, setNewClub] = useState({
+    name: '',
+    address: '',
+    city: '',
+    phone: '',
+    email: '',
+    description: '',
+    organizationType: 'ИП',
+    inn: '',
+    bankAccount: ''
+  })
 
   useEffect(() => {
     loadVenues()
@@ -236,11 +250,7 @@ export default function VenuesManagement() {
           <Button
             variant="contained"
             startIcon={<Add />}
-            onClick={() => {
-              // Очищаем выбранный клуб и переходим к управлению
-              localStorage.removeItem('selectedVenueId')
-              navigate('/admin/club')
-            }}
+            onClick={() => setAddClubDialogOpen(true)}
           >
             Добавить клуб
           </Button>
@@ -314,6 +324,70 @@ export default function VenuesManagement() {
                       <Typography variant="body2" color="text.secondary" mt={2}>
                         {venue.description}
                       </Typography>
+                    )}
+
+                    {/* Статус модерации */}
+                    {venue.status === 'pending' && (
+                      <Box sx={{ mt: 2, p: 1.5, bgcolor: 'warning.light', borderRadius: 1 }}>
+                        <Box display="flex" alignItems="center" gap={1} mb={1}>
+                          <Warning fontSize="small" color="warning" />
+                          <Typography variant="subtitle2" color="warning.dark">
+                            Ожидает модерации
+                          </Typography>
+                        </Box>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          color="success"
+                          onClick={async () => {
+                            try {
+                              await updateDoc(doc(db, 'venues', venue.id), {
+                                status: 'active',
+                                moderatedAt: new Date(),
+                                moderatedBy: auth.currentUser?.uid || 'superadmin'
+                              })
+                              loadVenues()
+                            } catch (error) {
+                              console.error('Error activating venue:', error)
+                            }
+                          }}
+                        >
+                          Активировать клуб
+                        </Button>
+                      </Box>
+                    )}
+
+                    {/* Статус активного клуба - только для суперадмина */}
+                    {venue.status === 'active' && isSuperAdmin && (
+                      <Box sx={{ mt: 2, p: 1.5, bgcolor: 'success.light', borderRadius: 1 }}>
+                        <Box display="flex" alignItems="center" gap={1} mb={1}>
+                          <CheckCircle fontSize="small" color="success" />
+                          <Typography variant="subtitle2" color="success.dark">
+                            Активный клуб
+                          </Typography>
+                        </Box>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          color="warning"
+                          onClick={async () => {
+                            if (window.confirm('Вы уверены, что хотите отправить клуб на модерацию? Это заблокирует возможность бронирования.')) {
+                              try {
+                                await updateDoc(doc(db, 'venues', venue.id), {
+                                  status: 'pending',
+                                  moderatedAt: null,
+                                  moderatedBy: null
+                                })
+                                loadVenues()
+                              } catch (error) {
+                                console.error('Error deactivating venue:', error)
+                              }
+                            }
+                          }}
+                        >
+                          Отправить на модерацию
+                        </Button>
+                      </Box>
                     )}
 
                     {/* Информация о подписке */}
@@ -524,6 +598,238 @@ export default function VenuesManagement() {
           </Button>
           <Button onClick={handleUpdateSubscription} variant="contained">
             Применить
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Диалог добавления клуба */}
+      <Dialog open={addClubDialogOpen} onClose={() => setAddClubDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          Добавить новый клуб
+        </DialogTitle>
+        <DialogContent>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+          
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="Название клуба"
+              value={newClub.name}
+              onChange={(e) => setNewClub({ ...newClub, name: e.target.value })}
+              fullWidth
+              required
+            />
+            
+            <TextField
+              label="Адрес"
+              value={newClub.address}
+              onChange={(e) => setNewClub({ ...newClub, address: e.target.value })}
+              fullWidth
+              required
+            />
+            
+            <TextField
+              label="Город"
+              value={newClub.city}
+              onChange={(e) => setNewClub({ ...newClub, city: e.target.value })}
+              fullWidth
+              required
+            />
+            
+            <TextField
+              label="Телефон"
+              value={newClub.phone}
+              onChange={(e) => setNewClub({ ...newClub, phone: e.target.value })}
+              fullWidth
+              required
+              placeholder="+7 (900) 123-45-67"
+            />
+            
+            <TextField
+              label="Email"
+              value={newClub.email}
+              onChange={(e) => setNewClub({ ...newClub, email: e.target.value })}
+              fullWidth
+              required
+              type="email"
+            />
+            
+            <TextField
+              label="Описание"
+              value={newClub.description}
+              onChange={(e) => setNewClub({ ...newClub, description: e.target.value })}
+              fullWidth
+              multiline
+              rows={3}
+            />
+            
+            <FormControl fullWidth>
+              <InputLabel>Форма организации</InputLabel>
+              <Select
+                value={newClub.organizationType}
+                onChange={(e) => setNewClub({ ...newClub, organizationType: e.target.value })}
+                label="Форма организации"
+              >
+                <MenuItem value="ИП">ИП</MenuItem>
+                <MenuItem value="ООО">ООО</MenuItem>
+                <MenuItem value="Самозанятый">Самозанятый</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <TextField
+              label="ИНН"
+              value={newClub.inn}
+              onChange={(e) => setNewClub({ ...newClub, inn: e.target.value })}
+              fullWidth
+            />
+            
+            <TextField
+              label="Расчетный счет"
+              value={newClub.bankAccount}
+              onChange={(e) => setNewClub({ ...newClub, bankAccount: e.target.value })}
+              fullWidth
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setAddClubDialogOpen(false)
+            setError('')
+            setNewClub({
+              name: '',
+              address: '',
+              city: '',
+              phone: '',
+              email: '',
+              description: '',
+              organizationType: 'ИП',
+              inn: '',
+              bankAccount: ''
+            })
+          }}>
+            Отмена
+          </Button>
+          <Button 
+            onClick={async () => {
+              try {
+                // Валидация обязательных полей
+                if (!newClub.name || !newClub.address || !newClub.city || !newClub.phone || !newClub.email) {
+                  setError('Заполните все обязательные поля')
+                  return
+                }
+                
+                // Проверяем, не существует ли уже клуб с таким email
+                const venuesQuery = query(collection(db, 'venues'), where('email', '==', newClub.email))
+                const venuesSnapshot = await getDocs(venuesQuery)
+                if (!venuesSnapshot.empty) {
+                  setError('Клуб с таким email уже существует')
+                  return
+                }
+                
+                // Создаем новый клуб
+                const venueData = {
+                  name: newClub.name,
+                  address: newClub.address,
+                  city: newClub.city,
+                  phone: newClub.phone,
+                  email: newClub.email,
+                  description: newClub.description || '',
+                  organizationType: newClub.organizationType,
+                  inn: newClub.inn || '',
+                  bankAccount: newClub.bankAccount || '',
+                  status: 'pending', // Все новые клубы требуют модерации
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                  logoUrl: '',
+                  amenities: [],
+                  location: null,
+                  moderatedAt: null,
+                  moderatedBy: null,
+                  courts: [],
+                  workingHours: {
+                    weekday: { start: '07:00', end: '23:00' },
+                    weekend: { start: '08:00', end: '22:00' }
+                  }
+                }
+                
+                if (!auth.currentUser) {
+                  setError('Необходимо авторизоваться')
+                  return
+                }
+                
+                if (!isSuperAdmin) {
+                  setError('Только суперадминистратор может создавать клубы')
+                  return
+                }
+                
+                console.log('Creating venue with data:', venueData)
+                console.log('Firebase auth current user:', auth.currentUser)
+                
+                const docRef = await addDoc(collection(db, 'venues'), venueData)
+                console.log('Venue created with ID:', docRef.id)
+                
+                // Создаем бесплатную подписку для нового клуба
+                await addDoc(collection(db, 'subscriptions'), {
+                  venueId: docRef.id,
+                  plan: 'start',
+                  status: 'active',
+                  startDate: new Date(),
+                  endDate: null,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                  usage: {
+                    courtsCount: 0,
+                    bookingsThisMonth: 0,
+                    smsEmailsSent: 0,
+                    lastUpdated: new Date()
+                  }
+                })
+                
+                // Создаем администратора для клуба
+                await addDoc(collection(db, 'admins'), {
+                  name: 'Администратор',
+                  email: newClub.email,
+                  password: '123456', // Временный пароль
+                  role: 'admin',
+                  venueId: docRef.id,
+                  permissions: ['manage_bookings', 'manage_courts', 'manage_clients', 'manage_settings'],
+                  createdAt: new Date(),
+                  updatedAt: new Date()
+                })
+                
+                setAddClubDialogOpen(false)
+                setError('')
+                setNewClub({
+                  name: '',
+                  address: '',
+                  city: '',
+                  phone: '',
+                  email: '',
+                  description: '',
+                  organizationType: 'ИП',
+                  inn: '',
+                  bankAccount: ''
+                })
+                loadVenues()
+                
+                // Показываем сообщение об успешном создании
+                alert(`Клуб "${newClub.name}" успешно создан! Администратор: ${newClub.email}, пароль: 123456`)
+              } catch (error: any) {
+                console.error('Error creating venue:', error)
+                console.error('Error details:', {
+                  code: error?.code,
+                  message: error?.message,
+                  stack: error?.stack
+                })
+                setError('Ошибка при создании клуба: ' + (error?.message || 'Неизвестная ошибка'))
+              }
+            }}
+            variant="contained"
+          >
+            Создать
           </Button>
         </DialogActions>
       </Dialog>

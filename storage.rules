@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow authenticated users to read all files
+    match /{allPaths=**} {
+      allow read: if request.auth != null;
+    }
+    
+    // Allow club admins to upload to their club's folder
+    match /clubs/{venueId}/{allPaths=**} {
+      allow write: if request.auth != null && (
+        // Superadmin can upload to any club
+        request.auth.token.role == 'superadmin' ||
+        // Club admin can upload to their own club
+        (request.auth.token.venueId == venueId && request.auth.token.role == 'admin') ||
+        // Temporary: allow any authenticated user (will be restricted later)
+        true
+      );
+    }
+  }
+}

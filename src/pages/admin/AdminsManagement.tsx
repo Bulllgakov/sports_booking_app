@@ -33,11 +33,13 @@ import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { db, auth } from '../../services/firebase'
 import { usePermission } from '../../hooks/usePermission'
 import { PermissionGate } from '../../components/PermissionGate'
+import ResetPasswordButton from '../../components/ResetPasswordButton'
 
 interface Admin {
   id: string
   name: string
   email: string
+  password?: string
   role: 'superadmin' | 'admin' | 'manager'
   venueId?: string
   venueName?: string
@@ -130,6 +132,7 @@ export default function AdminsManagement() {
           id: doc.id,
           name: data.name,
           email: data.email,
+          password: data.password,
           role: data.role,
           venueId: data.venueId,
           venueName,
@@ -208,13 +211,17 @@ export default function AdminsManagement() {
 
       if (editingAdmin) {
         // Обновляем существующего админа
-        await updateDoc(doc(db, 'admins', editingAdmin.id), {
+        const updateData: any = {
           name: formData.name,
           role: formData.role,
           venueId: formData.venueId || null,
           permissions: formData.permissions,
           updatedAt: new Date()
-        })
+        }
+        
+        // Пароли больше не хранятся в Firestore - только в Firebase Auth
+        
+        await updateDoc(doc(db, 'admins', editingAdmin.id), updateData)
       } else {
         // Создаем нового админа
         if (!formData.password) {
@@ -291,6 +298,7 @@ export default function AdminsManagement() {
               <TableRow>
                 <TableCell>Имя</TableCell>
                 <TableCell>Email</TableCell>
+                {isSuperAdmin && <TableCell>Пароль</TableCell>}
                 <TableCell>Роль</TableCell>
                 <TableCell>Клуб</TableCell>
                 <TableCell align="right">Действия</TableCell>
@@ -312,6 +320,7 @@ export default function AdminsManagement() {
                   <TableCell align="right">
                     {admin.role !== 'superadmin' && (
                       <>
+                        <ResetPasswordButton email={admin.email} />
                         <IconButton onClick={() => handleOpen(admin)}>
                           <Edit />
                         </IconButton>
@@ -364,6 +373,7 @@ export default function AdminsManagement() {
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 margin="normal"
+                required
               />
             )}
             

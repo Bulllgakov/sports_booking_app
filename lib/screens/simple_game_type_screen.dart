@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/text_styles.dart';
 import '../core/theme/spacing.dart';
 import '../models/venue_model.dart';
 import '../models/court_model.dart';
+import '../services/auth_service.dart';
+import '../services/booking_service.dart';
+import 'login_screen.dart';
 import 'payment_screen.dart';
-import 'create_open_game_screen.dart';
-import 'find_game_screen.dart';
 
 class SimpleGameTypeScreen extends StatefulWidget {
   final String venueId;
@@ -36,6 +39,129 @@ class SimpleGameTypeScreen extends StatefulWidget {
 
 class _SimpleGameTypeScreenState extends State<SimpleGameTypeScreen> {
   String selectedGameType = 'private';
+  bool _isLoading = false;
+
+  String _calculateEndTime(String startTime, int duration) {
+    final parts = startTime.split(':');
+    final startHour = int.parse(parts[0]);
+    final startMinute = int.parse(parts[1]);
+    
+    final totalMinutes = startHour * 60 + startMinute + duration;
+    final endHour = totalMinutes ~/ 60;
+    final endMinute = totalMinutes % 60;
+    
+    return '${endHour.toString().padLeft(2, '0')}:${endMinute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDate(DateTime date) {
+    final months = [
+      'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+      'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'
+    ];
+    return '${date.day} ${months[date.month - 1]}';
+  }
+
+  Future<void> _handleContinue() async {
+    final authService = context.read<AuthService>();
+    
+    // Проверяем авторизацию
+    if (!authService.isAuthenticated) {
+      // Показываем диалог с предложением авторизоваться
+      final shouldLogin = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Требуется авторизация'),
+          content: const Text('Для бронирования корта необходимо войти в приложение'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Отмена'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Войти'),
+            ),
+          ],
+        ),
+      );
+      
+      if (shouldLogin == true && mounted) {
+        // Переходим на экран авторизации
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const LoginScreen(),
+          ),
+        );
+        
+        // Если пользователь не авторизовался, выходим
+        if (!mounted || !authService.isAuthenticated) return;
+      } else {
+        return;
+      }
+    }
+    
+    // Пользователь авторизован, создаем бронирование
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      final user = authService.currentUserModel;
+      if (user == null) {
+        throw Exception('Не удалось загрузить данные пользователя');
+      }
+      
+      // Форматируем дату в строковый формат для совместимости
+      final dateString = DateFormat('yyyy-MM-dd').format(widget.date);
+      
+      // Создаем бронирование
+      final bookingId = await BookingService().createBooking(
+        courtId: widget.courtId,
+        courtName: widget.court?.name ?? '',
+        venueId: widget.venueId,
+        venueName: widget.venue?.name ?? '',
+        date: widget.date,
+        dateString: dateString,
+        time: widget.time,
+        startTime: widget.time,
+        endTime: _calculateEndTime(widget.time, widget.duration),
+        duration: widget.duration,
+        gameType: selectedGameType,
+        customerName: user.displayName,
+        customerPhone: user.phoneNumber,
+        price: widget.price,
+        source: 'mobile_app',
+      );
+      
+      if (!mounted) return;
+      
+      // Показываем сообщение об успешном создании
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Бронирование успешно создано!'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      
+      // Переходим на главный экран (или экран с деталями бронирования)
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      
+    } catch (e) {
+      if (!mounted) return;
+      
+      setState(() {
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,98 +170,144 @@ class _SimpleGameTypeScreenState extends State<SimpleGameTypeScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: AppColors.dark),
-        title: Text(
-          'Выберите формат игры',
-          style: AppTextStyles.h3.copyWith(color: AppColors.dark),
+        leading: Container(
+          margin: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.divider,
+            shape: BoxShape.circle,
+          ),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: AppColors.dark),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Выберите формат игры',
+              style: AppTextStyles.h3.copyWith(color: AppColors.dark),
+            ),
+            if (widget.venue != null && widget.court != null)
+              Text(
+                '${widget.venue!.name} • ${widget.court!.name}',
+                style: AppTextStyles.caption.copyWith(color: AppColors.gray),
+              ),
+          ],
+        ),
+        toolbarHeight: 80,
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.screenPadding),
-          child: Column(
-            children: [
-              // Private game card
-              _buildGameTypeCard(
-                type: 'private',
-                icon: Icons.lock,
-                iconColor: AppColors.primary,
-                title: 'Приватная игра',
-                subtitle: 'Только для вас и ваших друзей',
-                tags: ['Только для вас', 'Без посторонних'],
-                onTap: () {
-                  setState(() {
-                    selectedGameType = 'private';
-                  });
-                },
-              ),
-              const SizedBox(height: AppSpacing.cardPadding),
-              
-              // Open game card
-              _buildGameTypeCard(
-                type: 'open',
-                icon: Icons.group,
-                iconColor: AppColors.gray,
-                title: 'Открытая игра',
-                subtitle: 'Найдите партнёров для игры',
-                tags: ['Найти партнёров', 'Разделить оплату'],
-                onTap: () {
-                  setState(() {
-                    selectedGameType = 'open';
-                  });
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const CreateOpenGameScreen()),
-                  );
-                },
-              ),
-              const SizedBox(height: AppSpacing.cardPadding),
-              
-              // Find game card
-              _buildGameTypeCard(
-                type: 'find',
-                icon: Icons.search,
-                iconColor: AppColors.gray,
-                title: 'Найти игру',
-                subtitle: 'Присоединитесь к существующей игре',
-                tags: ['12 открытых игр'],
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const FindGameScreen()),
-                  );
-                },
-              ),
-              
-              const Spacer(),
-              
-              // Continue button
-              SizedBox(
-                width: double.infinity,
-                height: AppSpacing.buttonHeight,
-                child: ElevatedButton(
-                  onPressed: selectedGameType == 'private' ? () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const PaymentScreen()),
-                    );
-                  } : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    disabledBackgroundColor: AppColors.lightGray,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      body: Column(
+        children: [
+          // Info section
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.screenPadding),
+            color: AppColors.white,
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _formatDate(widget.date),
+                          style: AppTextStyles.bodyBold,
+                        ),
+                        Text(
+                          '${widget.time}-${_calculateEndTime(widget.time, widget.duration)} • ${widget.duration ~/ 60} ${widget.duration == 60 ? 'час' : 'часа'}',
+                          style: AppTextStyles.bodySmall.copyWith(color: AppColors.gray),
+                        ),
+                      ],
                     ),
-                  ),
-                  child: Text(
-                    'Далее к оплате',
-                    style: AppTextStyles.button.copyWith(
-                      color: AppColors.white,
+                    Text(
+                      '${widget.price} ₽',
+                      style: AppTextStyles.h2.copyWith(color: AppColors.primary),
                     ),
-                  ),
+                  ],
                 ),
+              ],
+            ),
+          ),
+          
+          // Game type selection
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.screenPadding),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Выберите тип игры',
+                    style: AppTextStyles.bodyBold,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  
+                  // Private game card
+                  _buildGameTypeCard(
+                    type: 'private',
+                    icon: Icons.lock_outline,
+                    title: 'Приватная игра',
+                    subtitle: 'Только для вас и ваших друзей',
+                    description: 'Забронируйте корт для своей компании',
+                  ),
+                  
+                  const SizedBox(height: AppSpacing.md),
+                  
+                  // Open game card
+                  _buildGameTypeCard(
+                    type: 'open',
+                    icon: Icons.people_outline,
+                    title: 'Открытая игра',
+                    subtitle: 'Найдите партнёров для игры',
+                    description: 'Присоединитесь к другим игрокам или создайте свою игру',
+                  ),
+                  
+                  const Spacer(),
+                ],
               ),
-            ],
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(AppSpacing.screenPadding),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SizedBox(
+          width: double.infinity,
+          height: AppSpacing.buttonHeight,
+          child: ElevatedButton(
+            onPressed: _isLoading ? null : _handleContinue,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              ),
+            ),
+            child: _isLoading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: AppColors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Text(
+                    'Забронировать',
+                    style: AppTextStyles.button.copyWith(color: AppColors.white),
+                  ),
           ),
         ),
       ),
@@ -145,92 +317,83 @@ class _SimpleGameTypeScreenState extends State<SimpleGameTypeScreen> {
   Widget _buildGameTypeCard({
     required String type,
     required IconData icon,
-    required Color iconColor,
     required String title,
     required String subtitle,
-    required List<String> tags,
-    required VoidCallback onTap,
+    required String description,
   }) {
     final isSelected = selectedGameType == type;
     
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
+      onTap: () {
+        setState(() {
+          selectedGameType = type;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(AppSpacing.cardPadding),
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: isSelected ? AppColors.primaryLight : AppColors.white,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           border: Border.all(
-            color: isSelected ? AppColors.primary : Colors.transparent,
-            width: 2,
+            color: isSelected ? AppColors.primary : AppColors.extraLightGray,
+            width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected ? [
             BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.1),
+              color: AppColors.primary.withOpacity(0.1),
               blurRadius: 10,
-              offset: const Offset(0, 2),
+              offset: const Offset(0, 4),
             ),
-          ] : null,
+          ] : [],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primary : AppColors.divider,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: isSelected ? AppColors.white : iconColor,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Text(
-                  title,
-                  style: AppTextStyles.bodyBold,
-                ),
-              ],
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.primary : AppColors.background,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              ),
+              child: Icon(
+                icon,
+                color: isSelected ? AppColors.white : AppColors.gray,
+                size: 24,
+              ),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            Padding(
-              padding: const EdgeInsets.only(left: 40 + AppSpacing.md),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
+                    title,
+                    style: AppTextStyles.bodyBold.copyWith(
+                      color: isSelected ? AppColors.primary : AppColors.dark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
                     subtitle,
                     style: AppTextStyles.bodySmall.copyWith(color: AppColors.gray),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Wrap(
-                    spacing: AppSpacing.xs,
-                    children: tags.map((tag) => Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
-                        vertical: AppSpacing.xs,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primaryLight : AppColors.divider,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-                      ),
-                      child: Text(
-                        tag,
-                        style: AppTextStyles.caption.copyWith(
-                          color: isSelected ? AppColors.primaryDark : AppColors.gray,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    )).toList(),
-                  ),
+                  if (isSelected) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      description,
+                      style: AppTextStyles.caption.copyWith(color: AppColors.gray),
+                    ),
+                  ],
                 ],
               ),
             ),
+            if (isSelected)
+              Icon(
+                Icons.check_circle,
+                color: AppColors.primary,
+                size: 24,
+              ),
           ],
         ),
       ),

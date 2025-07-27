@@ -64,14 +64,9 @@ body {
 .logo-icon {
   width: 40px;
   height: 40px;
-  background: var(--primary);
-  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-weight: bold;
-  font-size: 20px;
 }
 
 .logo-text {
@@ -205,28 +200,45 @@ body {
 .user-menu {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-right: 8px;
 }
 
 .user-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--background);
+  border: none;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.user-btn:hover {
+  background: var(--extra-light-gray);
 }
 
 .user-name {
   font-size: 14px;
   font-weight: 500;
   color: var(--dark);
-  display: none;
+  line-height: 1.2;
 }
 
 .user-role {
   font-size: 12px;
   color: var(--gray);
   text-transform: capitalize;
-  display: none;
+  line-height: 1.2;
 }
 
 .logout-btn {
@@ -245,8 +257,14 @@ body {
 }
 
 @media (min-width: 1024px) {
-  .user-name, .user-role {
-    display: block;
+  .user-info {
+    display: flex;
+  }
+}
+
+@media (max-width: 1023px) {
+  .user-info {
+    display: none;
   }
 }
 
