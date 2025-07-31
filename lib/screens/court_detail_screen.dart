@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/text_styles.dart';
 import '../core/theme/spacing.dart';
@@ -158,35 +157,6 @@ class CourtDetailScreen extends StatelessWidget {
                           ],
                         ),
                       ],
-                      const SizedBox(height: AppSpacing.lg),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.md,
-                              vertical: AppSpacing.xs,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.chipBackground,
-                              borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.star,
-                                  size: AppSpacing.iconSizeSm,
-                                  color: AppColors.warning,
-                                ),
-                                const SizedBox(width: AppSpacing.xxs),
-                                Text(
-                                  venue.rating.toStringAsFixed(1),
-                                  style: AppTextStyles.captionBold.copyWith(color: AppColors.primaryDark),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
                       if (venue.description.isNotEmpty) ...[
                         const SizedBox(height: AppSpacing.xl),
                         Container(
@@ -252,16 +222,18 @@ class CourtDetailScreen extends StatelessWidget {
                           ),
                         ),
                       ],
+                      const SizedBox(height: AppSpacing.xl),
+                      Text(
+                        'Доступные корты',
+                        style: AppTextStyles.h3,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      _buildCourtsList(provider),
                       const SizedBox(height: AppSpacing.md),
                       // User agreement link
                       GestureDetector(
-                        onTap: () async {
-                          // Open user agreement in browser
-                          final url = 'https://sports-booking-app-c9344.web.app/club/${venue.id}/user-agreement';
-                          final uri = Uri.parse(url);
-                          if (await canLaunchUrl(uri)) {
-                            await launchUrl(uri, mode: LaunchMode.externalApplication);
-                          }
+                        onTap: () {
+                          _showUserAgreementDialog(context, venue);
                         },
                         child: Container(
                           padding: const EdgeInsets.all(AppSpacing.md),
@@ -299,13 +271,6 @@ class CourtDetailScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.xl),
-                      Text(
-                        'Доступные корты',
-                        style: AppTextStyles.h3,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      _buildCourtsList(provider),
                       // Bottom padding to avoid bottomNavigationBar overlap
                       const SizedBox(height: 100),
                     ],
@@ -521,5 +486,221 @@ class CourtDetailScreen extends StatelessWidget {
       default:
         return AppColors.primary;
     }
+  }
+
+  void _showUserAgreementDialog(BuildContext context, VenueModel venue) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          ),
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+              maxWidth: MediaQuery.of(context).size.width * 0.9,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.cardPadding),
+                  decoration: const BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(AppSpacing.radiusMd),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Пользовательское соглашение',
+                          style: AppTextStyles.h3,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(AppSpacing.cardPadding),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ПОЛЬЗОВАТЕЛЬСКОЕ СОГЛАШЕНИЕ',
+                          style: AppTextStyles.h3,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          'г. Москва • ${DateTime.now().day}.${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().year}',
+                          style: AppTextStyles.body.copyWith(color: AppColors.gray),
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        Text(
+                          '1. ОБЩИЕ ПОЛОЖЕНИЯ',
+                          style: AppTextStyles.bodyBold,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '1.1. Настоящее Пользовательское соглашение (далее – Соглашение) регулирует отношения между владельцем спортивного клуба "${venue.name}" (далее – Клуб) и пользователем приложения "Все Корты" (далее – Пользователь).',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          '1.2. Используя приложение для бронирования кортов, Пользователь соглашается с условиями данного Соглашения.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        Text(
+                          '2. ПРАВИЛА БРОНИРОВАНИЯ',
+                          style: AppTextStyles.bodyBold,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '2.1. Бронирование корта осуществляется через мобильное приложение "Все Корты".',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          '2.2. Оплата производится в момент бронирования через платежные системы Тбанк или Юкасса.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          '2.3. Бронирование считается подтвержденным только после успешной оплаты.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        Text(
+                          '3. ОТМЕНА БРОНИРОВАНИЯ',
+                          style: AppTextStyles.bodyBold,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '3.1. Отмена бронирования возможна не позднее чем за 24 часа до начала игры.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          '3.2. При отмене бронирования менее чем за 24 часа, оплата не возвращается.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        Text(
+                          '4. ПРАВИЛА ПОВЕДЕНИЯ НА КОРТЕ',
+                          style: AppTextStyles.bodyBold,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '4.1. На территории клуба запрещено курение и употребление алкоголя.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          '4.2. Игроки обязаны соблюдать спортивный дресс-код.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          '4.3. Запрещается использование корта для иных целей, кроме игры.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        Text(
+                          '5. ОТВЕТСТВЕННОСТЬ',
+                          style: AppTextStyles.bodyBold,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '5.1. Клуб не несет ответственности за травмы, полученные во время игры.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          '5.2. Пользователь несет ответственность за сохранность инвентаря и оборудования.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        Text(
+                          '6. КОНТАКТНАЯ ИНФОРМАЦИЯ',
+                          style: AppTextStyles.bodyBold,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        if (venue.organizationType != null) ...[
+                          Text(
+                            'Организация: ${venue.organizationType}',
+                            style: AppTextStyles.body,
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                        ],
+                        if (venue.inn != null) ...[
+                          Text(
+                            'ИНН: ${venue.inn}',
+                            style: AppTextStyles.body,
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                        ],
+                        if (venue.bankAccount != null) ...[
+                          Text(
+                            'Расчетный счет: ${venue.bankAccount}',
+                            style: AppTextStyles.body,
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                        ],
+                        Text(
+                          'Адрес: ${venue.address}',
+                          style: AppTextStyles.body,
+                        ),
+                        if (venue.phone != null) ...[
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            'Телефон: ${venue.phone}',
+                            style: AppTextStyles.body,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.cardPadding),
+                  decoration: const BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.vertical(
+                      bottom: Radius.circular(AppSpacing.radiusMd),
+                    ),
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                        ),
+                      ),
+                      child: Text(
+                        'Закрыть',
+                        style: AppTextStyles.button.copyWith(color: AppColors.white),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
