@@ -47,6 +47,8 @@ class BookingService {
     required int price,
     required String source,
     String? customerEmail,
+    double? pricePerPlayer,
+    int? playersCount,
   }) async {
     try {
       final bookingData = {
@@ -78,6 +80,13 @@ class BookingService {
           'userRole': 'client'
         }
       };
+      
+      // Add open game specific fields
+      if (gameType == 'open' && pricePerPlayer != null && playersCount != null) {
+        bookingData['pricePerPlayer'] = pricePerPlayer;
+        bookingData['playersCount'] = playersCount;
+        bookingData['players'] = [customerPhone]; // Initialize with creator's phone
+      }
       
       final docRef = await _firestore.collection('bookings').add(bookingData);
       return docRef.id;

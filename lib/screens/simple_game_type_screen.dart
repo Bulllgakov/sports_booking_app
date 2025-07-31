@@ -39,6 +39,7 @@ class SimpleGameTypeScreen extends StatefulWidget {
 
 class _SimpleGameTypeScreenState extends State<SimpleGameTypeScreen> {
   String selectedGameType = 'private';
+  int selectedPlayersCount = 2; // Default to 2 players for open games
   bool _isLoading = false;
 
   String _calculateEndTime(String startTime, int duration) {
@@ -115,6 +116,12 @@ class _SimpleGameTypeScreenState extends State<SimpleGameTypeScreen> {
       // Форматируем дату в строковый формат для совместимости
       final dateString = DateFormat('yyyy-MM-dd').format(widget.date);
       
+      // Calculate price per player for open games
+      final totalPrice = widget.price;
+      final pricePerPlayer = selectedGameType == 'open' 
+          ? totalPrice / selectedPlayersCount 
+          : totalPrice;
+      
       // Создаем бронирование
       final bookingId = await BookingService().createBooking(
         courtId: widget.courtId,
@@ -130,7 +137,9 @@ class _SimpleGameTypeScreenState extends State<SimpleGameTypeScreen> {
         gameType: selectedGameType,
         customerName: user.displayName,
         customerPhone: user.phoneNumber,
-        price: widget.price,
+        price: totalPrice,
+        pricePerPlayer: pricePerPlayer,
+        playersCount: selectedGameType == 'open' ? selectedPlayersCount : 1,
         source: 'mobile_app',
       );
       
@@ -264,6 +273,53 @@ class _SimpleGameTypeScreenState extends State<SimpleGameTypeScreen> {
                     description: 'Присоединитесь к другим игрокам или создайте свою игру',
                   ),
                   
+                  // Players count selector for open games
+                  if (selectedGameType == 'open') ...[
+                    const SizedBox(height: AppSpacing.xl),
+                    Text(
+                      'Количество игроков',
+                      style: AppTextStyles.bodyBold,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildPlayersCountOption(2),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: _buildPlayersCountOption(4),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppColors.chipBackground,
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 16,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Expanded(
+                            child: Text(
+                              'Стоимость игры будет разделена на $selectedPlayersCount игроков: ${(widget.price / selectedPlayersCount).round()} ₽ с человека',
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.primaryDark,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  
                   const Spacer(),
                 ],
               ),
@@ -309,6 +365,49 @@ class _SimpleGameTypeScreenState extends State<SimpleGameTypeScreen> {
                     style: AppTextStyles.button.copyWith(color: AppColors.white),
                   ),
           ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildPlayersCountOption(int count) {
+    final isSelected = selectedPlayersCount == count;
+    
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedPlayersCount = count;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(
+          vertical: AppSpacing.md,
+          horizontal: AppSpacing.cardPadding,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : AppColors.white,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.extraLightGray,
+            width: 2,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              count == 2 ? Icons.people : Icons.groups,
+              size: 32,
+              color: isSelected ? AppColors.white : AppColors.primary,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '$count игрока',
+              style: AppTextStyles.bodyBold.copyWith(
+                color: isSelected ? AppColors.white : AppColors.dark,
+              ),
+            ),
+          ],
         ),
       ),
     );

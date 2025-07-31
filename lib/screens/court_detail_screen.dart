@@ -306,6 +306,8 @@ class CourtDetailScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: AppSpacing.md),
                       _buildCourtsList(provider),
+                      // Bottom padding to avoid bottomNavigationBar overlap
+                      const SizedBox(height: 100),
                     ],
                   ),
                 ),

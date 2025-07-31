@@ -332,7 +332,7 @@ export default function ClubPage() {
       )}
 
       {/* Main content */}
-      <div style={isDesktop ? desktopStyles.container : {...mobileStyles.contentPadding, paddingBottom: 'calc(140px + var(--spacing-xl))'}}>
+      <div style={isDesktop ? desktopStyles.container : mobileStyles.contentPadding}>
         <div style={isDesktop ? desktopStyles.mainContent : {}}>
           {/* Image gallery for desktop */}
           {isDesktop && venue.photos && venue.photos.length > 0 && (
@@ -600,37 +600,6 @@ export default function ClubPage() {
                 }
               </button>
               
-              <div style={{ 
-                textAlign: 'center', 
-                padding: 'var(--spacing-md)', 
-                backgroundColor: 'var(--background)',
-                borderRadius: 'var(--radius-md)',
-                marginTop: 'var(--spacing-lg)'
-              }}>
-                <p className="caption" style={{ color: 'var(--gray)', marginBottom: 'var(--spacing-sm)' }}>
-                  Удобнее в приложении
-                </p>
-                <button
-                  style={{
-                    background: 'var(--secondary)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: 'var(--spacing-xs) var(--spacing-md)',
-                    fontSize: 'var(--text-caption)',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 'var(--spacing-xs)'
-                  }}
-                  onClick={() => {
-                    window.location.href = `allcourts://club/${clubId}`
-                  }}
-                >
-                  📱 Открыть в приложении
-                </button>
-              </div>
             </div>
 
             {/* Working hours */}
@@ -693,37 +662,6 @@ export default function ClubPage() {
         </div>
       )}
 
-      {/* Mobile app promo for mobile only */}
-      {!isDesktop && (
-        <div className="mobile-app-promo" style={{ 
-          position: 'fixed',
-          bottom: '140px',
-          right: '20px',
-          zIndex: 99
-        }}>
-          <button
-            style={{
-              background: 'var(--secondary)',
-              color: 'white',
-              border: 'none',
-              borderRadius: 'var(--radius-full)',
-              padding: 'var(--spacing-sm) var(--spacing-md)',
-              fontSize: 'var(--text-caption)',
-              fontWeight: '600',
-              boxShadow: 'var(--shadow-lg)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--spacing-xs)'
-            }}
-            onClick={() => {
-              window.location.href = `allcourts://club/${clubId}`
-            }}
-          >
-            📱 Открыть в приложении
-          </button>
-        </div>
-      )}
 
 
       {/* Booking Modal - Lazy loaded */}
@@ -886,6 +824,7 @@ export default function ClubPage() {
         borderTop: '1px solid var(--divider)',
         padding: '24px',
         marginTop: '40px',
+        paddingBottom: !isDesktop ? 'calc(140px + 24px)' : '24px',
         textAlign: 'center',
         backgroundColor: 'var(--background)'
       }}>
