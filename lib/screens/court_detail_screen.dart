@@ -157,6 +157,13 @@ class CourtDetailScreen extends StatelessWidget {
                           ],
                         ),
                       ],
+                      const SizedBox(height: AppSpacing.xl),
+                      Text(
+                        'Доступные корты',
+                        style: AppTextStyles.h3,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      _buildCourtsList(provider),
                       if (venue.description.isNotEmpty) ...[
                         const SizedBox(height: AppSpacing.xl),
                         Container(
@@ -222,13 +229,6 @@ class CourtDetailScreen extends StatelessWidget {
                           ),
                         ),
                       ],
-                      const SizedBox(height: AppSpacing.xl),
-                      Text(
-                        'Доступные корты',
-                        style: AppTextStyles.h3,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      _buildCourtsList(provider),
                       const SizedBox(height: AppSpacing.md),
                       // User agreement link
                       GestureDetector(
@@ -489,6 +489,9 @@ class CourtDetailScreen extends StatelessWidget {
   }
 
   void _showUserAgreementDialog(BuildContext context, VenueModel venue) {
+    final now = DateTime.now();
+    final formattedDate = '${now.day}.${now.month.toString().padLeft(2, '0')}.${now.year}';
+    
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -538,135 +541,251 @@ class CourtDetailScreen extends StatelessWidget {
                         Text(
                           'ПОЛЬЗОВАТЕЛЬСКОЕ СОГЛАШЕНИЕ',
                           style: AppTextStyles.h3,
+                          textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.xs),
                         Text(
-                          'г. Москва • ${DateTime.now().day}.${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().year}',
+                          'об оказании услуг по предоставлению спортивных площадок',
                           style: AppTextStyles.body.copyWith(color: AppColors.gray),
-                        ),
-                        const SizedBox(height: AppSpacing.xl),
-                        Text(
-                          '1. ОБЩИЕ ПОЛОЖЕНИЯ',
-                          style: AppTextStyles.bodyBold,
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          '1.1. Настоящее Пользовательское соглашение (далее – Соглашение) регулирует отношения между владельцем спортивного клуба "${venue.name}" (далее – Клуб) и пользователем приложения "Все Корты" (далее – Пользователь).',
-                          style: AppTextStyles.body,
+                          textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: AppSpacing.md),
                         Text(
-                          '1.2. Используя приложение для бронирования кортов, Пользователь соглашается с условиями данного Соглашения.',
+                          'Дата публикации: $formattedDate',
+                          style: AppTextStyles.caption.copyWith(color: AppColors.gray),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        Text(
+                          'Настоящее Пользовательское соглашение (далее – «Соглашение») регулирует отношения между ${venue.name} ${venue.organizationType != null ? '(${venue.organizationType})' : ''}, именуемым в дальнейшем «Исполнитель», с одной стороны, и физическим лицом, именуемым в дальнейшем «Заказчик», с другой стороны, совместно именуемые «Стороны», по поводу оказания услуг по предоставлению спортивных площадок для занятий спортом.',
                           style: AppTextStyles.body,
                         ),
                         const SizedBox(height: AppSpacing.xl),
                         Text(
-                          '2. ПРАВИЛА БРОНИРОВАНИЯ',
+                          '1. ТЕРМИНЫ И ОПРЕДЕЛЕНИЯ',
                           style: AppTextStyles.bodyBold,
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         Text(
-                          '2.1. Бронирование корта осуществляется через мобильное приложение "Все Корты".',
+                          '1.1. Клуб — спортивный комплекс, расположенный по адресу: ${venue.address}, управляемый Исполнителем.',
                           style: AppTextStyles.body,
                         ),
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.sm),
                         Text(
-                          '2.2. Оплата производится в момент бронирования через платежные системы Тбанк или Юкасса.',
+                          '1.2. Корт/Площадка — специально оборудованная спортивная площадка для занятий теннисом, паделом, бадминтоном или иными видами спорта.',
                           style: AppTextStyles.body,
                         ),
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.sm),
                         Text(
-                          '2.3. Бронирование считается подтвержденным только после успешной оплаты.',
+                          '1.3. Бронирование — резервирование Корта на определенную дату и время через мобильное приложение «Все Корты» или иным способом, предусмотренным Исполнителем.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '1.4. Услуги — предоставление Корта во временное пользование Заказчику для занятий спортом.',
                           style: AppTextStyles.body,
                         ),
                         const SizedBox(height: AppSpacing.xl),
                         Text(
-                          '3. ОТМЕНА БРОНИРОВАНИЯ',
+                          '2. ПРЕДМЕТ СОГЛАШЕНИЯ',
                           style: AppTextStyles.bodyBold,
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         Text(
-                          '3.1. Отмена бронирования возможна не позднее чем за 24 часа до начала игры.',
+                          '2.1. Исполнитель обязуется предоставить Заказчику во временное пользование Корт для занятий спортом, а Заказчик обязуется оплатить Услуги в соответствии с условиями настоящего Соглашения.',
                           style: AppTextStyles.body,
                         ),
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.sm),
                         Text(
-                          '3.2. При отмене бронирования менее чем за 24 часа, оплата не возвращается.',
+                          '2.2. Конкретные условия предоставления Услуг (дата, время, продолжительность, стоимость) определяются при Бронировании.',
                           style: AppTextStyles.body,
                         ),
                         const SizedBox(height: AppSpacing.xl),
                         Text(
-                          '4. ПРАВИЛА ПОВЕДЕНИЯ НА КОРТЕ',
+                          '3. ПОРЯДОК БРОНИРОВАНИЯ И ОПЛАТЫ',
                           style: AppTextStyles.bodyBold,
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         Text(
-                          '4.1. На территории клуба запрещено курение и употребление алкоголя.',
+                          '3.1. Бронирование осуществляется через мобильное приложение «Все Корты», по телефону ${venue.phone ?? 'клуба'} или иным доступным способом.',
                           style: AppTextStyles.body,
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        Text(
-                          '4.2. Игроки обязаны соблюдать спортивный дресс-код.',
-                          style: AppTextStyles.body,
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        Text(
-                          '4.3. Запрещается использование корта для иных целей, кроме игры.',
-                          style: AppTextStyles.body,
-                        ),
-                        const SizedBox(height: AppSpacing.xl),
-                        Text(
-                          '5. ОТВЕТСТВЕННОСТЬ',
-                          style: AppTextStyles.bodyBold,
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         Text(
-                          '5.1. Клуб не несет ответственности за травмы, полученные во время игры.',
+                          '3.2. Оплата Услуг производится в соответствии с действующими тарифами Исполнителя одним из следующих способов:',
                           style: AppTextStyles.body,
                         ),
-                        const SizedBox(height: AppSpacing.md),
-                        Text(
-                          '5.2. Пользователь несет ответственность за сохранность инвентаря и оборудования.',
-                          style: AppTextStyles.body,
-                        ),
-                        const SizedBox(height: AppSpacing.xl),
-                        Text(
-                          '6. КОНТАКТНАЯ ИНФОРМАЦИЯ',
-                          style: AppTextStyles.bodyBold,
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        if (venue.organizationType != null) ...[
-                          Text(
-                            'Организация: ${venue.organizationType}',
-                            style: AppTextStyles.body,
+                        const SizedBox(height: AppSpacing.xs),
+                        Padding(
+                          padding: const EdgeInsets.only(left: AppSpacing.md),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('• Онлайн-оплата банковской картой через приложение', style: AppTextStyles.body),
+                              Text('• Оплата наличными в кассе Клуба', style: AppTextStyles.body),
+                              Text('• Оплата банковской картой на месте', style: AppTextStyles.body),
+                              Text('• Безналичный перевод по реквизитам Исполнителя', style: AppTextStyles.body),
+                            ],
                           ),
-                          const SizedBox(height: AppSpacing.xs),
-                        ],
-                        if (venue.inn != null) ...[
-                          Text(
-                            'ИНН: ${venue.inn}',
-                            style: AppTextStyles.body,
-                          ),
-                          const SizedBox(height: AppSpacing.xs),
-                        ],
-                        if (venue.bankAccount != null) ...[
-                          Text(
-                            'Расчетный счет: ${venue.bankAccount}',
-                            style: AppTextStyles.body,
-                          ),
-                          const SizedBox(height: AppSpacing.xs),
-                        ],
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
                         Text(
-                          'Адрес: ${venue.address}',
+                          '3.3. Бронирование считается подтвержденным после получения оплаты или подтверждения от администратора Клуба.',
                           style: AppTextStyles.body,
                         ),
-                        if (venue.phone != null) ...[
-                          const SizedBox(height: AppSpacing.xs),
-                          Text(
-                            'Телефон: ${venue.phone}',
-                            style: AppTextStyles.body,
+                        const SizedBox(height: AppSpacing.xl),
+                        Text(
+                          '4. ПРАВА И ОБЯЗАННОСТИ СТОРОН',
+                          style: AppTextStyles.bodyBold,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '4.1. Исполнитель обязуется:',
+                          style: AppTextStyles.bodyBold,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Padding(
+                          padding: const EdgeInsets.only(left: AppSpacing.md),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('• Предоставить Корт в соответствии с Бронированием', style: AppTextStyles.body),
+                              Text('• Обеспечить надлежащее состояние Корта и оборудования', style: AppTextStyles.body),
+                              Text('• Предоставить раздевалки и душевые (при наличии)', style: AppTextStyles.body),
+                              Text('• Обеспечить безопасность на территории Клуба', style: AppTextStyles.body),
+                            ],
                           ),
-                        ],
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          '4.2. Заказчик обязуется:',
+                          style: AppTextStyles.bodyBold,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Padding(
+                          padding: const EdgeInsets.only(left: AppSpacing.md),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('• Своевременно оплатить Услуги', style: AppTextStyles.body),
+                              Text('• Соблюдать правила поведения в Клубе', style: AppTextStyles.body),
+                              Text('• Бережно относиться к имуществу Клуба', style: AppTextStyles.body),
+                              Text('• Использовать спортивную обувь и форму', style: AppTextStyles.body),
+                              Text('• Освободить Корт по истечении оплаченного времени', style: AppTextStyles.body),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        Text(
+                          '5. ОТМЕНА И ПЕРЕНОС БРОНИРОВАНИЯ',
+                          style: AppTextStyles.bodyBold,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '5.1. Заказчик вправе отменить или перенести Бронирование не позднее чем за 24 часа до начала оказания Услуг.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '5.2. При отмене Бронирования менее чем за 24 часа, внесенная предоплата не возвращается.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '5.3. Исполнитель вправе отменить Бронирование по техническим причинам с полным возвратом предоплаты.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        Text(
+                          '6. ОТВЕТСТВЕННОСТЬ СТОРОН',
+                          style: AppTextStyles.bodyBold,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '6.1. Исполнитель не несет ответственности за вред, причиненный жизни и здоровью Заказчика в результате нарушения им правил техники безопасности и правил поведения в Клубе.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '6.2. Заказчик несет материальную ответственность за ущерб, причиненный имуществу Клуба.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '6.3. Исполнитель не несет ответственности за сохранность личных вещей Заказчика.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        Text(
+                          '7. ПЕРСОНАЛЬНЫЕ ДАННЫЕ',
+                          style: AppTextStyles.bodyBold,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '7.1. Заказчик дает согласие на обработку своих персональных данных в соответствии с Федеральным законом «О персональных данных» №152-ФЗ.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '7.2. Исполнитель обязуется использовать персональные данные Заказчика исключительно для оказания Услуг и не передавать их третьим лицам без согласия Заказчика.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        Text(
+                          '8. ЗАКЛЮЧИТЕЛЬНЫЕ ПОЛОЖЕНИЯ',
+                          style: AppTextStyles.bodyBold,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '8.1. Настоящее Соглашение вступает в силу с момента акцепта Заказчиком его условий путем оформления Бронирования и действует до полного исполнения Сторонами своих обязательств.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '8.2. Все споры и разногласия решаются путем переговоров, а при невозможности достижения соглашения — в судебном порядке.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          '8.3. Исполнитель вправе в одностороннем порядке изменять условия настоящего Соглашения, публикуя изменения на сайте и в приложении.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        Text(
+                          '9. РЕКВИЗИТЫ ИСПОЛНИТЕЛЯ',
+                          style: AppTextStyles.bodyBold,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Container(
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          decoration: BoxDecoration(
+                            color: AppColors.chipBackground,
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                venue.name,
+                                style: AppTextStyles.bodyBold,
+                              ),
+                              if (venue.inn != null) ...[
+                                const SizedBox(height: AppSpacing.xs),
+                                Text('ИНН: ${venue.inn}', style: AppTextStyles.body),
+                              ],
+                              if (venue.bankAccount != null) ...[
+                                const SizedBox(height: AppSpacing.xs),
+                                Text('Расчетный счет: ${venue.bankAccount}', style: AppTextStyles.body),
+                              ],
+                              const SizedBox(height: AppSpacing.xs),
+                              Text('Адрес: ${venue.address}', style: AppTextStyles.body),
+                              if (venue.phone != null) ...[
+                                const SizedBox(height: AppSpacing.xs),
+                                Text('Телефон: ${venue.phone}', style: AppTextStyles.body),
+                              ],
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
