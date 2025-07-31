@@ -493,7 +493,7 @@ class CourtDetailScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '${court.priceWeekday.toInt()}₽',
+                      '${court.priceWeekday?.toInt() ?? 0}₽',
                       style: AppTextStyles.bodyBold.copyWith(color: AppColors.primary),
                     ),
                     Text(

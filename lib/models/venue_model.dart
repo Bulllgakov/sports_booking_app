@@ -125,7 +125,7 @@ class VenueModel {
       workingHours: _parseWorkingHours(data['workingHours']),
       bookingDurations: _parseBookingDurations(data['bookingDurations']),
       bookingSlotInterval: data['bookingSlotInterval'] ?? 30,
-      description: data['description']?.toString() ?? '',',
+      description: data['description']?.toString() ?? '',
       organizationType: data['organizationType']?.toString(),
       inn: data['inn']?.toString(),
       bankAccount: data['bankAccount']?.toString(),

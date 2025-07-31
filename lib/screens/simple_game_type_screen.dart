@@ -119,8 +119,8 @@ class _SimpleGameTypeScreenState extends State<SimpleGameTypeScreen> {
       // Calculate price per player for open games
       final totalPrice = widget.price;
       final pricePerPlayer = selectedGameType == 'open' 
-          ? totalPrice / selectedPlayersCount 
-          : totalPrice;
+          ? totalPrice.toDouble() / selectedPlayersCount 
+          : totalPrice.toDouble();
       
       // Создаем бронирование
       final bookingId = await BookingService().createBooking(
