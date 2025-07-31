@@ -112,19 +112,15 @@ export default function DemoAdminLayout() {
             </button>
 
             <div className="user-menu">
+              <div className="user-info">
+                <div className="user-name">{admin?.name || 'Демо пользователь'}</div>
+                <div className="user-role">{admin?.role || 'Администратор'}</div>
+              </div>
               <button className="user-btn">
                 <AccountCircle />
-                {admin && (
-                  <>
-                    <div>
-                      <div className="user-name">{admin.name}</div>
-                      <div className="user-role">{admin.role}</div>
-                    </div>
-                  </>
-                )}
               </button>
               
-              <button className="logout-btn" onClick={logout}>
+              <button className="logout-btn" onClick={logout} title="Выйти">
                 <ExitToApp />
               </button>
             </div>

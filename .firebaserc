@@ -1,0 +1,11 @@
+{
+  "projects": {},
+  "targets": {},
+  "etags": {
+    "sports-booking-app-1d7e5": {
+      "extensionInstances": {
+        "firestore-send-email-cgjv": "040ed727b439d849eb67ed895be3e4a0905fd32f41741b9f17a758579369f24d"
+      }
+    }
+  }
+}

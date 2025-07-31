@@ -148,12 +148,22 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
     if (venue == null || court == null) return;
     
     final selectedDate = dates[selectedDateIndex];
-    final isWeekend = selectedDate.weekday == DateTime.saturday || 
-                      selectedDate.weekday == DateTime.sunday;
+    final weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    final dayName = weekdays[selectedDate.weekday % 7];
     
     // Получаем режим работы
-    final workingHoursStr = venue!.workingHours[isWeekend ? 'weekend' : 'weekday'] ?? 
-                           (isWeekend ? '08:00-22:00' : '07:00-23:00');
+    String workingHoursStr;
+    
+    // Проверяем новый формат с днями недели
+    if (venue!.workingHours.containsKey(dayName)) {
+      workingHoursStr = venue!.workingHours[dayName] ?? '07:00-23:00';
+    } else {
+      // Fallback на старый формат
+      final isWeekend = selectedDate.weekday == DateTime.saturday || 
+                        selectedDate.weekday == DateTime.sunday;
+      workingHoursStr = venue!.workingHours[isWeekend ? 'weekend' : 'weekday'] ?? 
+                       (isWeekend ? '08:00-22:00' : '07:00-23:00');
+    }
     
     // Парсим время работы
     final parts = workingHoursStr.split('-');
@@ -168,6 +178,10 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
     
     // Генерируем слоты
     final slots = <Map<String, dynamic>>[];
+    
+    // Определяем интервал слотов
+    final slotInterval = venue!.bookingSlotInterval;
+    
     var currentTime = DateTime(
       selectedDate.year,
       selectedDate.month,
@@ -175,6 +189,17 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
       openTime.hour,
       openTime.minute,
     );
+    
+    // Если интервал 60 минут, начинаем с ближайшего целого часа
+    if (slotInterval == 60 && currentTime.minute != 0) {
+      currentTime = DateTime(
+        currentTime.year,
+        currentTime.month,
+        currentTime.day,
+        currentTime.minute < 30 ? currentTime.hour : currentTime.hour + 1,
+        0,
+      );
+    }
     
     final endTime = DateTime(
       selectedDate.year,
@@ -215,7 +240,7 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
       }
       
       // Рассчитываем цену
-      final price = _calculatePrice(currentTime, isWeekend);
+      final price = _calculatePrice(currentTime);
       
       slots.add({
         'time': timeStr,
@@ -223,8 +248,8 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
         'status': isAvailable ? 'available' : 'busy',
       });
       
-      // Переходим к следующему слоту с интервалом равным длительности
-      currentTime = currentTime.add(Duration(minutes: selectedDuration));
+      // Переходим к следующему слоту с учетом интервала venue
+      currentTime = currentTime.add(Duration(minutes: slotInterval));
     }
     
     setState(() {
@@ -237,16 +262,10 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
     return DateTime(2000, 1, 1, int.parse(parts[0]), int.parse(parts[1]));
   }
   
-  int _calculatePrice(DateTime time, bool isWeekend) {
+  int _calculatePrice(DateTime time) {
     if (court == null) return 0;
     
-    // Используем базовые цены без динамических коэффициентов
-    final basePrice = isWeekend 
-        ? (court!.priceWeekend ?? court!.pricePerHour ?? 0)
-        : (court!.priceWeekday ?? court!.pricePerHour ?? 0);
-    
-    // Простой расчет: цена за час * длительность в часах
-    return (basePrice * selectedDuration / 60).round();
+    return court!.calculatePrice(selectedDuration, time).round();
   }
   
   String _calculateEndTime(String startTime, int duration) {

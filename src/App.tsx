@@ -20,6 +20,8 @@ import PaymentSettings from './pages/admin/PaymentSettings'
 import BillingSettings from './pages/admin/BillingSettings'
 import Finance from './pages/admin/Finance'
 import Marketing from './pages/admin/Marketing'
+import Settings from './pages/admin/Settings'
+import Debug from './pages/admin/Debug'
 import ErrorBoundary from './components/ErrorBoundary'
 // Public pages
 import ClubPage from './pages/public/ClubPage'
@@ -28,6 +30,7 @@ import TimeSelectionPage from './pages/public/TimeSelectionPage'
 import GameTypeSelectionPage from './pages/public/GameTypeSelectionPage'
 import BookingConfirmationPage from './pages/public/BookingConfirmationPage'
 import UnifiedBookingPage from './pages/public/UnifiedBookingPage'
+import UserAgreement from './pages/public/UserAgreement'
 
 const theme = createTheme({
   palette: {
@@ -76,6 +79,7 @@ function App() {
             <Route path="/club/:clubId/court/:courtId/time" element={<TimeSelectionPage />} />
             <Route path="/club/:clubId/court/:courtId/game-type" element={<GameTypeSelectionPage />} />
             <Route path="/club/:clubId/booking-confirmation/:bookingId" element={<BookingConfirmationPage />} />
+            <Route path="/club/:clubId/user-agreement" element={<UserAgreement />} />
             
             {/* Публичные маршруты */}
             <Route path="/login" element={<Login />} />
@@ -106,7 +110,8 @@ function App() {
               <Route path="finance" element={<Finance />} />
               <Route path="customers" element={<CustomersManagement />} />
               <Route path="marketing" element={<Marketing />} />
-              <Route path="settings" element={<div>Настройки</div>} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="debug" element={<Debug />} />
             </Route>
           </Routes>
         </Router>

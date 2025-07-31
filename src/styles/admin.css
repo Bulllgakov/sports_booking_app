@@ -668,6 +668,11 @@ tr:hover {
   transition: all 0.3s ease;
 }
 
+/* Mobile bookings list - hidden by default */
+.mobile-bookings-list {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .menu-toggle {
     display: flex;
@@ -700,5 +705,234 @@ tr:hover {
   
   .stats-grid, .courts-grid {
     grid-template-columns: 1fr;
+  }
+  
+  /* Календарь бронирований - мобильная версия */
+  .calendar-header {
+    flex-direction: column !important;
+    gap: 16px !important;
+    align-items: stretch !important;
+  }
+  
+  .calendar-nav {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+  }
+  
+  .calendar-nav > span {
+    order: -1;
+    width: 100%;
+    text-align: center !important;
+    margin-bottom: 8px;
+  }
+  
+  .calendar-nav button[style*="marginLeft"] {
+    margin-left: 0 !important;
+    margin-top: 8px;
+  }
+  
+  /* Адаптируем календарную сетку для мобильных */
+  .calendar-grid {
+    min-width: 700px !important;
+    overflow-x: visible !important;
+  }
+  
+  /* Контейнер для скролла */
+  .section-card:has(.calendar-grid) {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    margin-left: -16px;
+    margin-right: -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  .day-header {
+    font-size: 11px !important;
+    padding: 6px 2px !important;
+    white-space: nowrap !important;
+  }
+  
+  .time-slot {
+    font-size: 11px !important;
+    padding: 6px !important;
+  }
+  
+  .booking-slot {
+    min-height: 30px !important;
+    padding: 2px 4px !important;
+    font-size: 10px !important;
+  }
+  
+  .booking-slot > div {
+    font-size: 9px !important;
+    margin-bottom: 2px !important;
+  }
+  
+  .booking-slot > div:last-child {
+    margin-bottom: 0 !important;
+  }
+  
+  /* Скрываем лишние данные в календаре на мобильных */
+  .booking-slot .booking-slot-details,
+  .booking-slot .booking-slot-status {
+    display: none !important;
+  }
+  
+  /* Уменьшаем отступы для пустых слотов */
+  .booking-slot:not(:has(> div > div)) {
+    min-height: 25px !important;
+  }
+  
+  /* Скрываем мобильный список по умолчанию */
+  .mobile-bookings-list {
+    display: none !important;
+  }
+  
+  /* Таблицы */
+  .table-wrapper {
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+  
+  table {
+    font-size: 12px;
+  }
+  
+  th, td {
+    padding: 8px !important;
+    font-size: 11px;
+  }
+  
+  /* Мобильная версия списка бронирований */
+  .bookings-mobile-cards {
+    display: none;
+  }
+  
+  @media (max-width: 768px) {
+    /* Скрываем таблицу на мобильных */
+    .section-card .table-wrapper table {
+      display: none;
+    }
+    
+    /* Показываем карточки на мобильных */
+    .bookings-mobile-cards {
+      display: block;
+    }
+  }
+  
+  .booking-card-mobile {
+    background: var(--background);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+    border: 1px solid var(--extra-light-gray);
+  }
+  
+  .booking-card-mobile:last-child {
+    margin-bottom: 0;
+  }
+  
+  .booking-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  
+  .booking-card-court {
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--dark);
+  }
+  
+  .booking-card-amount {
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--primary);
+  }
+  
+  .booking-card-info {
+    margin-bottom: 12px;
+  }
+  
+  .booking-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  
+  .booking-card-row:last-child {
+    margin-bottom: 0;
+  }
+  
+  .booking-card-label {
+    color: var(--gray);
+  }
+  
+  .booking-card-value {
+    color: var(--dark);
+    font-weight: 500;
+  }
+  
+  .booking-card-client {
+    background: var(--white);
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+  }
+  
+  .booking-card-client-name {
+    font-weight: 600;
+    color: var(--dark);
+    margin-bottom: 4px;
+  }
+  
+  .booking-card-client-phone {
+    font-size: 14px;
+    color: var(--gray);
+  }
+  
+  .booking-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 12px;
+    border-top: 1px solid var(--extra-light-gray);
+  }
+  
+  .booking-card-actions {
+    display: flex;
+    gap: 8px;
+  }
+  
+  /* Фильтры на мобильных */
+  @media (max-width: 768px) {
+    .section-header {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+    }
+    
+    .section-header .btn {
+      width: 100%;
+      justify-content: center;
+    }
+    
+    /* Фильтры на мобильных */
+    .booking-filters-mobile {
+      flex-direction: column !important;
+      gap: 12px !important;
+    }
+    
+    .booking-filters-mobile > div {
+      width: 100%;
+    }
+    
+    .booking-filters-mobile .form-select {
+      width: 100% !important;
+    }
   }
 }

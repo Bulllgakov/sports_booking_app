@@ -66,8 +66,8 @@ export default function BookingDetailsModal({
           const updatedBooking = {
             id: doc.id,
             ...data,
-            date: data.date?.toDate() || new Date(),
-            createdAt: data.createdAt?.toDate() || new Date(),
+            date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || Date.now()),
             paymentStatus: data.paymentStatus || 'awaiting_payment',
             paymentHistory: data.paymentHistory || []
           } as Booking
@@ -89,8 +89,8 @@ export default function BookingDetailsModal({
         const freshBooking = {
           id: bookingDoc.id,
           ...data,
-          date: data.date?.toDate() || new Date(),
-          createdAt: data.createdAt?.toDate() || new Date(),
+          date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || Date.now()),
           paymentStatus: data.paymentStatus || 'awaiting_payment',
           paymentHistory: data.paymentHistory || []
         } as Booking

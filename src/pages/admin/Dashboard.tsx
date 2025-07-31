@@ -16,7 +16,6 @@ import { usePermission } from '../../hooks/usePermission'
 import { doc, getDoc, collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { QRCodeSVG } from 'qrcode.react'
-import TestEmailButton from '../../components/TestEmailButton'
 import '../../styles/admin.css'
 
 // Статистическая карточка
@@ -430,7 +429,6 @@ export default function Dashboard() {
                 ))}
               </select>
             </div>
-            <TestEmailButton defaultEmail={admin?.email || ''} />
           </div>
         </div>
       )}

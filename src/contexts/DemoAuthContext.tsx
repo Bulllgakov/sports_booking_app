@@ -22,6 +22,9 @@ interface ClubData {
   organizationType?: string
   inn?: string
   bankAccount?: string
+  workingHours?: {
+    [key: string]: string
+  }
 }
 
 interface AuthContextType {

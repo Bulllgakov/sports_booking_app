@@ -160,13 +160,40 @@ export default function VenuesManagement() {
   }
 
   const handleDelete = async (venueId: string) => {
-    if (confirm('Вы уверены, что хотите удалить этот клуб? Это действие необратимо.')) {
-      try {
-        await deleteDoc(doc(db, 'venues', venueId))
-        loadVenues()
-      } catch (error) {
-        console.error('Error deleting venue:', error)
+    try {
+      // Проверяем наличие администраторов и менеджеров для этого клуба
+      const adminsQuery = query(collection(db, 'admins'), where('venueId', '==', venueId))
+      const adminsSnapshot = await getDocs(adminsQuery)
+      
+      if (!adminsSnapshot.empty) {
+        const adminCount = adminsSnapshot.size
+        const adminsList = adminsSnapshot.docs.map(doc => {
+          const data = doc.data()
+          return `- ${data.name} (${data.email}) - ${data.role === 'admin' ? 'Администратор' : 'Менеджер'}`
+        }).join('\n')
+        
+        alert(`Невозможно удалить клуб!\n\nВ клубе есть ${adminCount} сотрудник(ов):\n${adminsList}\n\nСначала удалите всех сотрудников клуба в разделе "Администраторы".`)
+        return
       }
+      
+      // Если сотрудников нет, запрашиваем подтверждение
+      const venue = venues.find(v => v.id === venueId)
+      if (!venue) return
+      
+      const confirmMessage = `Вы уверены, что хотите удалить клуб "${venue.name}"?\n\nЭто действие необратимо и удалит:\n- Все данные клуба\n- Все корты\n- Все бронирования\n- Всю историю`
+      
+      if (confirm(confirmMessage)) {
+        // Удаляем клуб
+        await deleteDoc(doc(db, 'venues', venueId))
+        
+        // TODO: В будущем добавить удаление связанных данных (кортов, бронирований и т.д.)
+        
+        await loadVenues()
+        alert(`Клуб "${venue.name}" успешно удален`)
+      }
+    } catch (error) {
+      console.error('Error deleting venue:', error)
+      alert('Ошибка при удалении клуба')
     }
   }
 
@@ -243,6 +270,10 @@ export default function VenuesManagement() {
   return (
     <PermissionGate role="superadmin">
       <Box>
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Данный раздел доступен только суперадминистраторам системы
+        </Alert>
+        
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
           <Typography variant="h5" component="h2">
             Управление клубами

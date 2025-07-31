@@ -24,6 +24,16 @@ interface BookingModalProps {
     pricePerHour?: number
     priceWeekday?: number
     priceWeekend?: number
+    pricing?: {
+      [key: string]: {
+        basePrice: number
+        intervals?: Array<{
+          from: string
+          to: string
+          price: number
+        }>
+      }
+    }
   }
   venue: {
     id: string
@@ -34,6 +44,7 @@ interface BookingModalProps {
     bookingDurations?: {
       [key: number]: boolean
     }
+    bookingSlotInterval?: 30 | 60 // Интервал слотов: 30 минут (по умолчанию) или 60 минут (только с 00)
   }
 }
 
@@ -289,6 +300,14 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
       let currentTime = openHour * 60 + openMinute // в минутах
       const endTimeMinutes = closeHour * 60 + closeMinute
       
+      // Определяем интервал слотов (по умолчанию 30 минут)
+      const slotInterval = venue.bookingSlotInterval || 30
+      
+      // Если интервал 60 минут, начинаем с ближайшего целого часа
+      if (slotInterval === 60 && currentTime % 60 !== 0) {
+        currentTime = Math.ceil(currentTime / 60) * 60
+      }
+      
       while (currentTime < endTimeMinutes) {
         const hour = Math.floor(currentTime / 60)
         const minute = currentTime % 60
@@ -297,7 +316,7 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
         
         // Skip past times for today
         if (isToday && isBefore(slotTime, now)) {
-          currentTime += currentDuration
+          currentTime += slotInterval
           continue
         }
         
@@ -328,10 +347,36 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
           }
         }
 
-        // Определяем цену в зависимости от дня недели и длительности
+        // Определяем цену в зависимости от дня недели, времени и длительности
         const dayIndex = currentDate.getDay()
-        const isWeekendDay = dayIndex === 0 || dayIndex === 6
-        const hourlyPrice = court.pricePerHour || (isWeekendDay ? court.priceWeekend : court.priceWeekday) || 0
+        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+        const dayName = days[dayIndex]
+        
+        let hourlyPrice = 0
+        
+        // Проверяем новую систему цен
+        if (court.pricing && court.pricing[dayName]) {
+          const dayPricing = court.pricing[dayName]
+          hourlyPrice = dayPricing.basePrice
+          
+          // Проверяем интервалы с особыми ценами
+          if (dayPricing.intervals && dayPricing.intervals.length > 0) {
+            const currentHour = hour
+            for (const interval of dayPricing.intervals) {
+              const [fromHour] = interval.from.split(':').map(Number)
+              const [toHour] = interval.to.split(':').map(Number)
+              if (currentHour >= fromHour && currentHour < toHour) {
+                hourlyPrice = interval.price
+                break
+              }
+            }
+          }
+        } else {
+          // Fallback на старую систему
+          const isWeekendDay = dayIndex === 0 || dayIndex === 6
+          hourlyPrice = court.pricePerHour || (isWeekendDay ? court.priceWeekend : court.priceWeekday) || 0
+        }
+        
         const totalPrice = Math.round(hourlyPrice * currentDuration / 60)
 
         slots.push({
@@ -340,8 +385,8 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
           price: totalPrice
         })
         
-        // Переходим к следующему слоту с интервалом 30 минут
-        currentTime += 30
+        // Переходим к следующему слоту с заданным интервалом
+        currentTime += slotInterval
       }
 
       setTimeSlots(slots)
@@ -493,6 +538,9 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
       startTime.setHours(hours, minutes, 0, 0)
       const endTime = new Date(startTime.getTime() + selectedDuration * 60 * 1000)
       
+      // Находим выбранный слот для получения цены
+      const selectedSlot = timeSlots.find(slot => slot.time === selectedTime)
+      
       const bookingData = {
         courtId: court.id,
         courtName: court.name,
@@ -509,8 +557,8 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
         customerEmail: customerEmail.toLowerCase().trim(),
         clientName: sanitizeString(customerName), // Для совместимости с веб-версией
         clientPhone: normalizePhone(customerPhone),
-        price: Math.round((court.pricePerHour || court.priceWeekday || 0) * selectedDuration / 60),
-        amount: Math.round((court.pricePerHour || court.priceWeekday || 0) * selectedDuration / 60),
+        price: selectedSlot ? selectedSlot.price : 0,
+        amount: selectedSlot ? selectedSlot.price : 0,
         status: 'confirmed', // После оплаты статус confirmed
         paymentStatus: 'online_payment', // Онлайн оплата для клиентов
         paymentMethod: 'online',
@@ -644,8 +692,16 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
                   if (!isAvailable) return null
                   
                   const dayIndex = selectedDate.getDay()
-                  const isWeekend = dayIndex === 0 || dayIndex === 6
-                  const hourlyPrice = court.pricePerHour || (isWeekend ? court.priceWeekend : court.priceWeekday) || 0
+                  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+                  const dayName = days[dayIndex]
+                  
+                  let hourlyPrice = 0
+                  if (court.pricing && court.pricing[dayName]) {
+                    hourlyPrice = court.pricing[dayName].basePrice
+                  } else {
+                    const isWeekend = dayIndex === 0 || dayIndex === 6
+                    hourlyPrice = court.pricePerHour || (isWeekend ? court.priceWeekend : court.priceWeekday) || 0
+                  }
                   const price = Math.round(hourlyPrice * duration / 60)
                   
                   return (
@@ -958,8 +1014,16 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
                   <div className="caption">
                     {(() => {
                       const dayIndex = selectedDate.getDay()
-                      const isWeekend = dayIndex === 0 || dayIndex === 6
-                      const hourlyPrice = court.pricePerHour || (isWeekend ? court.priceWeekend : court.priceWeekday) || 0
+                      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+                      const dayName = days[dayIndex]
+                      
+                      let hourlyPrice = 0
+                      if (court.pricing && court.pricing[dayName]) {
+                        hourlyPrice = court.pricing[dayName].basePrice
+                      } else {
+                        const isWeekend = dayIndex === 0 || dayIndex === 6
+                        hourlyPrice = court.pricePerHour || (isWeekend ? court.priceWeekend : court.priceWeekday) || 0
+                      }
                       return Math.round(hourlyPrice * duration / 60)
                     })()}₽
                   </div>

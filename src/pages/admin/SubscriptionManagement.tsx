@@ -38,7 +38,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, Timestamp, orderBy, 
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../../services/firebase'
 import { useAuth } from '../../contexts/AuthContext'
-import AdminLayout from '../../components/AdminLayout'
+import AdminLayout from '../../layouts/AdminLayout'
 import { formatDate, formatCurrency } from '../../utils/formatters'
 
 interface Subscription {

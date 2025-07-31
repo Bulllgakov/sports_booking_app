@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/text_styles.dart';
 import '../core/theme/spacing.dart';
@@ -251,6 +252,53 @@ class CourtDetailScreen extends StatelessWidget {
                           ),
                         ),
                       ],
+                      const SizedBox(height: AppSpacing.md),
+                      // User agreement link
+                      GestureDetector(
+                        onTap: () async {
+                          // Open user agreement in browser
+                          final url = 'https://sports-booking-app-c9344.web.app/club/${venue.id}/user-agreement';
+                          final uri = Uri.parse(url);
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          decoration: BoxDecoration(
+                            color: AppColors.white,
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                            border: Border.all(
+                              color: AppColors.extraLightGray,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.description_outlined,
+                                size: AppSpacing.iconSizeSm,
+                                color: AppColors.gray,
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                child: Text(
+                                  'Пользовательское соглашение',
+                                  style: AppTextStyles.body.copyWith(
+                                    color: AppColors.primary,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                              Icon(
+                                Icons.arrow_forward_ios,
+                                size: AppSpacing.iconSizeXs,
+                                color: AppColors.gray,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: AppSpacing.xl),
                       Text(
                         'Доступные корты',

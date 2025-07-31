@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { onAuthStateChanged, signOut, User } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
 import { auth, db } from '../services/firebase'
 
 interface AdminData {
@@ -52,12 +52,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('🔄 Auth state changed:', user?.email || 'no user', 'at', new Date().toLocaleTimeString())
+      
+      // Добавляем логирование состояния аутентификации
+      if (user) {
+        console.log('🔐 User authenticated:', {
+          uid: user.uid,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          providerId: user.providerId,
+          metadata: user.metadata
+        })
+      } else {
+        console.log('🚪 User signed out or session expired')
+        // Проверяем, есть ли токен в localStorage
+        const token = localStorage.getItem('authToken')
+        console.log('📦 Local storage auth token:', token ? 'exists' : 'not found')
+      }
+      
       if (user) {
         // Проверяем, является ли пользователь админом
         try {
-          const adminDoc = await getDoc(doc(db, 'admins', user.uid))
-          if (adminDoc.exists()) {
-            const adminData = adminDoc.data() as AdminData
+          console.log('🔍 Searching for admin with email:', user.email)
+          
+          // Ищем админа по email
+          const adminQuery = query(collection(db, 'admins'), where('email', '==', user.email))
+          const adminSnapshot = await getDocs(adminQuery)
+          
+          console.log('📊 Admin search result:', adminSnapshot.empty ? 'not found' : 'found')
+          
+          if (!adminSnapshot.empty) {
+            const adminDoc = adminSnapshot.docs[0]
+            const adminData = { id: adminDoc.id, ...adminDoc.data() } as AdminData
+            console.log('✅ Admin data loaded:', adminData)
             setUser(user)
             setAdmin(adminData)
             
@@ -72,9 +99,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setClub(null)
             }
           } else {
-            // Если не админ, выходим
-            await signOut(auth)
-            setUser(null)
+            // Если не админ, просто сохраняем пользователя без админских прав
+            console.warn('Admin not found for user:', user.email)
+            setUser(user)
             setAdmin(null)
             setClub(null)
           }

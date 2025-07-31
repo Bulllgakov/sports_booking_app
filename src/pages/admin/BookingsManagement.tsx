@@ -227,7 +227,7 @@ export default function BookingsManagement() {
           id: doc.id,
           ...data,
           date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || Date.now())
         }
       }) as Booking[]
       
@@ -705,7 +705,7 @@ export default function BookingsManagement() {
                             })()}
                             {booking.courtName}
                           </div>
-                          <div style={{ color: 'var(--gray)', fontSize: '10px' }}>
+                          <div className="booking-slot-details" style={{ color: 'var(--gray)', fontSize: '10px' }}>
                             {booking.clientName || booking.customerName}
                             {(booking.clientPhone || booking.customerPhone) && (
                               <span style={{ fontSize: '9px', marginLeft: '4px' }}>
@@ -713,7 +713,7 @@ export default function BookingsManagement() {
                               </span>
                             )}
                           </div>
-                          <div style={{ 
+                          <div className="booking-slot-status" style={{ 
                             fontSize: '9px',
                             marginTop: '2px',
                             color: statusColors[paymentStatus],

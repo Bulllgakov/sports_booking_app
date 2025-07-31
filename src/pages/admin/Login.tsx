@@ -15,7 +15,7 @@ import {
 import { Visibility, VisibilityOff } from '@mui/icons-material'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth, db } from '../../services/firebase'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
 import { handleError, getErrorMessage, logError } from '../../utils/errorHandler'
 
 export default function Login() {
@@ -44,15 +44,18 @@ export default function Login() {
       // Авторизация через Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
       
-      // Проверка, что пользователь является админом
-      const adminDoc = await getDoc(doc(db, 'admins', userCredential.user.uid))
+      // Проверка, что пользователь является админом (по email)
+      const adminQuery = query(collection(db, 'admins'), where('email', '==', userCredential.user.email))
+      const adminSnapshot = await getDocs(adminQuery)
       
-      if (!adminDoc.exists()) {
+      if (adminSnapshot.empty) {
         throw new Error('У вас нет прав доступа к админ-панели')
       }
 
-      // Перенаправление на dashboard
-      navigate('/admin/dashboard')
+      // Даем время AuthContext обновиться
+      setTimeout(() => {
+        navigate('/admin/dashboard')
+      }, 100)
     } catch (err: any) {
       const appError = handleError(err)
       logError(appError, { component: 'Login', email })

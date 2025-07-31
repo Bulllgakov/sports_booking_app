@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { useDemoAuth } from '../contexts/DemoAuthContext'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { Alert, AlertTitle } from '@mui/material'
-import { format, startOfWeek, addDays, addWeeks, subWeeks } from 'date-fns'
-import { ru } from 'date-fns/locale'
-import '../styles/admin.css' // Используем те же стили, что и в админке
+import '../styles/admin.css'
 
-interface DemoBooking {
+interface Booking {
   id: string
   courtId: string
   courtName: string
@@ -16,29 +15,99 @@ interface DemoBooking {
   endTime: string
   status: 'confirmed' | 'pending' | 'cancelled'
   amount: number
-  paymentMethod: 'cash' | 'transfer' | 'app'
+  paymentMethod: 'cash' | 'card_on_site' | 'transfer' | 'online'
   paymentStatus?: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled'
 }
 
-interface DemoCourt {
+interface Court {
   id: string
   name: string
-  type: 'tennis' | 'padel' | 'badminton'
+  type: string
   pricePerHour: number
   color?: string
+  pricing?: {
+    [key: string]: {
+      basePrice: number
+      intervals?: Array<{
+        from: string
+        to: string
+        price: number
+      }>
+    }
+  }
 }
 
-// Демо данные кортов с цветами
-const DEMO_COURTS: DemoCourt[] = [
-  { id: '1', name: 'Корт №1', type: 'padel', pricePerHour: 2000, color: '#00A86B' },
-  { id: '2', name: 'Корт №2', type: 'padel', pricePerHour: 2000, color: '#2E86AB' },
-  { id: '3', name: 'Корт №3', type: 'tennis', pricePerHour: 1500, color: '#FF6B6B' },
-  { id: '4', name: 'Корт №4', type: 'tennis', pricePerHour: 1500, color: '#F39C12' },
+// Демо корты с новой системой ценообразования
+const DEMO_COURTS: Court[] = [
+  { 
+    id: '1', 
+    name: 'Корт №1', 
+    type: 'padel', 
+    pricePerHour: 2000, 
+    color: '#00A86B',
+    pricing: {
+      monday: { basePrice: 2000 },
+      tuesday: { basePrice: 2000 },
+      wednesday: { basePrice: 2000 },
+      thursday: { basePrice: 2000 },
+      friday: { basePrice: 2000 },
+      saturday: { basePrice: 2500 },
+      sunday: { basePrice: 2500 }
+    }
+  },
+  { 
+    id: '2', 
+    name: 'Корт №2', 
+    type: 'padel', 
+    pricePerHour: 2000, 
+    color: '#2E86AB',
+    pricing: {
+      monday: { basePrice: 2000 },
+      tuesday: { basePrice: 2000 },
+      wednesday: { basePrice: 2000 },
+      thursday: { basePrice: 2000 },
+      friday: { basePrice: 2000 },
+      saturday: { basePrice: 2500 },
+      sunday: { basePrice: 2500 }
+    }
+  },
+  { 
+    id: '3', 
+    name: 'Теннисный корт', 
+    type: 'tennis', 
+    pricePerHour: 1500, 
+    color: '#FF6B6B',
+    pricing: {
+      monday: { basePrice: 1500 },
+      tuesday: { basePrice: 1500 },
+      wednesday: { basePrice: 1500 },
+      thursday: { basePrice: 1500 },
+      friday: { basePrice: 1500 },
+      saturday: { basePrice: 2000 },
+      sunday: { basePrice: 2000 }
+    }
+  },
+  { 
+    id: '4', 
+    name: 'Бадминтон', 
+    type: 'badminton', 
+    pricePerHour: 1000, 
+    color: '#F39C12',
+    pricing: {
+      monday: { basePrice: 1000 },
+      tuesday: { basePrice: 1000 },
+      wednesday: { basePrice: 1000 },
+      thursday: { basePrice: 1000 },
+      friday: { basePrice: 1000 },
+      saturday: { basePrice: 1200 },
+      sunday: { basePrice: 1200 }
+    }
+  },
 ]
 
 // Генерация демо бронирований
-const generateDemoBookings = (weekStart: Date): DemoBooking[] => {
-  const bookings: DemoBooking[] = []
+const generateDemoBookings = (weekStart: Date): Booking[] => {
+  const bookings: Booking[] = []
   const names = ['Иван Петров', 'Мария Сидорова', 'Алексей Козлов', 'Елена Новикова', 'Дмитрий Смирнов']
   const phones = ['+7 (999) 123-45-67', '+7 (988) 234-56-78', '+7 (977) 345-67-89', '+7 (966) 456-78-90', '+7 (955) 567-89-01']
   const times = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00']
@@ -53,7 +122,8 @@ const generateDemoBookings = (weekStart: Date): DemoBooking[] => {
     const nameIndex = Math.floor(Math.random() * names.length)
     const duration = Math.random() > 0.5 ? 1 : 1.5
     
-    const date = addDays(weekStart, dayOffset)
+    const date = new Date(weekStart)
+    date.setDate(weekStart.getDate() + dayOffset)
     const startTime = times[timeIndex]
     const [hours, minutes] = startTime.split(':').map(Number)
     const endHours = hours + Math.floor(duration)
@@ -71,7 +141,7 @@ const generateDemoBookings = (weekStart: Date): DemoBooking[] => {
       endTime,
       status: Math.random() > 0.1 ? 'confirmed' : 'pending',
       amount: DEMO_COURTS[courtIndex].pricePerHour * duration,
-      paymentMethod: ['cash', 'transfer', 'app'][Math.floor(Math.random() * 3)] as any,
+      paymentMethod: ['cash', 'card_on_site', 'transfer', 'online'][Math.floor(Math.random() * 4)] as any,
       paymentStatus: Math.random() > 0.3 ? 'paid' : 'awaiting_payment'
     })
   }
@@ -79,36 +149,37 @@ const generateDemoBookings = (weekStart: Date): DemoBooking[] => {
   return bookings
 }
 
-const DemoBookingCalendar: React.FC = () => {
+export default function DemoBookingCalendar() {
+  const { admin, club } = useDemoAuth()
+  const [bookings, setBookings] = useState<Booking[]>([])
+  const [courts] = useState<Court[]>(DEMO_COURTS)
   const [selectedDate, setSelectedDate] = useState(new Date())
-  const [bookings, setBookings] = useState<DemoBooking[]>([])
   const [hoveredSlot, setHoveredSlot] = useState<{date: Date, time: string} | null>(null)
-  const [selectedSlot, setSelectedSlot] = useState<{date: Date, time: string} | null>(null)
-  const [formData, setFormData] = useState({
-    clientName: '',
-    clientPhone: '',
-    courtId: '',
-    date: new Date().toISOString().split('T')[0],
-    startTime: '10:00',
-    duration: 1.5,
-    paymentMethod: 'cash' as 'cash' | 'transfer' | 'app',
-  })
+  const [showNotification, setShowNotification] = useState(false)
 
   useEffect(() => {
     // Генерируем новые бронирования при изменении недели
-    const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 })
+    const weekStart = new Date(selectedDate)
+    weekStart.setDate(selectedDate.getDate() - selectedDate.getDay() + 1)
+    weekStart.setHours(0, 0, 0, 0)
     setBookings(generateDemoBookings(weekStart))
   }, [selectedDate])
 
   const navigateWeek = (direction: number) => {
-    setSelectedDate(current => direction > 0 ? addWeeks(current, 1) : subWeeks(current, 1))
+    const newDate = new Date(selectedDate)
+    newDate.setDate(selectedDate.getDate() + direction * 7)
+    setSelectedDate(newDate)
   }
 
   const getWeekDates = () => {
-    const start = startOfWeek(selectedDate, { weekStartsOn: 1 })
     const dates = []
+    const startOfWeek = new Date(selectedDate)
+    startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay() + 1)
+    
     for (let i = 0; i < 7; i++) {
-      dates.push(addDays(start, i))
+      const date = new Date(startOfWeek)
+      date.setDate(startOfWeek.getDate() + i)
+      dates.push(date)
     }
     return dates
   }
@@ -122,95 +193,41 @@ const DemoBookingCalendar: React.FC = () => {
     })
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'duration' ? parseFloat(value) : value
-    }))
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  // Генерация временных слотов
+  const generateTimeSlots = () => {
+    const slots = []
+    const dayName = new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
     
-    const court = DEMO_COURTS.find(c => c.id === formData.courtId)
-    if (!court) return
-
-    const [hours, minutes] = formData.startTime.split(':').map(Number)
-    const endHours = hours + Math.floor(formData.duration)
-    const endMinutes = minutes + (formData.duration % 1) * 60
-    const endTime = `${String(endHours + Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
-
-    const newBooking: DemoBooking = {
-      id: `demo-${Date.now()}`,
-      courtId: formData.courtId,
-      courtName: court.name,
-      clientName: formData.clientName,
-      clientPhone: formData.clientPhone,
-      date: new Date(formData.date),
-      startTime: formData.startTime,
-      endTime: endTime,
-      status: 'confirmed',
-      amount: formData.duration * court.pricePerHour,
-      paymentMethod: formData.paymentMethod
+    // Определяем рабочие часы в зависимости от дня недели
+    const workingHours = club?.workingHours?.[dayName] || '07:00-23:00'
+    const [startTime, endTime] = workingHours.split('-')
+    const startHour = parseInt(startTime.split(':')[0])
+    const endHour = parseInt(endTime.split(':')[0])
+    
+    for (let hour = startHour; hour < endHour; hour++) {
+      slots.push(`${hour.toString().padStart(2, '0')}:00`)
     }
-
-    setBookings([...bookings, newBooking])
-    
-    // Сброс формы
-    setFormData({
-      clientName: '',
-      clientPhone: '',
-      courtId: '',
-      date: new Date().toISOString().split('T')[0],
-      startTime: '10:00',
-      duration: 1.5,
-      paymentMethod: 'cash',
-    })
-    
-    alert('Бронирование создано (демо режим)')
+    return slots
   }
-
-  const timeSlots = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00']
+  
+  const timeSlots = useMemo(() => generateTimeSlots(), [selectedDate, club])
   const weekDates = getWeekDates()
   const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
   const monthNames = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
 
+  const handleSlotClick = () => {
+    setShowNotification(true)
+    setTimeout(() => setShowNotification(false), 3000)
+  }
+
   return (
     <div>
-      <Alert severity="info" style={{ marginBottom: '24px' }}>
-        <AlertTitle>Демо режим</AlertTitle>
-        Это демонстрационная версия календаря. Все данные являются тестовыми и обновляются автоматически при переключении недель.
-      </Alert>
-      
-      {/* Список кортов с цветами */}
-      <div className="section-card" style={{ marginBottom: '24px' }}>
-        <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px' }}>Корты клуба</h3>
-        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-          {DEMO_COURTS.map(court => (
-            <div key={court.id} style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px',
-              padding: '8px 16px',
-              background: 'var(--background)',
-              borderRadius: '8px'
-            }}>
-              <div style={{
-                width: '16px',
-                height: '16px',
-                borderRadius: '4px',
-                backgroundColor: court.color,
-                border: '1px solid #e5e7eb'
-              }} />
-              <span style={{ fontWeight: '500' }}>{court.name}</span>
-              <span style={{ color: 'var(--gray)', fontSize: '14px' }}>
-                ({court.type === 'tennis' ? 'Теннис' : court.type === 'padel' ? 'Падел' : 'Бадминтон'})
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
+      {showNotification && (
+        <Alert severity="info" style={{ marginBottom: '24px' }}>
+          <AlertTitle>Демо версия</AlertTitle>
+          В демо версии создание бронирований недоступно
+        </Alert>
+      )}
       
       <div className="section-card">
         <div className="calendar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -301,13 +318,10 @@ const DemoBookingCalendar: React.FC = () => {
                 {time}
               </div>
               {weekDates.map((date, dateIndex) => {
-                const bookingsInSlot = DEMO_COURTS.flatMap(court => 
+                const bookingsInSlot = courts.flatMap(court => 
                   getBookingsForSlot(date, time, court.id)
                 )
                 
-                const isSelected = selectedSlot && 
-                  date.toDateString() === selectedSlot.date.toDateString() && 
-                  time === selectedSlot.time
                 const isHovered = hoveredSlot && 
                   date.toDateString() === hoveredSlot.date.toDateString() && 
                   time === hoveredSlot.time
@@ -323,21 +337,18 @@ const DemoBookingCalendar: React.FC = () => {
                       background: bookingsInSlot.length > 0 
                         ? (() => {
                             const booking = bookingsInSlot[0]
-                            const court = DEMO_COURTS.find(c => c.id === booking.courtId)
+                            const court = courts.find(c => c.id === booking.courtId)
                             const courtColor = court?.color || '#00A86B'
                             const r = parseInt(courtColor.slice(1, 3), 16)
                             const g = parseInt(courtColor.slice(3, 5), 16)
                             const b = parseInt(courtColor.slice(5, 7), 16)
                             return `rgba(${r}, ${g}, ${b}, 0.15)`
                           })() 
-                        : isSelected 
-                          ? 'rgba(0, 168, 107, 0.2)'
-                          : isHovered
-                            ? 'rgba(0, 168, 107, 0.05)'
-                            : 'var(--white)',
+                        : isHovered
+                          ? 'rgba(0, 168, 107, 0.05)'
+                          : 'var(--white)',
                       padding: '8px',
                       overflow: 'hidden',
-                      border: isSelected ? '2px solid var(--primary)' : '2px solid transparent',
                       transition: 'all 0.2s ease'
                     }}
                     onMouseEnter={() => {
@@ -348,18 +359,9 @@ const DemoBookingCalendar: React.FC = () => {
                     onMouseLeave={() => {
                       setHoveredSlot(null)
                     }}
-                    onClick={() => {
-                      if (bookingsInSlot.length === 0) {
-                        setSelectedSlot({date, time})
-                        setFormData(prev => ({
-                          ...prev,
-                          date: date.toISOString().split('T')[0],
-                          startTime: time
-                        }))
-                      }
-                    }}
+                    onClick={handleSlotClick}
                   >
-                    {bookingsInSlot.length === 0 && (isHovered || isSelected) && (
+                    {bookingsInSlot.length === 0 && isHovered && (
                       <div style={{
                         position: 'absolute',
                         top: '50%',
@@ -404,7 +406,7 @@ const DemoBookingCalendar: React.FC = () => {
                             gap: '4px'
                           }}>
                             {(() => {
-                              const court = DEMO_COURTS.find(c => c.id === booking.courtId)
+                              const court = courts.find(c => c.id === booking.courtId)
                               if (court?.color) {
                                 return (
                                   <div style={{
@@ -420,7 +422,7 @@ const DemoBookingCalendar: React.FC = () => {
                             })()}
                             {booking.courtName}
                           </div>
-                          <div style={{ color: 'var(--gray)', fontSize: '10px' }}>
+                          <div className="booking-slot-details" style={{ color: 'var(--gray)', fontSize: '10px' }}>
                             {booking.clientName}
                             {booking.clientPhone && (
                               <span style={{ fontSize: '9px', marginLeft: '4px' }}>
@@ -428,7 +430,7 @@ const DemoBookingCalendar: React.FC = () => {
                               </span>
                             )}
                           </div>
-                          <div style={{ 
+                          <div className="booking-slot-status" style={{ 
                             fontSize: '9px',
                             marginTop: '2px',
                             color: statusColors[paymentStatus],
@@ -447,125 +449,50 @@ const DemoBookingCalendar: React.FC = () => {
         </div>
       </div>
       
+      {/* Список бронирований */}
       <div className="section-card">
-        <div className="section-header">
-          <h2 className="section-title">Создать бронирование</h2>
+        <h3 className="section-title">Последние бронирования</h3>
+        <div className="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Дата и время</th>
+                <th>Корт</th>
+                <th>Клиент</th>
+                <th>Телефон</th>
+                <th>Сумма</th>
+                <th>Статус оплаты</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bookings.slice(0, 10).map(booking => (
+                <tr key={booking.id}>
+                  <td>
+                    {new Date(booking.date).toLocaleDateString('ru-RU')}{' '}
+                    {booking.startTime} - {booking.endTime}
+                  </td>
+                  <td>{booking.courtName}</td>
+                  <td>{booking.clientName}</td>
+                  <td>{booking.clientPhone}</td>
+                  <td>{booking.amount.toLocaleString('ru-RU')} ₽</td>
+                  <td>
+                    <span style={{
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      background: booking.paymentStatus === 'paid' ? '#10B98133' : '#F59E0B33',
+                      color: booking.paymentStatus === 'paid' ? '#10B981' : '#F59E0B'
+                    }}>
+                      {booking.paymentStatus === 'paid' ? 'Оплачено' : 'Ожидает'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        
-        <form onSubmit={handleSubmit}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-            <div className="form-group">
-              <label className="form-label">Имя клиента</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                name="clientName"
-                value={formData.clientName}
-                onChange={handleInputChange}
-                placeholder="Введите имя"
-                required
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Телефон</label>
-              <input 
-                type="tel" 
-                className="form-input" 
-                name="clientPhone"
-                value={formData.clientPhone}
-                onChange={handleInputChange}
-                placeholder="+7 (___) ___-__-__"
-                required
-              />
-            </div>
-          </div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '24px' }}>
-            <div className="form-group">
-              <label className="form-label">Корт</label>
-              <select 
-                className="form-select"
-                name="courtId"
-                value={formData.courtId}
-                onChange={handleInputChange}
-                required
-              >
-                <option value="">Выберите корт</option>
-                {DEMO_COURTS.map(court => (
-                  <option key={court.id} value={court.id}>
-                    {court.name} - {court.pricePerHour}₽/час
-                  </option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Дата</label>
-              <input 
-                type="date" 
-                className="form-input"
-                name="date"
-                value={formData.date}
-                onChange={handleInputChange}
-                required
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Время начала</label>
-              <select 
-                className="form-select"
-                name="startTime"
-                value={formData.startTime}
-                onChange={handleInputChange}
-              >
-                {timeSlots.map(time => (
-                  <option key={time} value={time}>{time}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-            <div className="form-group">
-              <label className="form-label">Длительность</label>
-              <select 
-                className="form-select"
-                name="duration"
-                value={formData.duration}
-                onChange={handleInputChange}
-              >
-                <option value={1}>1 час</option>
-                <option value={1.5}>1.5 часа</option>
-                <option value={2}>2 часа</option>
-              </select>
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Способ оплаты</label>
-              <select 
-                className="form-select"
-                name="paymentMethod"
-                value={formData.paymentMethod}
-                onChange={handleInputChange}
-              >
-                <option value="cash">Наличные</option>
-                <option value="transfer">Перевод</option>
-                <option value="app">Приложение</option>
-              </select>
-            </div>
-          </div>
-          
-          <div style={{ marginTop: '24px' }}>
-            <button type="submit" className="btn btn-primary">
-              Создать бронирование
-            </button>
-          </div>
-        </form>
       </div>
     </div>
   )
 }
-
-export default DemoBookingCalendar

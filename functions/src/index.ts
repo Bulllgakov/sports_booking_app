@@ -7,6 +7,237 @@ admin.initializeApp();
 // Устанавливаем регион для всех функций
 const region = "europe-west1";
 
+/**
+ * Функция для отправки уведомлений суперадминистраторам
+ * @param {any} venueData - Данные клуба
+ * @param {any} adminData - Данные администратора
+ */
+async function sendSuperAdminNotification(venueData: any, adminData: any) {
+  try {
+    // Получаем настройки уведомлений
+    const notificationSettingsDoc = await admin.firestore()
+      .collection("settings")
+      .doc("notifications")
+      .get();
+
+    if (!notificationSettingsDoc.exists) {
+      console.log("No notification settings found");
+      return;
+    }
+
+    const settings = notificationSettingsDoc.data()!;
+    const superAdminEmails = settings.superAdminEmails || [];
+
+    if (superAdminEmails.length === 0) {
+      console.log("No super admin emails configured");
+      return;
+    }
+
+    // Отправляем email каждому суперадминистратору
+    const emailPromises = superAdminEmails.map(async (email: string) => {
+      const mailOptions = {
+        to: email,
+        from: "Все Корты <noreply@allcourt.ru>",
+        subject: "🎉 Новый клуб зарегистрирован в системе Все Корты",
+        html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Новая регистрация клуба</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #00A86B 0%, #007A4D 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+    .content {
+      padding: 40px 30px;
+    }
+    .info-card {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .info-row {
+      display: flex;
+      padding: 10px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .info-row:last-child {
+      border-bottom: none;
+    }
+    .info-label {
+      font-weight: 600;
+      color: #666;
+      width: 150px;
+      flex-shrink: 0;
+    }
+    .info-value {
+      color: #333;
+      flex: 1;
+    }
+    .button {
+      display: inline-block;
+      background: #00A86B;
+      color: white;
+      padding: 12px 30px;
+      text-decoration: none;
+      border-radius: 5px;
+      margin: 20px 0;
+      font-weight: 600;
+    }
+    .stats {
+      display: flex;
+      justify-content: space-around;
+      text-align: center;
+      margin: 30px 0;
+    }
+    .stat-item {
+      flex: 1;
+    }
+    .stat-value {
+      font-size: 32px;
+      font-weight: bold;
+      color: #00A86B;
+    }
+    .stat-label {
+      color: #666;
+      font-size: 14px;
+    }
+    .footer {
+      background: #f8f9fa;
+      padding: 20px;
+      text-align: center;
+      font-size: 14px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎉 Новый клуб в системе!</h1>
+      <p style="margin: 10px 0 0 0; font-size: 18px;">Зарегистрирован новый спортивный клуб</p>
+    </div>
+    
+    <div class="content">
+      <h2>Информация о клубе</h2>
+      
+      <div class="info-card">
+        <div class="info-row">
+          <div class="info-label">Название клуба:</div>
+          <div class="info-value"><strong>${venueData.name || "Не указано"}</strong></div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Тип клуба:</div>
+          <div class="info-value">${venueData.type || "Не указан"}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Адрес:</div>
+          <div class="info-value">${venueData.address || "Не указан"}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Город:</div>
+          <div class="info-value">${venueData.city || "Не указан"}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Телефон:</div>
+          <div class="info-value">${venueData.phone || "Не указан"}</div>
+        </div>
+      </div>
+
+      <h3>Администратор клуба</h3>
+      <div class="info-card">
+        <div class="info-row">
+          <div class="info-label">Имя:</div>
+          <div class="info-value">${adminData.name || "Не указано"}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Email:</div>
+          <div class="info-value">${adminData.email}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Дата регистрации:</div>
+          <div class="info-value">${new Date().toLocaleDateString("ru-RU", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })}</div>
+        </div>
+      </div>
+
+      <h3>Статистика системы</h3>
+      <div class="stats">
+        <div class="stat-item">
+          <div class="stat-value">+1</div>
+          <div class="stat-label">Новый клуб</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">🆓</div>
+          <div class="stat-label">Тариф START</div>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="https://allcourt.ru/admin" class="button">Перейти в админ-панель</a>
+      </div>
+
+      <p style="color: #666; font-size: 14px;">
+        <strong>Примечание:</strong> Новые клубы автоматически регистрируются на бесплатном тарифе START (до 2 кортов). 
+        При необходимости изменения тарифа, свяжитесь с администратором клуба.
+      </p>
+    </div>
+    
+    <div class="footer">
+      <p>© 2024 Все Корты. Все права защищены.</p>
+      <p>Это автоматическое уведомление. Пожалуйста, не отвечайте на него.</p>
+    </div>
+  </div>
+</body>
+</html>
+        `,
+      };
+
+      return sendEmail({
+        to: email,
+        message: {
+          subject: mailOptions.subject,
+          html: mailOptions.html,
+        },
+      });
+    });
+
+    await Promise.all(emailPromises);
+    console.log(`Super admin notifications sent to ${superAdminEmails.length} recipients`);
+  } catch (error) {
+    console.error("Error sending super admin notifications:", error);
+  }
+}
+
 // Функция для отправки приветственного email с доступами
 export const sendWelcomeEmail = functions.region(region).firestore
   .document("admins/{adminId}")
@@ -30,6 +261,9 @@ export const sendWelcomeEmail = functions.region(region).firestore
     }
 
     const venueData = venueDoc.data()!;
+
+    // Отправляем уведомление суперадминистраторам о новом клубе
+    await sendSuperAdminNotification(venueData, adminData);
 
     // Генерируем временную ссылку для входа
     const actionCodeSettings = {
@@ -368,19 +602,25 @@ export const createClubAfterRegistration = functions.region(region).auth.user()
       console.log("Subscription created for venue:", venueRef.id);
 
       // Создаем администратора
-      await admin.firestore().collection("admins").add({
+      const adminData = {
         name: "Администратор",
         email: user.email,
         role: "admin",
         venueId: venueRef.id,
         permissions: [
-          "manage_bookings", "manage_courts", "manage_clients", "manage_settings",
+          "manage_bookings", "manage_courts", "manage_club",
+          "manage_admins", "manage_finance", "view_reports", "create_bookings",
         ],
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      };
+
+      await admin.firestore().collection("admins").add(adminData);
 
       console.log("Admin created for venue:", venueRef.id);
+
+      // Отправляем уведомление суперадминистраторам
+      await sendSuperAdminNotification(registrationData.venueData, {...adminData, email: user.email});
 
       // Удаляем временные данные из custom claims
       await admin.auth().setCustomUserClaims(user.uid, {
@@ -440,7 +680,7 @@ export const createClub = functions.region(region).runWith({
     });
 
     // Создаем администратора
-    await admin.firestore().collection("admins").add({
+    const adminData = {
       name: "Администратор",
       email: userEmail,
       role: "admin",
@@ -450,7 +690,12 @@ export const createClub = functions.region(region).runWith({
       ],
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    };
+
+    await admin.firestore().collection("admins").add(adminData);
+
+    // Отправляем уведомление суперадминистраторам
+    await sendSuperAdminNotification(venueData, {...adminData, email: userEmail});
 
     // Обновляем custom claims пользователя
     await admin.auth().setCustomUserClaims(userId, {
@@ -522,7 +767,7 @@ export const createClubHttp = functions.region(region).https.onRequest(async (re
     });
 
     // Создаем администратора
-    await admin.firestore().collection("admins").add({
+    const adminData = {
       name: "Администратор",
       email: venueData.email,
       role: "admin",
@@ -532,7 +777,12 @@ export const createClubHttp = functions.region(region).https.onRequest(async (re
       ],
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    };
+
+    await admin.firestore().collection("admins").add(adminData);
+
+    // Отправляем уведомление суперадминистраторам
+    await sendSuperAdminNotification(venueData, {...adminData, email: venueData.email});
 
     res.status(200).json({
       success: true,
@@ -554,3 +804,21 @@ export {sendBookingNotifications, resendBookingNotification} from "./booking/not
 
 // Экспорт функции для тестирования email
 export {testEmailSending} from "./test/testEmail";
+
+// Экспорт функции для исправления доступа админов
+export {fixAdminAccess} from "./test/fixAdminAccess";
+
+// Временная функция для обработки email очереди
+import {processEmailQueue} from "./email/sendEmail";
+
+export const processEmailQueueManual = functions
+  .region(region)
+  .https.onCall(async (_data, _context) => {
+    try {
+      await processEmailQueue();
+      return {success: true, message: "Email queue processed"};
+    } catch (error: any) {
+      console.error("Error processing email queue:", error);
+      throw new functions.https.HttpsError("internal", error.message);
+    }
+  });

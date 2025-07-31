@@ -19,6 +19,16 @@ interface Court {
   pricePerHour?: number
   priceWeekday?: number
   priceWeekend?: number
+  pricing?: {
+    [key: string]: {
+      basePrice: number
+      intervals?: Array<{
+        from: string
+        to: string
+        price: number
+      }>
+    }
+  }
 }
 
 interface CreateBookingModalProps {
@@ -42,6 +52,7 @@ export default function CreateBookingModal({
   const [courts, setCourts] = useState<Court[]>([])
   const [loading, setLoading] = useState(false)
   const [venueName, setVenueName] = useState('')
+  const [venueSlotInterval, setVenueSlotInterval] = useState<30 | 60>(30)
   const [formData, setFormData] = useState({
     clientName: '',
     clientPhone: '',
@@ -79,8 +90,8 @@ export default function CreateBookingModal({
     const endHour = 23 // Конец работы в 23:00
     const maxStartTime = endHour - duration // Последнее время, когда можно начать бронирование
     
-    // Всегда генерируем слоты с интервалом 30 минут
-    const interval = 0.5
+    // Используем интервал из настроек venue
+    const interval = venueSlotInterval === 60 ? 1 : 0.5
     
     for (let hour = startHour; hour <= maxStartTime; hour += interval) {
       const wholeHour = Math.floor(hour)
@@ -97,8 +108,29 @@ export default function CreateBookingModal({
   }
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && venueId) {
       fetchCourts()
+      
+      // Подписываемся на real-time обновления кортов
+      const courtsRef = collection(db, 'venues', venueId, 'courts')
+      const unsubscribeCourts = onSnapshot(courtsRef, 
+        (snapshot) => {
+          const courtsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Court[]
+          setCourts(courtsData)
+          
+          // Если выбранный корт был удален, сбрасываем выбор
+          if (formData.courtId && !courtsData.find(c => c.id === formData.courtId)) {
+            setFormData(prev => ({ ...prev, courtId: '' }))
+          }
+        },
+        (error) => {
+          console.error('Error listening to courts:', error)
+        }
+      )
+      
       // Обновляем форму при изменении предвыбранных значений
       if (preSelectedDate) {
         setFormData(prev => ({
@@ -115,8 +147,12 @@ export default function CreateBookingModal({
       // Инициализируем слоты при открытии
       const slots = generateTimeSlots(formData.duration)
       setAvailableSlots(slots)
+      
+      return () => {
+        unsubscribeCourts()
+      }
     }
-  }, [isOpen, preSelectedDate, preSelectedTime])
+  }, [isOpen, venueId, preSelectedDate, preSelectedTime, venueSlotInterval])
 
   // Обновляем доступные слоты при изменении длительности
   useEffect(() => {
@@ -130,7 +166,7 @@ export default function CreateBookingModal({
         startTime: slots[0]
       }))
     }
-  }, [formData.duration])
+  }, [formData.duration, venueSlotInterval])
 
   // Загружаем бронирования при изменении корта или даты с real-time обновлениями
   useEffect(() => {
@@ -210,7 +246,9 @@ export default function CreateBookingModal({
       // Получаем информацию о venue
       const venueDoc = await getDoc(doc(db, 'venues', venueId))
       if (venueDoc.exists()) {
-        setVenueName(venueDoc.data().name || '')
+        const venueData = venueDoc.data()
+        setVenueName(venueData.name || '')
+        setVenueSlotInterval(venueData.bookingSlotInterval || 30)
       }
 
       const courtsRef = collection(db, 'venues', venueId, 'courts')
@@ -336,10 +374,36 @@ export default function CreateBookingModal({
 
       const paymentStatus = formData.paymentMethod === 'online' ? 'online_payment' : 'awaiting_payment'
       
-      // Определяем цену в зависимости от дня недели
+      // Определяем цену в зависимости от дня недели и времени
       const bookingDate = new Date(formData.date)
-      const isWeekend = bookingDate.getDay() === 0 || bookingDate.getDay() === 6
-      const pricePerHour = court.pricePerHour || (isWeekend ? court.priceWeekend : court.priceWeekday) || 1900
+      const [startHour] = formData.startTime.split(':').map(Number)
+      const dayIndex = bookingDate.getDay()
+      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+      const dayName = days[dayIndex]
+      
+      let pricePerHour = 0
+      
+      // Проверяем новую систему цен
+      if (court.pricing && court.pricing[dayName]) {
+        const dayPricing = court.pricing[dayName]
+        pricePerHour = dayPricing.basePrice
+        
+        // Проверяем интервалы с особыми ценами
+        if (dayPricing.intervals && dayPricing.intervals.length > 0) {
+          for (const interval of dayPricing.intervals) {
+            const [fromHour] = interval.from.split(':').map(Number)
+            const [toHour] = interval.to.split(':').map(Number)
+            if (startHour >= fromHour && startHour < toHour) {
+              pricePerHour = interval.price
+              break
+            }
+          }
+        }
+      } else {
+        // Fallback на старую систему
+        const isWeekend = dayIndex === 0 || dayIndex === 6
+        pricePerHour = court.pricePerHour || (isWeekend ? court.priceWeekend : court.priceWeekday) || 1900
+      }
       
       const bookingData = {
         venueId: venueId,

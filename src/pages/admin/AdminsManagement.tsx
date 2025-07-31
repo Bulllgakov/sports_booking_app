@@ -51,20 +51,16 @@ interface Venue {
   name: string
 }
 
-const allPermissions = [
-  { value: 'manage_all_venues', label: 'Управление всеми клубами' },
-  { value: 'manage_all_bookings', label: 'Управление всеми бронированиями' },
-  { value: 'manage_all_users', label: 'Управление всеми пользователями' },
-  { value: 'manage_platform_settings', label: 'Управление настройками платформы' },
-  { value: 'view_all_reports', label: 'Просмотр всех отчетов' },
-  { value: 'manage_finance', label: 'Управление финансами' },
-  { value: 'manage_admins', label: 'Управление администраторами' },
+// Права доступа для обычных ролей (без суперадмина)
+const regularPermissions = [
   { value: 'manage_bookings', label: 'Управление бронированиями' },
   { value: 'manage_courts', label: 'Управление кортами' },
   { value: 'manage_club', label: 'Управление клубом' },
+  { value: 'manage_admins', label: 'Управление администраторами клуба' },
   { value: 'view_reports', label: 'Просмотр отчетов' },
   { value: 'view_bookings', label: 'Просмотр бронирований' },
-  { value: 'create_bookings', label: 'Создание бронирований' }
+  { value: 'create_bookings', label: 'Создание бронирований' },
+  { value: 'manage_finance', label: 'Управление финансами клуба' }
 ]
 
 const rolePermissions = {
@@ -81,7 +77,10 @@ const rolePermissions = {
     'manage_bookings',
     'manage_courts',
     'manage_club',
-    'view_reports'
+    'manage_admins',
+    'manage_finance',
+    'view_reports',
+    'create_bookings'
   ],
   manager: [
     'view_bookings',
@@ -174,9 +173,9 @@ export default function AdminsManagement() {
         name: '',
         email: '',
         password: '',
-        role: 'manager',
+        role: 'admin',
         venueId: '',
-        permissions: rolePermissions.manager
+        permissions: rolePermissions.admin
       })
     }
     setDialogOpen(true)
@@ -260,12 +259,24 @@ export default function AdminsManagement() {
   }
 
   const handleDelete = async (adminId: string) => {
-    if (confirm('Вы уверены, что хотите удалить этого администратора?')) {
+    const adminToDelete = admins.find(a => a.id === adminId)
+    if (!adminToDelete) return
+
+    const confirmMessage = `Вы уверены, что хотите удалить администратора ${adminToDelete.name} (${adminToDelete.email})?`
+    
+    if (confirm(confirmMessage)) {
       try {
+        // Удаляем документ администратора
         await deleteDoc(doc(db, 'admins', adminId))
-        loadData()
+        
+        // Обновляем список
+        await loadData()
+        
+        // Показываем уведомление об успехе
+        alert(`Администратор ${adminToDelete.name} успешно удален`)
       } catch (error) {
         console.error('Error deleting admin:', error)
+        alert('Ошибка при удалении администратора')
       }
     }
   }
@@ -281,6 +292,10 @@ export default function AdminsManagement() {
   return (
     <PermissionGate role="superadmin">
       <Box>
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Данный раздел доступен только суперадминистраторам системы
+        </Alert>
+        
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
           <h2>Управление администраторами</h2>
           <Button
@@ -298,7 +313,6 @@ export default function AdminsManagement() {
               <TableRow>
                 <TableCell>Имя</TableCell>
                 <TableCell>Email</TableCell>
-                {isSuperAdmin && <TableCell>Пароль</TableCell>}
                 <TableCell>Роль</TableCell>
                 <TableCell>Клуб</TableCell>
                 <TableCell align="right">Действия</TableCell>
@@ -324,9 +338,11 @@ export default function AdminsManagement() {
                         <IconButton onClick={() => handleOpen(admin)}>
                           <Edit />
                         </IconButton>
-                        <IconButton onClick={() => handleDelete(admin.id)} color="error">
-                          <Delete />
-                        </IconButton>
+                        {isSuperAdmin && (
+                          <IconButton onClick={() => handleDelete(admin.id)} color="error">
+                            <Delete />
+                          </IconButton>
+                        )}
                       </>
                     )}
                   </TableCell>
@@ -404,7 +420,7 @@ export default function AdminsManagement() {
             <FormControl component="fieldset" margin="normal">
               <FormLabel component="legend">Права доступа</FormLabel>
               <FormGroup>
-                {allPermissions.map(perm => (
+                {regularPermissions.map(perm => (
                   <FormControlLabel
                     key={perm.value}
                     control={

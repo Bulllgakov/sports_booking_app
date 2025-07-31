@@ -51,12 +51,12 @@ const TestEmailButton: React.FC<TestEmailButtonProps> = ({ defaultEmail = '' }) 
   return (
     <>
       <Button
-        variant="outlined"
+        variant="contained"
         startIcon={<SendIcon />}
         onClick={() => setOpen(true)}
-        size="small"
+        color="primary"
       >
-        Тест Email
+        Отправить тестовое письмо
       </Button>
 
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>

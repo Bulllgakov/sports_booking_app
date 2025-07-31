@@ -7,7 +7,13 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, loading } = useAuth()
+  const { user, admin, loading } = useAuth()
+
+  console.log('🛡️ ProtectedRoute check:', {
+    user: user?.email || 'no user',
+    admin: admin?.email || 'no admin',
+    loading
+  })
 
   if (loading) {
     return (
@@ -22,7 +28,8 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     )
   }
 
-  if (!user) {
+  if (!user || !admin) {
+    console.log('🚫 Access denied, redirecting to login')
     return <Navigate to="/login" replace />
   }
 

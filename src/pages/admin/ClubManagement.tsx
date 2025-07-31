@@ -36,15 +36,30 @@ export default function ClubManagement() {
     organizationType: '',
     inn: '',
     bankAccount: '',
+    legalName: '',
+    ogrn: '',
+    kpp: '',
+    legalAddress: '',
+    bankName: '',
+    bankBik: '',
+    bankCorrespondentAccount: '',
+    directorName: '',
+    directorPosition: '',
     workingHours: {
-      weekday: '07:00-23:00',
-      weekend: '08:00-22:00'
+      monday: '07:00-23:00',
+      tuesday: '07:00-23:00',
+      wednesday: '07:00-23:00',
+      thursday: '07:00-23:00',
+      friday: '07:00-23:00',
+      saturday: '08:00-22:00',
+      sunday: '08:00-22:00'
     },
     bookingDurations: {
       60: true,
       90: true,
       120: true
-    }
+    },
+    bookingSlotInterval: 30 as 30 | 60
   })
   const [photos, setPhotos] = useState<string[]>([])
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -77,15 +92,30 @@ export default function ClubManagement() {
         organizationType: club.organizationType || '',
         inn: club.inn || '',
         bankAccount: club.bankAccount || '',
+        legalName: club.legalName || '',
+        ogrn: club.ogrn || '',
+        kpp: club.kpp || '',
+        legalAddress: club.legalAddress || '',
+        bankName: club.bankName || '',
+        bankBik: club.bankBik || '',
+        bankCorrespondentAccount: club.bankCorrespondentAccount || '',
+        directorName: club.directorName || '',
+        directorPosition: club.directorPosition || '',
         workingHours: club.workingHours || {
-          weekday: '07:00-23:00',
-          weekend: '08:00-22:00'
+          monday: '07:00-23:00',
+          tuesday: '07:00-23:00',
+          wednesday: '07:00-23:00',
+          thursday: '07:00-23:00',
+          friday: '07:00-23:00',
+          saturday: '08:00-22:00',
+          sunday: '08:00-22:00'
         },
         bookingDurations: club.bookingDurations || {
           60: true,
           90: true,
           120: true
-        }
+        },
+        bookingSlotInterval: club.bookingSlotInterval || 30
       })
       setPhotos(club.photos || [])
     }
@@ -125,15 +155,30 @@ export default function ClubManagement() {
           organizationType: venueData.organizationType || '',
           inn: venueData.inn || '',
           bankAccount: venueData.bankAccount || '',
+          legalName: venueData.legalName || '',
+          ogrn: venueData.ogrn || '',
+          kpp: venueData.kpp || '',
+          legalAddress: venueData.legalAddress || '',
+          bankName: venueData.bankName || '',
+          bankBik: venueData.bankBik || '',
+          bankCorrespondentAccount: venueData.bankCorrespondentAccount || '',
+          directorName: venueData.directorName || '',
+          directorPosition: venueData.directorPosition || '',
           workingHours: venueData.workingHours || {
-            weekday: '07:00-23:00',
-            weekend: '08:00-22:00'
+            monday: '07:00-23:00',
+            tuesday: '07:00-23:00',
+            wednesday: '07:00-23:00',
+            thursday: '07:00-23:00',
+            friday: '07:00-23:00',
+            saturday: '08:00-22:00',
+            sunday: '08:00-22:00'
           },
           bookingDurations: venueData.bookingDurations || {
             60: true,
             90: true,
             120: true
-          }
+          },
+          bookingSlotInterval: venueData.bookingSlotInterval || 30
         })
         setPhotos(venueData.photos || [])
       }
@@ -349,8 +394,18 @@ export default function ClubManagement() {
         organizationType: formData.organizationType,
         inn: formData.inn,
         bankAccount: formData.bankAccount,
+        legalName: formData.legalName,
+        ogrn: formData.ogrn,
+        kpp: formData.kpp,
+        legalAddress: formData.legalAddress,
+        bankName: formData.bankName,
+        bankBik: formData.bankBik,
+        bankCorrespondentAccount: formData.bankCorrespondentAccount,
+        directorName: formData.directorName,
+        directorPosition: formData.directorPosition,
         workingHours: formData.workingHours,
         bookingDurations: formData.bookingDurations,
+        bookingSlotInterval: formData.bookingSlotInterval,
         updatedAt: new Date(),
       }
 
@@ -773,43 +828,34 @@ export default function ClubManagement() {
 
           <div style={{ marginTop: '32px' }}>
             <h3 className="section-subtitle">Режим работы</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '16px' }}>
-              <div className="form-group">
-                <label className="form-label">Будние дни (пн-пт)</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  name="workingHours.weekday"
-                  value={formData.workingHours.weekday}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    workingHours: {
-                      ...prev.workingHours,
-                      weekday: e.target.value
-                    }
-                  }))}
-                  placeholder="07:00-23:00"
-                />
-                <span className="form-hint">Формат: ЧЧ:ММ-ЧЧ:ММ</span>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Выходные дни (сб-вс)</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  name="workingHours.weekend"
-                  value={formData.workingHours.weekend}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    workingHours: {
-                      ...prev.workingHours,
-                      weekend: e.target.value
-                    }
-                  }))}
-                  placeholder="08:00-22:00"
-                />
-                <span className="form-hint">Формат: ЧЧ:ММ-ЧЧ:ММ</span>
-              </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '16px' }}>
+              {[
+                { key: 'monday', label: 'Понедельник' },
+                { key: 'tuesday', label: 'Вторник' },
+                { key: 'wednesday', label: 'Среда' },
+                { key: 'thursday', label: 'Четверг' },
+                { key: 'friday', label: 'Пятница' },
+                { key: 'saturday', label: 'Суббота' },
+                { key: 'sunday', label: 'Воскресенье' }
+              ].map(day => (
+                <div key={day.key} className="form-group">
+                  <label className="form-label">{day.label}</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.workingHours[day.key as keyof typeof formData.workingHours]}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      workingHours: {
+                        ...prev.workingHours,
+                        [day.key]: e.target.value
+                      }
+                    }))}
+                    placeholder="07:00-23:00"
+                  />
+                  <span className="form-hint">ЧЧ:ММ-ЧЧ:ММ</span>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -863,6 +909,41 @@ export default function ClubManagement() {
               Выберите, какие длительности бронирования будут доступны клиентам
             </p>
           </div>
+
+          <div style={{ marginTop: '32px' }}>
+            <h3 className="section-subtitle">Интервал временных слотов</h3>
+            <div style={{ display: 'flex', gap: '16px', marginTop: '16px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input 
+                  type="radio" 
+                  name="bookingSlotInterval"
+                  value="30"
+                  checked={formData.bookingSlotInterval === 30}
+                  onChange={() => setFormData(prev => ({
+                    ...prev,
+                    bookingSlotInterval: 30
+                  }))}
+                /> 
+                Каждые 30 минут (стандарт)
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input 
+                  type="radio" 
+                  name="bookingSlotInterval"
+                  value="60"
+                  checked={formData.bookingSlotInterval === 60}
+                  onChange={() => setFormData(prev => ({
+                    ...prev,
+                    bookingSlotInterval: 60
+                  }))}
+                /> 
+                Только с 00 минут (каждый час)
+              </label>
+            </div>
+            <p className="form-hint" style={{ marginTop: '8px' }}>
+              Выберите интервал доступных слотов для бронирования. При выборе "Только с 00 минут" клиенты смогут бронировать только с начала часа (например, 10:00, 11:00, 12:00)
+            </p>
+          </div>
           
           <div style={{ display: 'flex', gap: '12px' }}>
             <button type="submit" className="btn btn-primary" disabled={loading}>
@@ -890,15 +971,30 @@ export default function ClubManagement() {
                   organizationType: currentClub.organizationType || '',
                   inn: currentClub.inn || '',
                   bankAccount: currentClub.bankAccount || '',
+                  legalName: currentClub.legalName || '',
+                  ogrn: currentClub.ogrn || '',
+                  kpp: currentClub.kpp || '',
+                  legalAddress: currentClub.legalAddress || '',
+                  bankName: currentClub.bankName || '',
+                  bankBik: currentClub.bankBik || '',
+                  bankCorrespondentAccount: currentClub.bankCorrespondentAccount || '',
+                  directorName: currentClub.directorName || '',
+                  directorPosition: currentClub.directorPosition || '',
                   workingHours: currentClub.workingHours || {
-                    weekday: '07:00-23:00',
-                    weekend: '08:00-22:00'
+                    monday: '07:00-23:00',
+                    tuesday: '07:00-23:00',
+                    wednesday: '07:00-23:00',
+                    thursday: '07:00-23:00',
+                    friday: '07:00-23:00',
+                    saturday: '08:00-22:00',
+                    sunday: '08:00-22:00'
                   },
                   bookingDurations: currentClub.bookingDurations || {
                     60: true,
                     90: true,
                     120: true
-                  }
+                  },
+                  bookingSlotInterval: currentClub.bookingSlotInterval || 30
                 })
               }
             }}>
@@ -922,7 +1018,7 @@ export default function ClubManagement() {
         </div>
         
         <div className="section-card">
-        <h2 className="section-title">Настройки платежей</h2>
+        <h2 className="section-title">Реквизиты организации</h2>
         
         <form onSubmit={handleSubmit}>
           <div className="form-group" style={{ marginTop: '24px' }}>
@@ -936,20 +1032,112 @@ export default function ClubManagement() {
               <option value="">Выберите тип</option>
               <option value="ИП">ИП</option>
               <option value="ООО">ООО</option>
+              <option value="АО">АО</option>
+              <option value="НКО">НКО</option>
               <option value="Самозанятый">Самозанятый</option>
             </select>
           </div>
           
           <div className="form-group">
-            <label className="form-label">ИНН</label>
+            <label className="form-label">Юридическое наименование</label>
             <input 
               type="text" 
               className="form-input" 
-              name="inn"
-              value={formData.inn}
+              name="legalName"
+              value={formData.legalName}
               onChange={handleInputChange}
-              placeholder="Введите ИНН"
+              placeholder="ООО «Название организации»"
             />
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">ИНН</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                name="inn"
+                value={formData.inn}
+                onChange={handleInputChange}
+                placeholder="1234567890"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">КПП</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                name="kpp"
+                value={formData.kpp}
+                onChange={handleInputChange}
+                placeholder="123456789"
+              />
+            </div>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">ОГРН / ОГРНИП</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              name="ogrn"
+              value={formData.ogrn}
+              onChange={handleInputChange}
+              placeholder="1234567890123"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Юридический адрес</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              name="legalAddress"
+              value={formData.legalAddress}
+              onChange={handleInputChange}
+              placeholder="123456, г. Москва, ул. Примерная, д. 1, офис 1"
+            />
+          </div>
+          
+          <h3 style={{ marginTop: '32px', marginBottom: '16px', fontSize: '18px' }}>Банковские реквизиты</h3>
+          
+          <div className="form-group">
+            <label className="form-label">Наименование банка</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              name="bankName"
+              value={formData.bankName}
+              onChange={handleInputChange}
+              placeholder="ПАО Сбербанк"
+            />
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">БИК банка</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                name="bankBik"
+                value={formData.bankBik}
+                onChange={handleInputChange}
+                placeholder="044525225"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">Корр. счет</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                name="bankCorrespondentAccount"
+                value={formData.bankCorrespondentAccount}
+                onChange={handleInputChange}
+                placeholder="30101810400000000225"
+              />
+            </div>
           </div>
           
           <div className="form-group">
@@ -964,8 +1152,34 @@ export default function ClubManagement() {
             />
           </div>
           
+          <h3 style={{ marginTop: '32px', marginBottom: '16px', fontSize: '18px' }}>Руководитель</h3>
+          
+          <div className="form-group">
+            <label className="form-label">ФИО руководителя</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              name="directorName"
+              value={formData.directorName}
+              onChange={handleInputChange}
+              placeholder="Иванов Иван Иванович"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Должность</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              name="directorPosition"
+              value={formData.directorPosition}
+              onChange={handleInputChange}
+              placeholder="Генеральный директор"
+            />
+          </div>
+          
           <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? 'Сохранение...' : 'Сохранить платежные данные'}
+            {loading ? 'Сохранение...' : 'Сохранить реквизиты'}
           </button>
         </form>
         

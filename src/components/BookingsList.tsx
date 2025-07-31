@@ -182,7 +182,9 @@ export default function BookingsList({ venueId, onRefresh }: BookingsListProps) 
       </div>
 
       {showFilters && (
-        <div style={{ 
+        <div 
+          className="booking-filters-mobile"
+          style={{ 
           marginBottom: '24px', 
           padding: '16px', 
           background: 'var(--background)', 
@@ -302,6 +304,82 @@ export default function BookingsList({ venueId, onRefresh }: BookingsListProps) 
             )}
           </tbody>
         </table>
+      </div>
+      
+      {/* Mobile cards view */}
+      <div className="bookings-mobile-cards">
+        {filteredBookings.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '48px', color: 'var(--gray)' }}>
+            Нет бронирований
+          </div>
+        ) : (
+          filteredBookings.map(booking => (
+            <div key={booking.id} className="booking-card-mobile">
+              <div className="booking-card-header">
+                <div className="booking-card-court">{booking.courtName}</div>
+                <div className="booking-card-amount">{formatAmount(booking.amount)}</div>
+              </div>
+              
+              <div className="booking-card-client">
+                <div className="booking-card-client-name">
+                  {booking.clientName || booking.customerName}
+                </div>
+                <div className="booking-card-client-phone">
+                  {booking.clientPhone || booking.customerPhone}
+                </div>
+              </div>
+              
+              <div className="booking-card-info">
+                <div className="booking-card-row">
+                  <span className="booking-card-label">Дата:</span>
+                  <span className="booking-card-value">{formatDate(booking.date)}</span>
+                </div>
+                <div className="booking-card-row">
+                  <span className="booking-card-label">Время:</span>
+                  <span className="booking-card-value">
+                    {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
+                  </span>
+                </div>
+                <div className="booking-card-row">
+                  <span className="booking-card-label">Способ оплаты:</span>
+                  <span className="booking-card-value">
+                    {paymentMethodLabels[booking.paymentMethod] || booking.paymentMethod}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="booking-card-footer">
+                <PaymentStatusManager
+                  bookingId={booking.id}
+                  currentStatus={booking.paymentStatus || 'awaiting_payment'}
+                  paymentMethod={booking.paymentMethod}
+                  onStatusUpdate={fetchBookings}
+                />
+                <div className="booking-card-actions">
+                  <button
+                    className="btn btn-secondary btn-icon"
+                    onClick={() => {
+                      setSelectedBooking(booking)
+                      setShowDetailsModal(true)
+                    }}
+                    title="Подробности"
+                  >
+                    <Info />
+                  </button>
+                  {hasPermission(['manage_bookings', 'manage_all_bookings']) && (
+                    <button
+                      className="btn btn-danger btn-icon"
+                      onClick={() => handleDelete(booking.id)}
+                      title="Удалить"
+                    >
+                      <Delete />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
       
       <BookingDetailsModal

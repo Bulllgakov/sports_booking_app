@@ -15,16 +15,36 @@ import {
   getDoc
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
-import { Add, Edit, Delete, Schedule } from '@mui/icons-material'
+import { Add, Edit, Delete } from '@mui/icons-material'
 import { Alert, AlertTitle } from '@mui/material'
+
+interface PriceInterval {
+  from: string // время начала HH:00
+  to: string   // время окончания HH:00
+  price: number
+}
+
+interface DayPricing {
+  basePrice: number
+  intervals?: PriceInterval[]
+}
 
 interface Court {
   id: string
   name: string
   type: 'tennis' | 'padel' | 'badminton'
   courtType: 'indoor' | 'outdoor'
-  priceWeekday: number
-  priceWeekend: number
+  priceWeekday?: number // для обратной совместимости
+  priceWeekend?: number // для обратной совместимости
+  pricing?: {
+    monday?: DayPricing
+    tuesday?: DayPricing
+    wednesday?: DayPricing
+    thursday?: DayPricing
+    friday?: DayPricing
+    saturday?: DayPricing
+    sunday?: DayPricing
+  }
   status: 'active' | 'inactive' | 'maintenance'
   color?: string
   venueId: string
@@ -62,8 +82,15 @@ export default function CourtsManagement() {
     name: '',
     type: 'padel' as Court['type'],
     courtType: 'indoor' as Court['courtType'],
-    priceWeekday: 1900,
-    priceWeekend: 2400,
+    pricing: {
+      monday: { basePrice: 1900, intervals: [] },
+      tuesday: { basePrice: 1900, intervals: [] },
+      wednesday: { basePrice: 1900, intervals: [] },
+      thursday: { basePrice: 1900, intervals: [] },
+      friday: { basePrice: 1900, intervals: [] },
+      saturday: { basePrice: 2400, intervals: [] },
+      sunday: { basePrice: 2400, intervals: [] },
+    },
     status: 'active' as Court['status'],
     color: '#00A86B',
   })
@@ -175,8 +202,15 @@ export default function CourtsManagement() {
         name: '',
         type: 'padel',
         courtType: 'indoor',
-        priceWeekday: 1900,
-        priceWeekend: 2400,
+        pricing: {
+          monday: { basePrice: 1900, intervals: [] },
+          tuesday: { basePrice: 1900, intervals: [] },
+          wednesday: { basePrice: 1900, intervals: [] },
+          thursday: { basePrice: 1900, intervals: [] },
+          friday: { basePrice: 1900, intervals: [] },
+          saturday: { basePrice: 2400, intervals: [] },
+          sunday: { basePrice: 2400, intervals: [] },
+        },
         status: 'active',
         color: nextColor,
       })
@@ -192,8 +226,15 @@ export default function CourtsManagement() {
       name: court.name,
       type: court.type,
       courtType: court.courtType,
-      priceWeekday: court.priceWeekday,
-      priceWeekend: court.priceWeekend,
+      pricing: court.pricing || {
+        monday: { basePrice: 1900, intervals: [] },
+        tuesday: { basePrice: 1900, intervals: [] },
+        wednesday: { basePrice: 1900, intervals: [] },
+        thursday: { basePrice: 1900, intervals: [] },
+        friday: { basePrice: 1900, intervals: [] },
+        saturday: { basePrice: 2400, intervals: [] },
+        sunday: { basePrice: 2400, intervals: [] },
+      },
       status: court.status,
       color: court.color || '#00A86B',
     })
@@ -298,18 +339,27 @@ export default function CourtsManagement() {
               </div>
               <div className="court-details">
                 <div>Тип: {court.courtType === 'indoor' ? 'Крытый' : 'Открытый'}</div>
-                <div>Будни: {court.priceWeekday}₽/час</div>
-                <div>Выходные: {court.priceWeekend}₽/час</div>
+                <div>
+                  {court.pricing ? (
+                    <>Цены: от {Math.min(
+                      ...Object.values(court.pricing)
+                        .filter(p => p)
+                        .map(p => p!.basePrice)
+                    )}₽ до {Math.max(
+                      ...Object.values(court.pricing)
+                        .filter(p => p)
+                        .map(p => p!.basePrice)
+                    )}₽</>
+                  ) : (
+                    <>Будни: {court.priceWeekday || 1900}₽ | Вых: {court.priceWeekend || 2400}₽</>
+                  )}
+                </div>
                 <div>Статус: {court.status === 'active' ? 'Активен' : court.status === 'maintenance' ? 'Обслуживание' : 'Неактивен'}</div>
               </div>
               <div className="court-actions">
                 <button className="btn btn-secondary" onClick={() => handleEdit(court)}>
                   <Edit fontSize="small" />
                   Редактировать
-                </button>
-                <button className="btn btn-secondary">
-                  <Schedule fontSize="small" />
-                  Расписание
                 </button>
                 <button 
                   className="btn btn-danger" 
@@ -329,6 +379,7 @@ export default function CourtsManagement() {
             <p>Нажмите "Добавить корт", чтобы создать первый</p>
           </div>
         )}
+        </div>
       </div>
 
       {/* Модальное окно для добавления/редактирования корта */}
@@ -348,8 +399,15 @@ export default function CourtsManagement() {
                   name: '',
                   type: 'padel',
                   courtType: 'indoor',
-                  priceWeekday: 1900,
-                  priceWeekend: 2400,
+                  pricing: {
+                    monday: { basePrice: 1900, intervals: [] },
+                    tuesday: { basePrice: 1900, intervals: [] },
+                    wednesday: { basePrice: 1900, intervals: [] },
+                    thursday: { basePrice: 1900, intervals: [] },
+                    friday: { basePrice: 1900, intervals: [] },
+                    saturday: { basePrice: 2400, intervals: [] },
+                    sunday: { basePrice: 2400, intervals: [] },
+                  },
                   status: 'active',
                   color: nextColor,
                 })
@@ -403,32 +461,166 @@ export default function CourtsManagement() {
                 </select>
               </div>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                <div className="form-group">
-                  <label className="form-label">Цена за час (будни)</label>
-                  <input 
-                    type="number" 
-                    className="form-input" 
-                    name="priceWeekday"
-                    value={formData.priceWeekday}
-                    onChange={handleInputChange}
-                    min="0"
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label className="form-label">Цена за час (выходные)</label>
-                  <input 
-                    type="number" 
-                    className="form-input" 
-                    name="priceWeekend"
-                    value={formData.priceWeekend}
-                    onChange={handleInputChange}
-                    min="0"
-                    required
-                  />
-                </div>
+              <div className="form-group">
+                <label className="form-label">Ценовая политика</label>
+                <div style={{ marginTop: '16px' }}>
+                    {[
+                      { key: 'monday', label: 'Понедельник' },
+                      { key: 'tuesday', label: 'Вторник' },
+                      { key: 'wednesday', label: 'Среда' },
+                      { key: 'thursday', label: 'Четверг' },
+                      { key: 'friday', label: 'Пятница' },
+                      { key: 'saturday', label: 'Суббота' },
+                      { key: 'sunday', label: 'Воскресенье' }
+                    ].map(day => (
+                      <div key={day.key} style={{ marginBottom: '24px', padding: '16px', background: '#f8f9fa', borderRadius: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                          <h4 style={{ margin: 0 }}>{day.label}</h4>
+                          <input
+                            type="number"
+                            className="form-input"
+                            style={{ width: '120px' }}
+                            value={formData.pricing[day.key as keyof typeof formData.pricing].basePrice}
+                            onChange={(e) => {
+                              const price = Number(e.target.value)
+                              setFormData(prev => ({
+                                ...prev,
+                                pricing: {
+                                  ...prev.pricing,
+                                  [day.key]: {
+                                    ...prev.pricing[day.key as keyof typeof prev.pricing],
+                                    basePrice: price
+                                  }
+                                }
+                              }))
+                            }}
+                            min="0"
+                            placeholder="Базовая цена"
+                          />
+                          <span style={{ marginLeft: '8px' }}>₽/час</span>
+                        </div>
+                        
+                        <div style={{ marginTop: '12px' }}>
+                          <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '8px' }}>
+                            Интервалы с особыми ценами:
+                          </div>
+                          {formData.pricing[day.key as keyof typeof formData.pricing].intervals?.map((interval, idx) => (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                              <input
+                                type="time"
+                                className="form-input"
+                                style={{ width: '100px' }}
+                                value={interval.from}
+                                onChange={(e) => {
+                                  const newIntervals = [...formData.pricing[day.key as keyof typeof formData.pricing].intervals!]
+                                  newIntervals[idx].from = e.target.value
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    pricing: {
+                                      ...prev.pricing,
+                                      [day.key]: {
+                                        ...prev.pricing[day.key as keyof typeof prev.pricing],
+                                        intervals: newIntervals
+                                      }
+                                    }
+                                  }))
+                                }}
+                                step="3600"
+                              />
+                              <span>-</span>
+                              <input
+                                type="time"
+                                className="form-input"
+                                style={{ width: '100px' }}
+                                value={interval.to}
+                                onChange={(e) => {
+                                  const newIntervals = [...formData.pricing[day.key as keyof typeof formData.pricing].intervals!]
+                                  newIntervals[idx].to = e.target.value
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    pricing: {
+                                      ...prev.pricing,
+                                      [day.key]: {
+                                        ...prev.pricing[day.key as keyof typeof prev.pricing],
+                                        intervals: newIntervals
+                                      }
+                                    }
+                                  }))
+                                }}
+                                step="3600"
+                              />
+                              <input
+                                type="number"
+                                className="form-input"
+                                style={{ width: '100px' }}
+                                value={interval.price}
+                                onChange={(e) => {
+                                  const newIntervals = [...formData.pricing[day.key as keyof typeof formData.pricing].intervals!]
+                                  newIntervals[idx].price = Number(e.target.value)
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    pricing: {
+                                      ...prev.pricing,
+                                      [day.key]: {
+                                        ...prev.pricing[day.key as keyof typeof prev.pricing],
+                                        intervals: newIntervals
+                                      }
+                                    }
+                                  }))
+                                }}
+                                min="0"
+                                placeholder="Цена"
+                              />
+                              <span>₽</span>
+                              <button
+                                type="button"
+                                className="btn btn-secondary"
+                                style={{ padding: '4px 8px' }}
+                                onClick={() => {
+                                  const newIntervals = formData.pricing[day.key as keyof typeof formData.pricing].intervals!.filter((_, i) => i !== idx)
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    pricing: {
+                                      ...prev.pricing,
+                                      [day.key]: {
+                                        ...prev.pricing[day.key as keyof typeof prev.pricing],
+                                        intervals: newIntervals
+                                      }
+                                    }
+                                  }))
+                                }}
+                              >
+                                Удалить
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            className="btn btn-link"
+                            style={{ padding: '4px 8px', fontSize: '14px' }}
+                            onClick={() => {
+                              const newIntervals = [
+                                ...(formData.pricing[day.key as keyof typeof formData.pricing].intervals || []),
+                                { from: '09:00', to: '11:00', price: formData.pricing[day.key as keyof typeof formData.pricing].basePrice * 1.5 }
+                              ]
+                              setFormData(prev => ({
+                                ...prev,
+                                pricing: {
+                                  ...prev.pricing,
+                                  [day.key]: {
+                                    ...prev.pricing[day.key as keyof typeof prev.pricing],
+                                    intervals: newIntervals
+                                  }
+                                }
+                              }))
+                            }}
+                          >
+                            + Добавить интервал
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
               </div>
               
               <div className="form-group">
@@ -486,7 +678,6 @@ export default function CourtsManagement() {
             </div>
           </form>
         </div>
-      </div>
       </div>
     </PermissionGate>
   )

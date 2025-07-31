@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { doc, getDoc, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { styles, mobileStyles, desktopStyles } from './ClubPage.styles'
 import OptimizedImage from '../../components/OptimizedImage'
@@ -38,6 +38,16 @@ interface Court {
   pricePerHour?: number
   priceWeekday?: number
   priceWeekend?: number
+  pricing?: {
+    [key: string]: {
+      basePrice: number
+      intervals?: Array<{
+        from: string
+        to: string
+        price: number
+      }>
+    }
+  }
   surface?: string
   indoor?: boolean
   courtType?: string
@@ -111,6 +121,28 @@ export default function ClubPage() {
       const loadTime = performance.now() - startTime
       console.log(`ClubPage loaded in ${loadTime.toFixed(0)}ms`)
     })
+    
+    // Подписываемся на обновления кортов для real-time обновления цен
+    if (clubId) {
+      const unsubscribe = onSnapshot(
+        query(
+          collection(db, 'venues', clubId, 'courts'),
+          where('status', '==', 'active')
+        ),
+        (snapshot) => {
+          const courtsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Court[]
+          setCourts(courtsData)
+        },
+        (error) => {
+          console.error('Error listening to courts updates:', error)
+        }
+      )
+      
+      return () => unsubscribe()
+    }
   }, [clubId])
 
   useEffect(() => {
@@ -279,31 +311,25 @@ export default function ClubPage() {
         </div>
       )}
 
-      {/* Hero section with image */}
-      <div className="hero-image">
-        {venue.photos && venue.photos.length > 0 ? (
-          <OptimizedImage 
-            loading="eager"
-            src={venue.photos[0]} 
-            alt={venue.name}
-            style={styles.heroImage}
-            onClick={() => openPhotoModal(0)}
-          />
-        ) : (
-          <div style={styles.heroPlaceholder}>
-            <span style={styles.heroPlaceholderIcon}>🏸</span>
-            <span className="body-small" style={styles.heroPlaceholderText}>Фото клуба</span>
-          </div>
-        )}
-        
-        <button 
-          className="back-button"
-          onClick={() => window.history.back()}
-          aria-label="Назад"
-        >
-          ←
-        </button>
-      </div>
+      {/* Hero section with image - DESKTOP ONLY */}
+      {isDesktop && (
+        <div className="hero-image">
+          {venue.photos && venue.photos.length > 0 ? (
+            <OptimizedImage 
+              loading="eager"
+              src={venue.photos[0]} 
+              alt={venue.name}
+              style={styles.heroImage}
+              onClick={() => openPhotoModal(0)}
+            />
+          ) : (
+            <div style={styles.heroPlaceholder}>
+              <span style={styles.heroPlaceholderIcon}>🏸</span>
+              <span className="body-small" style={styles.heroPlaceholderText}>Фото клуба</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main content */}
       <div style={isDesktop ? desktopStyles.container : {...mobileStyles.contentPadding, paddingBottom: 'calc(140px + var(--spacing-xl))'}}>
@@ -328,16 +354,16 @@ export default function ClubPage() {
           )}
 
           {/* Mobile only - Image gallery */}
-          {!isDesktop && venue.photos && venue.photos.length > 1 && (
+          {!isDesktop && venue.photos && venue.photos.length > 0 && (
             <div style={styles.mobileGallery}>
-              {venue.photos.slice(1).map((photo, index) => (
+              {venue.photos.map((photo, index) => (
                 <OptimizedImage 
                   key={index}
                   loading="lazy"
                   src={photo} 
-                  alt={`${venue.name} - фото ${index + 2}`}
+                  alt={`${venue.name} - фото ${index + 1}`}
                   style={styles.mobileGalleryImage}
-                  onClick={() => openPhotoModal(index + 1)}
+                  onClick={() => openPhotoModal(index)}
                 />
               ))}
             </div>
@@ -363,17 +389,7 @@ export default function ClubPage() {
             </div>
           </div>
 
-          {/* Description - only on desktop in main content, on mobile in regular flow */}
-          {venue.description && (
-            <div className="info-section" style={styles.descriptionSection}>
-              <h3 className="info-section-title">О клубе</h3>
-              <p className="body" style={styles.descriptionText}>
-                {venue.description}
-              </p>
-            </div>
-          )}
-
-          {/* Mobile only - Courts section right after About */}
+          {/* Mobile only - Courts section BEFORE About */}
           {!isDesktop && (
             <div style={styles.courtsWrapper}>
               <h3 className="h2" style={styles.courtsTitle}>Доступные корты</h3>
@@ -427,6 +443,16 @@ export default function ClubPage() {
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Description - only on desktop in main content, on mobile in regular flow */}
+          {!isDesktop && venue.description && (
+            <div className="info-section" style={styles.descriptionSection}>
+              <h3 className="info-section-title">О клубе</h3>
+              <p className="body" style={styles.descriptionText}>
+                {venue.description}
+              </p>
             </div>
           )}
 
@@ -527,6 +553,16 @@ export default function ClubPage() {
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Description - Desktop only - now AFTER courts */}
+          {isDesktop && venue.description && (
+            <div className="info-section" style={styles.descriptionSection}>
+              <h3 className="info-section-title">О клубе</h3>
+              <p className="body" style={styles.descriptionText}>
+                {venue.description}
+              </p>
             </div>
           )}
         </div>
@@ -844,6 +880,46 @@ export default function ClubPage() {
           </div>
         </div>
       )}
+
+      {/* Footer with user agreement link */}
+      <div style={{
+        borderTop: '1px solid var(--divider)',
+        padding: '24px',
+        marginTop: '40px',
+        textAlign: 'center',
+        backgroundColor: 'var(--background)'
+      }}>
+        <Link 
+          to={`/club/${clubId}/user-agreement`} 
+          style={{
+            color: 'var(--text-secondary)',
+            fontSize: '14px',
+            textDecoration: 'none',
+            borderBottom: '1px dashed var(--text-secondary)',
+            transition: 'color 0.2s'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = 'var(--primary)';
+            e.currentTarget.style.borderBottomColor = 'var(--primary)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = 'var(--text-secondary)';
+            e.currentTarget.style.borderBottomColor = 'var(--text-secondary)';
+          }}
+        >
+          Пользовательское соглашение
+        </Link>
+        
+        {venue?.legalName && (
+          <div style={{
+            marginTop: '12px',
+            fontSize: '12px',
+            color: 'var(--text-disabled)'
+          }}>
+            © {new Date().getFullYear()} {venue.legalName}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

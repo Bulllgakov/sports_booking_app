@@ -177,6 +177,10 @@ export default function BillingSettings() {
   return (
     <PermissionGate requiredPermission="superadmin">
       <Box sx={{ p: 3 }}>
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Данный раздел доступен только суперадминистраторам системы
+        </Alert>
+        
         <Typography variant="h4" gutterBottom>
           Настройки биллинга
         </Typography>

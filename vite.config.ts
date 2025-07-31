@@ -14,6 +14,14 @@ export default defineConfig({
         {
           src: 'public/favicon.svg',
           dest: '.'
+        },
+        {
+          src: 'public/robots.txt',
+          dest: '../'
+        },
+        {
+          src: 'public/sitemap.xml',
+          dest: '../'
         }
       ]
     })
@@ -25,7 +33,20 @@ export default defineConfig({
     open: true,
   },
   build: {
-    outDir: 'dist/admin'
+    outDir: 'dist/admin',
+    rollupOptions: {
+      output: {
+        entryFileNames: `assets/[name]-[hash].js`,
+        chunkFileNames: `assets/[name]-[hash].js`,
+        assetFileNames: `assets/[name]-[hash].[ext]`,
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage']
+        }
+      }
+    },
+    sourcemap: false,
+    minify: 'esbuild'
   },
   resolve: {
     alias: {

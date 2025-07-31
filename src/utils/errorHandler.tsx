@@ -1,3 +1,4 @@
+import React from 'react'
 import { FirebaseError } from 'firebase/app'
 
 // Типы ошибок

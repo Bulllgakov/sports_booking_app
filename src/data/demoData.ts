@@ -20,6 +20,15 @@ export const DEMO_CLUB = {
   organizationType: 'ООО',
   inn: '7712345678',
   bankAccount: '40702810123450000001',
+  workingHours: {
+    monday: '07:00-23:00',
+    tuesday: '07:00-23:00',
+    wednesday: '07:00-23:00',
+    thursday: '07:00-23:00',
+    friday: '07:00-23:00',
+    saturday: '08:00-22:00',
+    sunday: '08:00-22:00'
+  },
   subscription: {
     plan: 'STANDARD',
     status: 'active',

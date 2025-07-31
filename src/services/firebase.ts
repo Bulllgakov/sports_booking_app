@@ -25,6 +25,12 @@ export const db = initializeFirestore(app, {
 })
 
 export const auth = getAuth(app)
+
+// Настройка persistence для сохранения сессии
+import { browserLocalPersistence, setPersistence } from 'firebase/auth'
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.error('Error setting persistence:', error)
+})
 export const storage = getStorage(app)
 export const realtimeDb = getDatabase(app)
 export const functions = getFunctions(app, 'europe-west1') // Указываем регион

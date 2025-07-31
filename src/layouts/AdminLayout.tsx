@@ -90,7 +90,9 @@ export default function AdminLayout() {
       icon: <TrendingUp />,
       roles: ['superadmin', 'admin']
     },
-    { path: '/admin/settings', label: 'Настройки', icon: <Settings /> },
+    ...(isSuperAdmin ? [
+      { path: '/admin/settings', label: 'Системные настройки', icon: <Settings /> },
+    ] : []),
   ].filter(item => {
     // Фильтруем элементы на основе прав
     if (item.permission && !hasPermission(item.permission)) return false
