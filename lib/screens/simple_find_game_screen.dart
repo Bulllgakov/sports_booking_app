@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/text_styles.dart';
 import '../core/theme/spacing.dart';
+import '../providers/open_games_provider.dart';
+import '../models/open_game_model.dart';
+import '../models/court_model.dart';
+import '../services/firestore_service.dart';
+import 'simple_booking_form_screen.dart';
 
 class SimpleFindGameScreen extends StatefulWidget {
   const SimpleFindGameScreen({super.key});
@@ -12,8 +19,9 @@ class SimpleFindGameScreen extends StatefulWidget {
 
 class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
   String selectedFilter = 'Все';
+  final FirestoreService _firestoreService = FirestoreService();
   
-  final List<String> filters = ['Все', 'Теннис', 'Падель', 'Мой уровень'];
+  final List<String> filters = ['Все', 'Теннис', 'Падел', 'Бадминтон'];
   
   final List<Map<String, dynamic>> games = [
     {
@@ -157,6 +165,59 @@ class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
     );
   }
   
+  Future<void> _handleJoinGame(Map<String, dynamic> game) async {
+    try {
+      // Получаем информацию о бронировании
+      final bookingDoc = await _firestoreService.getDocument('bookings', game['bookingId']);
+      if (bookingDoc == null || !bookingDoc.exists) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Ошибка: бронирование не найдено')),
+          );
+        }
+        return;
+      }
+
+      final bookingData = bookingDoc.data() as Map<String, dynamic>;
+      
+      // Получаем информацию о корте
+      final courtDoc = await _firestoreService.getDocument('courts', bookingData['courtId']);
+      if (courtDoc == null || !courtDoc.exists) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Ошибка: корт не найден')),
+          );
+        }
+        return;
+      }
+      
+      // Переходим на страницу оформления
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SimpleBookingFormScreen(
+            venueId: bookingData['venueId'],
+            courtId: bookingData['courtId'],
+            date: (bookingData['date'] as Timestamp).toDate(),
+            time: bookingData['time'],
+            duration: bookingData['duration'],
+            price: game['price'].toInt(),
+            pricePerPlayer: game['pricePerPlayer'].toInt(),
+            gameType: 'open_join', // Специальный тип для присоединения
+            playersCount: bookingData['playersCount'] ?? 4,
+            openGameId: game['id'], // ID открытой игры
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
   Widget _buildGameCard(Map<String, dynamic> game) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.cardPadding),
@@ -250,7 +311,7 @@ class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
                 ),
               ),
               ElevatedButton(
-                onPressed: () {},
+                onPressed: () => _handleJoinGame(game),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.md,

@@ -22,6 +22,7 @@ class SimpleBookingFormScreen extends StatefulWidget {
   final int playersCount;
   final VenueModel? venue;
   final CourtModel? court;
+  final String? openGameId; // ID открытой игры для присоединения
   
   const SimpleBookingFormScreen({
     super.key,
@@ -36,6 +37,7 @@ class SimpleBookingFormScreen extends StatefulWidget {
     required this.playersCount,
     this.venue,
     this.court,
+    this.openGameId,
   });
 
   @override
@@ -155,7 +157,22 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
       // 2. Create payment session with Tbank or Yookassa
       // 3. Open payment popup/webview
       // 4. Wait for payment confirmation
-      // 5. Only then create the booking
+      // 5. Only then create the booking or join open game
+      
+      // Проверяем, это присоединение к игре или создание новой
+      if (widget.gameType == 'open_join' && widget.openGameId != null) {
+        // TODO: После успешной оплаты:
+        // 1. Вызвать joinOpenGame(widget.openGameId, userId)
+        // 2. Обновить количество участников в открытой игре
+        // 3. Отправить уведомления другим участникам
+      } else if (widget.gameType == 'open') {
+        // TODO: После успешной оплаты:
+        // 1. Создать бронирование
+        // 2. Создать открытую игру в Firestore
+        // 3. Добавить организатора как первого участника
+      } else {
+        // TODO: Обычное бронирование после оплаты
+      }
       
       // For now, show placeholder message
       if (!mounted) return;
@@ -209,7 +226,7 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Оформление бронирования',
+              widget.gameType == 'open_join' ? 'Присоединение к игре' : 'Оформление бронирования',
               style: AppTextStyles.h3.copyWith(color: AppColors.dark),
             ),
             if (widget.venue != null && widget.court != null)
@@ -256,12 +273,12 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            widget.gameType == 'open' && widget.playersCount > 1
+                            (widget.gameType == 'open' || widget.gameType == 'open_join') && widget.playersCount > 1
                                 ? '${widget.pricePerPlayer} ₽/чел'
                                 : '${widget.price} ₽',
                             style: AppTextStyles.h3.copyWith(color: AppColors.primary),
                           ),
-                          if (widget.gameType == 'open' && widget.playersCount > 1)
+                          if ((widget.gameType == 'open' || widget.gameType == 'open_join') && widget.playersCount > 1)
                             Text(
                               'Всего: ${widget.price} ₽',
                               style: AppTextStyles.caption.copyWith(color: AppColors.gray),
@@ -270,7 +287,7 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
                       ),
                     ],
                   ),
-                  if (widget.gameType == 'open') ...[
+                  if (widget.gameType == 'open' || widget.gameType == 'open_join') ...[
                     const SizedBox(height: AppSpacing.sm),
                     Container(
                       padding: const EdgeInsets.all(AppSpacing.sm),
@@ -283,7 +300,9 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
                           Icon(Icons.people, size: 16, color: AppColors.primary),
                           const SizedBox(width: AppSpacing.xs),
                           Text(
-                            'Открытая игра • ${widget.playersCount} игрока',
+                            widget.gameType == 'open_join' 
+                                ? 'Присоединение к открытой игре' 
+                                : 'Открытая игра • ${widget.playersCount} игрока',
                             style: AppTextStyles.caption.copyWith(color: AppColors.primaryDark),
                           ),
                         ],
