@@ -12,6 +12,7 @@ import '../../screens/profile_screen.dart';
 import '../../screens/login_screen.dart';
 import '../../screens/verify_phone_screen.dart';
 import '../../screens/profile_setup_screen.dart';
+import '../../screens/admin_tools_screen.dart';
 import '../../widgets/app_shell.dart';
 
 class AppRouter {
@@ -88,6 +89,11 @@ class AppRouter {
         path: '/payment',
         name: 'payment',
         builder: (context, state) => const PaymentScreen(),
+      ),
+      GoRoute(
+        path: '/admin-tools',
+        name: 'admin-tools',
+        builder: (context, state) => const AdminToolsScreen(),
       ),
       // Authentication routes
       GoRoute(

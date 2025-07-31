@@ -17,6 +17,7 @@ class BookingModel {
   final BookingStatus status;
   final double totalPrice;
   final String? paymentId;
+  final String? paymentStatus;
   final List<String> players;
   final String? qrCode;
   final DateTime createdAt;
@@ -35,6 +36,7 @@ class BookingModel {
     required this.status,
     required this.totalPrice,
     this.paymentId,
+    this.paymentStatus,
     required this.players,
     this.qrCode,
     required this.createdAt,
@@ -91,6 +93,7 @@ class BookingModel {
       ),
       totalPrice: (data['totalPrice'] ?? 0).toDouble(),
       paymentId: data['paymentId'],
+      paymentStatus: data['paymentStatus'],
       players: List<String>.from(data['players'] ?? []),
       qrCode: data['qrCode'],
       createdAt: (data['createdAt'] as Timestamp).toDate(),
@@ -109,6 +112,7 @@ class BookingModel {
       'status': status.toString().split('.').last,
       'totalPrice': totalPrice,
       'paymentId': paymentId,
+      'paymentStatus': paymentStatus,
       'players': players,
       'qrCode': qrCode,
       'createdAt': Timestamp.fromDate(createdAt),

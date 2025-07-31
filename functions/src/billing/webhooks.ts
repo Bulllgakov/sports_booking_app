@@ -92,7 +92,16 @@ async function handlePaymentConfirmed(notification: TBankNotification) {
   const db = admin.firestore();
 
   try {
-    // Находим invoice по OrderId
+    // Проверяем тип платежа по OrderId
+    const isBookingPayment = notification.OrderId.startsWith("booking_");
+    
+    if (isBookingPayment) {
+      // Обрабатываем платеж за бронирование
+      await handleBookingPaymentConfirmed(notification);
+      return;
+    }
+
+    // Находим invoice по OrderId (для подписок)
     const invoiceQuery = await db
       .collection("invoices")
       .where("orderId", "==", notification.OrderId)
@@ -292,6 +301,82 @@ async function updateSubscription(
     console.log(`Subscription updated for venue: ${venueId}`);
   } catch (error) {
     console.error("Error updating subscription:", error);
+  }
+}
+
+/**
+ * Обработка успешного платежа за бронирование
+ * @param {TBankNotification} notification - Уведомление от Т-Банк
+ * @return {Promise<void>}
+ */
+async function handleBookingPaymentConfirmed(notification: TBankNotification) {
+  const db = admin.firestore();
+
+  try {
+    // Извлекаем bookingId из OrderId
+    const bookingIdMatch = notification.OrderId.match(/booking_(.+)_\d+$/);
+    if (!bookingIdMatch) {
+      console.error(`Invalid booking order ID format: ${notification.OrderId}`);
+      return;
+    }
+    const bookingId = bookingIdMatch[1];
+
+    // Обновляем статус платежа
+    const paymentQuery = await db
+      .collection("payments")
+      .where("bookingId", "==", bookingId)
+      .where("paymentId", "==", notification.PaymentId.toString())
+      .limit(1)
+      .get();
+
+    if (!paymentQuery.empty) {
+      const paymentDoc = paymentQuery.docs[0];
+      await paymentDoc.ref.update({
+        status: "completed",
+        completedAt: admin.firestore.FieldValue.serverTimestamp(),
+        cardInfo: notification.Pan ? {
+          last4: notification.Pan.slice(-4),
+          brand: detectCardBrand(notification.Pan),
+        } : null,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    // Обновляем статус бронирования
+    const bookingRef = db.collection("bookings").doc(bookingId);
+    const bookingDoc = await bookingRef.get();
+    
+    if (!bookingDoc.exists) {
+      console.error(`Booking not found: ${bookingId}`);
+      return;
+    }
+
+    await bookingRef.update({
+      paymentStatus: "paid",
+      status: "confirmed",
+      paymentCompletedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Если это открытая игра, обновляем количество занятых мест
+    const bookingData = bookingDoc.data();
+    if (bookingData?.gameType === "open_join" && bookingData?.openGameId) {
+      const openGameRef = db.collection("open_games").doc(bookingData.openGameId);
+      await db.runTransaction(async (transaction) => {
+        const openGameDoc = await transaction.get(openGameRef);
+        if (openGameDoc.exists) {
+          const currentOccupied = openGameDoc.data()?.playersOccupied || 0;
+          transaction.update(openGameRef, {
+            playersOccupied: currentOccupied + (bookingData.playersCount || 1),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+      });
+    }
+
+    console.log(`Booking payment confirmed for booking: ${bookingId}`);
+  } catch (error) {
+    console.error("Error handling booking payment confirmed:", error);
   }
 }
 

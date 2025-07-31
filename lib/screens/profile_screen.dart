@@ -137,6 +137,20 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 ],
               ),
+              // Admin tools button (временно для тестирования)
+              const SizedBox(height: AppSpacing.sm),
+              _buildMenuSection(
+                title: 'Администрирование',
+                items: [
+                  _buildMenuItem(
+                    icon: Icons.admin_panel_settings,
+                    title: 'Admin Tools',
+                    onTap: () {
+                      context.push('/admin-tools');
+                    },
+                  ),
+                ],
+              ),
               const SizedBox(height: AppSpacing.lg),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),

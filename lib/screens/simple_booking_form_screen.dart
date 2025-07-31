@@ -8,6 +8,8 @@ import '../models/venue_model.dart';
 import '../models/court_model.dart';
 import '../services/auth_service.dart';
 import '../services/booking_service.dart';
+import '../services/payment_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login_screen.dart';
 
 class SimpleBookingFormScreen extends StatefulWidget {
@@ -152,41 +154,78 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
     });
     
     try {
-      // TODO: Here we need to:
-      // 1. Get payment provider settings for the venue
-      // 2. Create payment session with Tbank or Yookassa
-      // 3. Open payment popup/webview
-      // 4. Wait for payment confirmation
-      // 5. Only then create the booking or join open game
+      final paymentService = PaymentService();
+      final bookingService = BookingService();
       
-      // Проверяем, это присоединение к игре или создание новой
-      if (widget.gameType == 'open_join' && widget.openGameId != null) {
-        // TODO: После успешной оплаты:
-        // 1. Вызвать joinOpenGame(widget.openGameId, userId)
-        // 2. Обновить количество участников в открытой игре
-        // 3. Отправить уведомления другим участникам
-      } else if (widget.gameType == 'open') {
-        // TODO: После успешной оплаты:
-        // 1. Создать бронирование
-        // 2. Создать открытую игру в Firestore
-        // 3. Добавить организатора как первого участника
-      } else {
-        // TODO: Обычное бронирование после оплаты
+      // Проверяем, включены ли платежи для клуба
+      final paymentsEnabled = await paymentService.isPaymentEnabledForVenue(widget.venueId);
+      if (!paymentsEnabled) {
+        // Если платежи не включены, создаем бронирование без оплаты
+        await _createBookingWithoutPayment();
+        return;
       }
       
-      // For now, show placeholder message
-      if (!mounted) return;
+      String bookingId;
+      String description;
       
-      setState(() {
-        _isLoading = false;
-      });
+      // Создаем бронирование в зависимости от типа
+      if (widget.gameType == 'open_join' && widget.openGameId != null) {
+        // Присоединение к открытой игре
+        await bookingService.joinOpenGame(
+          openGameId: widget.openGameId!,
+          userId: authService?.currentUser?.uid ?? '',
+          userName: _nameController.text.trim(),
+          userPhone: _phoneController.text.trim(),
+        );
+        
+        // Получаем ID бронирования из открытой игры
+        final openGameDoc = await FirebaseFirestore.instance
+            .collection('openGames')
+            .doc(widget.openGameId)
+            .get();
+        bookingId = openGameDoc.data()?['bookingId'] ?? '';
+        description = 'Присоединение к открытой игре';
+      } else {
+        // Создаем новое бронирование
+        final endTime = _calculateEndTime(widget.time, widget.duration);
+        bookingId = await bookingService.createBooking(
+          courtId: widget.courtId,
+          courtName: widget.court?.name ?? '',
+          venueId: widget.venueId,
+          venueName: widget.venue?.name ?? '',
+          date: widget.date,
+          dateString: _formatDate(widget.date),
+          time: widget.time,
+          startTime: widget.time,
+          endTime: endTime,
+          duration: widget.duration,
+          gameType: widget.gameType,
+          customerName: _nameController.text.trim(),
+          customerPhone: _phoneController.text.trim(),
+          price: widget.price,
+          pricePerPlayer: widget.pricePerPlayer,
+          playersCount: widget.playersCount,
+          userId: authService?.currentUser?.uid ?? '',
+        );
+        
+        description = widget.gameType == 'open' 
+            ? 'Создание открытой игры' 
+            : 'Бронирование корта';
+      }
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Платежная система находится в разработке'),
-          backgroundColor: AppColors.warning,
-        ),
+      // Инициируем платеж
+      await paymentService.processBookingPayment(
+        bookingId: bookingId,
+        amount: widget.pricePerPlayer > 0 ? widget.pricePerPlayer.toDouble() : widget.price.toDouble(),
+        description: description,
+        userId: authService?.currentUser?.uid ?? '',
+        customerEmail: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
+        customerPhone: _phoneController.text.trim(),
       );
+      
+      // После перенаправления на платежную страницу закрываем экран
+      if (!mounted) return;
+      Navigator.pop(context);
       
     } catch (e) {
       if (!mounted) return;
@@ -455,6 +494,79 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _createBookingWithoutPayment() async {
+    try {
+      final bookingService = BookingService();
+      AuthService? authService;
+      try {
+        authService = context.read<AuthService>();
+      } catch (e) {
+        // Provider not found
+      }
+      
+      if (widget.gameType == 'open_join' && widget.openGameId != null) {
+        // Присоединение к открытой игре без оплаты
+        await bookingService.joinOpenGame(
+          openGameId: widget.openGameId!,
+          userId: authService?.currentUser?.uid ?? '',
+          userName: _nameController.text.trim(),
+          userPhone: _phoneController.text.trim(),
+        );
+      } else {
+        // Создаем бронирование без оплаты
+        final endTime = _calculateEndTime(widget.time, widget.duration);
+        await bookingService.createBooking(
+          courtId: widget.courtId,
+          courtName: widget.court?.name ?? '',
+          venueId: widget.venueId,
+          venueName: widget.venue?.name ?? '',
+          date: widget.date,
+          dateString: _formatDate(widget.date),
+          time: widget.time,
+          startTime: widget.time,
+          endTime: endTime,
+          duration: widget.duration,
+          gameType: widget.gameType,
+          customerName: _nameController.text.trim(),
+          customerPhone: _phoneController.text.trim(),
+          price: widget.price,
+          pricePerPlayer: widget.pricePerPlayer,
+          playersCount: widget.playersCount,
+          userId: authService?.currentUser?.uid ?? '',
+        );
+      }
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _isLoading = false;
+      });
+      
+      // Показываем успешное сообщение и закрываем экран
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Бронирование успешно создано!'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      
+      setState(() {
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   @override
