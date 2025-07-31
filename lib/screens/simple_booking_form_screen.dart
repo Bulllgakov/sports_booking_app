@@ -55,11 +55,16 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
   }
 
   void _loadUserData() {
-    final authService = context.read<AuthService>();
-    if (authService.isAuthenticated && authService.currentUserModel != null) {
-      final user = authService.currentUserModel!;
-      _nameController.text = user.displayName;
-      _phoneController.text = user.phoneNumber;
+    try {
+      final authService = context.read<AuthService>();
+      if (authService.isAuthenticated && authService.currentUserModel != null) {
+        final user = authService.currentUserModel!;
+        _nameController.text = user.displayName;
+        _phoneController.text = user.phoneNumber;
+      }
+    } catch (e) {
+      // Provider not found, skip loading user data
+      debugPrint('AuthService not found: $e');
     }
   }
 
@@ -99,10 +104,15 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
       return;
     }
 
-    final authService = context.read<AuthService>();
+    AuthService? authService;
+    try {
+      authService = context.read<AuthService>();
+    } catch (e) {
+      // Provider not found
+    }
     
     // Check authentication
-    if (!authService.isAuthenticated) {
+    if (authService != null && !authService.isAuthenticated) {
       final shouldLogin = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -129,7 +139,7 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
           ),
         );
         
-        if (!mounted || !authService.isAuthenticated) return;
+        if (!mounted || (authService != null && !authService.isAuthenticated)) return;
       } else {
         return;
       }
