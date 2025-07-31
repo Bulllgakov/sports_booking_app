@@ -351,7 +351,7 @@ class SeedOpenGames {
       
       // Создаем открытые игры в базе данных
       for (final game in openGames) {
-        await db.collection('open_games').add(game);
+        await db.collection('openGames').add(game);
         print('Created ${game['sport']} game at ${game['venueName']} on ${(game['date'] as Timestamp).toDate()}');
       }
       
