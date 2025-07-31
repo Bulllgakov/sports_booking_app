@@ -9,7 +9,7 @@ import '../models/court_model.dart';
 import '../services/auth_service.dart';
 import '../services/booking_service.dart';
 import 'login_screen.dart';
-import 'payment_screen.dart';
+import 'simple_booking_form_screen.dart';
 
 class SimpleGameTypeScreen extends StatefulWidget {
   final String venueId;
@@ -63,113 +63,31 @@ class _SimpleGameTypeScreenState extends State<SimpleGameTypeScreen> {
   }
 
   Future<void> _handleContinue() async {
-    final authService = context.read<AuthService>();
+    // Calculate price per player for open games
+    final totalPrice = widget.price;
+    final pricePerPlayer = selectedGameType == 'open' 
+        ? totalPrice.toDouble() / selectedPlayersCount 
+        : totalPrice.toDouble();
     
-    // Проверяем авторизацию
-    if (!authService.isAuthenticated) {
-      // Показываем диалог с предложением авторизоваться
-      final shouldLogin = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Требуется авторизация'),
-          content: const Text('Для бронирования корта необходимо войти в приложение'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Отмена'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Войти'),
-            ),
-          ],
+    // Navigate to a booking form screen (we'll create SimpleBookingFormScreen)
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SimpleBookingFormScreen(
+          venueId: widget.venueId,
+          courtId: widget.courtId,
+          date: widget.date,
+          time: widget.time,
+          duration: widget.duration,
+          price: widget.price,
+          pricePerPlayer: pricePerPlayer.round(),
+          gameType: selectedGameType,
+          playersCount: selectedGameType == 'open' ? selectedPlayersCount : 1,
+          venue: widget.venue,
+          court: widget.court,
         ),
-      );
-      
-      if (shouldLogin == true && mounted) {
-        // Переходим на экран авторизации
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const LoginScreen(),
-          ),
-        );
-        
-        // Если пользователь не авторизовался, выходим
-        if (!mounted || !authService.isAuthenticated) return;
-      } else {
-        return;
-      }
-    }
-    
-    // Пользователь авторизован, создаем бронирование
-    setState(() {
-      _isLoading = true;
-    });
-    
-    try {
-      final user = authService.currentUserModel;
-      if (user == null) {
-        throw Exception('Не удалось загрузить данные пользователя');
-      }
-      
-      // Форматируем дату в строковый формат для совместимости
-      final dateString = DateFormat('yyyy-MM-dd').format(widget.date);
-      
-      // Calculate price per player for open games
-      final totalPrice = widget.price;
-      final pricePerPlayer = selectedGameType == 'open' 
-          ? totalPrice.toDouble() / selectedPlayersCount 
-          : totalPrice.toDouble();
-      
-      // Создаем бронирование
-      final bookingId = await BookingService().createBooking(
-        courtId: widget.courtId,
-        courtName: widget.court?.name ?? '',
-        venueId: widget.venueId,
-        venueName: widget.venue?.name ?? '',
-        date: widget.date,
-        dateString: dateString,
-        time: widget.time,
-        startTime: widget.time,
-        endTime: _calculateEndTime(widget.time, widget.duration),
-        duration: widget.duration,
-        gameType: selectedGameType,
-        customerName: user.displayName,
-        customerPhone: user.phoneNumber,
-        price: totalPrice,
-        pricePerPlayer: pricePerPlayer,
-        playersCount: selectedGameType == 'open' ? selectedPlayersCount : 1,
-        source: 'mobile_app',
-      );
-      
-      if (!mounted) return;
-      
-      // Показываем сообщение об успешном создании
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Бронирование успешно создано!'),
-          backgroundColor: AppColors.success,
-        ),
-      );
-      
-      // Переходим на главный экран (или экран с деталями бронирования)
-      Navigator.of(context).popUntil((route) => route.isFirst);
-      
-    } catch (e) {
-      if (!mounted) return;
-      
-      setState(() {
-        _isLoading = false;
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка: ${e.toString()}'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    }
+      ),
+    );
   }
 
   @override
