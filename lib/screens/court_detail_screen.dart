@@ -52,7 +52,7 @@ class CourtDetailScreen extends StatelessWidget {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -321,7 +321,7 @@ class CourtDetailScreen extends StatelessWidget {
               borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 20,
                   offset: const Offset(0, -4),
                 ),

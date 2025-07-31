@@ -359,7 +359,7 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
               decoration: BoxDecoration(
                 color: AppColors.chipBackground,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
               ),
               child: Row(
                 children: [
@@ -392,7 +392,7 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 20,
               offset: const Offset(0, -4),
             ),

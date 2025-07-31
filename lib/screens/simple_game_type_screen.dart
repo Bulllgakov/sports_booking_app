@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/text_styles.dart';
 import '../core/theme/spacing.dart';
 import '../models/venue_model.dart';
 import '../models/court_model.dart';
-import '../services/auth_service.dart';
-import '../services/booking_service.dart';
-import 'login_screen.dart';
 import 'simple_booking_form_screen.dart';
 
 class SimpleGameTypeScreen extends StatefulWidget {
@@ -40,7 +35,6 @@ class SimpleGameTypeScreen extends StatefulWidget {
 class _SimpleGameTypeScreenState extends State<SimpleGameTypeScreen> {
   String selectedGameType = 'private';
   int selectedPlayersCount = 2; // Default to 2 players for open games
-  bool _isLoading = false;
 
   String _calculateEndTime(String startTime, int duration) {
     final parts = startTime.split(':');
@@ -252,7 +246,7 @@ class _SimpleGameTypeScreenState extends State<SimpleGameTypeScreen> {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 20,
               offset: const Offset(0, -4),
             ),
@@ -262,23 +256,14 @@ class _SimpleGameTypeScreenState extends State<SimpleGameTypeScreen> {
           width: double.infinity,
           height: AppSpacing.buttonHeight,
           child: ElevatedButton(
-            onPressed: _isLoading ? null : _handleContinue,
+            onPressed: _handleContinue,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               ),
             ),
-            child: _isLoading
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      color: AppColors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : Text(
+            child: Text(
                     'Забронировать',
                     style: AppTextStyles.button.copyWith(color: AppColors.white),
                   ),
@@ -358,7 +343,7 @@ class _SimpleGameTypeScreenState extends State<SimpleGameTypeScreen> {
           ),
           boxShadow: isSelected ? [
             BoxShadow(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
