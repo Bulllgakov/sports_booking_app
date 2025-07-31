@@ -88,7 +88,7 @@ class _MapScreenState extends State<MapScreen> {
             locationProvider.currentPosition!.longitude,
           ),
           radius: 50,
-          fillColor: AppColors.primary.withOpacity(0.15),
+          fillColor: AppColors.primary.withValues(alpha: 0.15),
           strokeColor: AppColors.primary,
           strokeWidth: 2,
         ),
@@ -300,7 +300,7 @@ class _FilterChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -358,7 +358,7 @@ class _VenueBottomSheet extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.sm),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
