@@ -160,8 +160,27 @@ class FirestoreService {
   }
 
   // Open Game operations
-  static Future<String> createOpenGame(OpenGameModel openGame) async {
-    final docRef = await _firestore.collection(_openGamesCollection).add(openGame.toFirestore());
+  static Future<String> createOpenGame({
+    required String organizerId,
+    required String bookingId,
+    required String playerLevel,
+    required int playersNeeded,
+    required double pricePerPlayer,
+    required String description,
+  }) async {
+    final openGameData = {
+      'organizerId': organizerId,
+      'bookingId': bookingId,
+      'playerLevel': playerLevel,
+      'playersNeeded': playersNeeded,
+      'pricePerPlayer': pricePerPlayer,
+      'description': description,
+      'playersJoined': [organizerId],
+      'status': 'open',
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+    
+    final docRef = await _firestore.collection(_openGamesCollection).add(openGameData);
     return docRef.id;
   }
 
@@ -220,6 +239,7 @@ class FirestoreService {
     });
   }
 
+
   // Payment operations
   static Future<String> createPayment(PaymentModel payment) async {
     final docRef = await _firestore.collection(_paymentsCollection).add(payment.toFirestore());
@@ -270,5 +290,16 @@ class FirestoreService {
         .get();
 
     return querySnapshot.docs.map((doc) => BookingModel.fromFirestore(doc)).toList();
+  }
+
+  // Generic method to get a document from any collection
+  static Future<DocumentSnapshot?> getDocument(String collection, String documentId) async {
+    try {
+      final doc = await _firestore.collection(collection).doc(documentId).get();
+      return doc;
+    } catch (e) {
+      print('Error getting document from $collection/$documentId: $e');
+      return null;
+    }
   }
 }

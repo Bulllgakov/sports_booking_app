@@ -5,8 +5,6 @@ import '../core/theme/colors.dart';
 import '../core/theme/text_styles.dart';
 import '../core/theme/spacing.dart';
 import '../providers/open_games_provider.dart';
-import '../models/open_game_model.dart';
-import '../models/court_model.dart';
 import '../services/firestore_service.dart';
 import 'simple_booking_form_screen.dart';
 
@@ -19,7 +17,6 @@ class SimpleFindGameScreen extends StatefulWidget {
 
 class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
   String selectedFilter = 'Все';
-  final FirestoreService _firestoreService = FirestoreService();
   List<Map<String, dynamic>> _games = [];
   bool _isLoading = true;
   
@@ -52,12 +49,12 @@ class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
         return true;
       }).map((game) async {
         // Получаем информацию о бронировании и корте
-        final bookingDoc = await _firestoreService.getDocument('bookings', game.bookingId);
+        final bookingDoc = await FirestoreService.getDocument('bookings', game.bookingId);
         if (bookingDoc == null || !bookingDoc.exists) return null;
         
         final bookingData = bookingDoc.data() as Map<String, dynamic>;
-        final courtDoc = await _firestoreService.getDocument('courts', bookingData['courtId']);
-        final venueDoc = await _firestoreService.getDocument('venues', bookingData['venueId']);
+        final courtDoc = await FirestoreService.getDocument('courts', bookingData['courtId']);
+        final venueDoc = await FirestoreService.getDocument('venues', bookingData['venueId']);
         
         if (courtDoc == null || !courtDoc.exists || venueDoc == null || !venueDoc.exists) return null;
         
@@ -82,7 +79,7 @@ class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
           'organizerLevel': game.playerLevel,
           'organizerRating': '4.5',
           'gameType': courtData['courtType'] == 'indoor' ? 'Крытый корт' : 'Открытый корт',
-          'levelRange': _getLevelRange(game.playerLevel),
+          'levelRange': _getLevelRange(game.playerLevel.toString().split('.').last),
           'playersCount': '${game.playersJoined.length} из ${game.playersNeeded} игроков',
           'avatarColor': AppColors.primary,
           'avatarText': 'ОИ',
@@ -130,6 +127,12 @@ class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
     switch (level) {
       case 'beginner':
         return 'Начинающий';
+      case 'intermediate':
+        return 'Средний';
+      case 'advanced':
+        return 'Продвинутый';
+      case 'professional':
+        return 'Профессионал';
       case 'amateur':
         return 'Любитель';
       case 'pro':
@@ -305,7 +308,7 @@ class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
   Future<void> _handleJoinGame(Map<String, dynamic> game) async {
     try {
       // Получаем информацию о бронировании
-      final bookingDoc = await _firestoreService.getDocument('bookings', game['bookingId']);
+      final bookingDoc = await FirestoreService.getDocument('bookings', game['bookingId']);
       if (bookingDoc == null || !bookingDoc.exists) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -318,7 +321,7 @@ class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
       final bookingData = bookingDoc.data() as Map<String, dynamic>;
       
       // Получаем информацию о корте
-      final courtDoc = await _firestoreService.getDocument('courts', bookingData['courtId']);
+      final courtDoc = await FirestoreService.getDocument('courts', bookingData['courtId']);
       if (courtDoc == null || !courtDoc.exists) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

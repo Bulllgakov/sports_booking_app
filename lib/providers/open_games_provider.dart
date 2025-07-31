@@ -62,19 +62,14 @@ class OpenGamesProvider extends ChangeNotifier {
     _setError(null);
 
     try {
-      final openGame = OpenGameModel(
-        id: '', // Will be set by Firestore
+      await FirestoreService.createOpenGame(
         organizerId: organizerId,
         bookingId: bookingId,
-        playerLevel: playerLevel,
+        playerLevel: playerLevel.toString().split('.').last,
         playersNeeded: playersNeeded,
-        playersJoined: [organizerId], // Organizer is automatically joined
+        pricePerPlayer: pricePerPlayer.toDouble(),
         description: description,
-        pricePerPlayer: pricePerPlayer,
-        status: OpenGameStatus.open,
       );
-
-      await FirestoreService.createOpenGame(openGame);
       
       // Reload games
       await loadOpenGames();

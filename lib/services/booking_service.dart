@@ -1,11 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/booking_model.dart';
-import '../models/open_game_model.dart';
 import 'firestore_service.dart';
 
 class BookingService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirestoreService _firestoreService = FirestoreService();
   
   Future<List<BookingModel>> getBookingsForDateAndCourt(
     DateTime date, 
@@ -48,10 +46,10 @@ class BookingService {
     required String customerName,
     required String customerPhone,
     required int price,
-    required String source,
+    required int pricePerPlayer,
+    required int playersCount,
+    required String userId,
     String? customerEmail,
-    double? pricePerPlayer,
-    int? playersCount,
   }) async {
     try {
       final bookingData = {
@@ -59,7 +57,7 @@ class BookingService {
         'courtName': courtName,
         'venueId': venueId,
         'venueName': venueName,
-        'date': dateString, // Используем строковый формат для совместимости
+        'date': Timestamp.fromDate(date), // Сохраняем как Timestamp для совместимости
         'time': time, // Для обратной совместимости
         'startTime': startTime,
         'endTime': endTime,
@@ -72,36 +70,37 @@ class BookingService {
         'clientPhone': customerPhone,
         'price': price,
         'amount': price, // Для совместимости с админской версией
+        'pricePerPlayer': pricePerPlayer,
+        'playersCount': playersCount,
+        'userId': userId,
         'status': 'pending',
         'paymentStatus': 'awaiting_payment',
         'paymentMethod': 'mobile_app',
-        'source': source,
+        'source': 'mobile_app',
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': {
-          'userId': 'mobile-user',
+          'userId': userId,
           'userName': customerName,
           'userRole': 'client'
         }
       };
       
-      // Add open game specific fields
-      if (gameType == 'open' && pricePerPlayer != null && playersCount != null) {
-        bookingData['pricePerPlayer'] = pricePerPlayer;
-        bookingData['playersCount'] = playersCount;
+      // Add players list for open games
+      if (gameType == 'open') {
         bookingData['players'] = [customerPhone]; // Initialize with creator's phone
       }
       
       final docRef = await _firestore.collection('bookings').add(bookingData);
       
       // Create open game if it's an open game type
-      if (gameType == 'open' && pricePerPlayer != null && playersCount != null) {
+      if (gameType == 'open') {
         try {
-          await _firestoreService.createOpenGame(
-            organizerId: customerPhone, // Using phone as organizer ID for now
+          await FirestoreService.createOpenGame(
+            organizerId: userId.isNotEmpty ? userId : customerPhone, // Use userId or phone as fallback
             bookingId: docRef.id,
             playerLevel: 'amateur', // Default level, should be passed from UI
             playersNeeded: playersCount,
-            pricePerPlayer: pricePerPlayer,
+            pricePerPlayer: pricePerPlayer.toDouble(),
             description: 'Открытая игра в $venueName',
           );
         } catch (e) {
@@ -125,7 +124,7 @@ class BookingService {
   }) async {
     try {
       // Join the open game
-      await _firestoreService.joinOpenGame(openGameId, userId);
+      await FirestoreService.joinOpenGame(openGameId, userId);
       
       // Get the open game details
       final gameDoc = await _firestore.collection('openGames').doc(openGameId).get();

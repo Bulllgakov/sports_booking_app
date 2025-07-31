@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/text_styles.dart';
@@ -206,6 +205,7 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
           pricePerPlayer: widget.pricePerPlayer,
           playersCount: widget.playersCount,
           userId: authService?.currentUser?.uid ?? '',
+          customerEmail: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
         );
         
         description = widget.gameType == 'open' 
@@ -535,6 +535,7 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
           pricePerPlayer: widget.pricePerPlayer,
           playersCount: widget.playersCount,
           userId: authService?.currentUser?.uid ?? '',
+          customerEmail: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
         );
       }
       
