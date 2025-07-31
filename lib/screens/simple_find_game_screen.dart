@@ -20,39 +20,142 @@ class SimpleFindGameScreen extends StatefulWidget {
 class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
   String selectedFilter = 'Все';
   final FirestoreService _firestoreService = FirestoreService();
+  List<Map<String, dynamic>> _games = [];
+  bool _isLoading = true;
   
   final List<String> filters = ['Все', 'Теннис', 'Падел', 'Бадминтон'];
+  final Map<String, String> sportTypeMap = {
+    'Теннис': 'tennis',
+    'Падел': 'padel',
+    'Бадминтон': 'badminton',
+  };
   
-  final List<Map<String, dynamic>> games = [
-    {
-      'venue': 'Теннис Клуб "Олимп"',
-      'time': 'Сегодня, 14:00',
-      'distance': '1.2 км',
-      'price': 375,
-      'organizer': 'Александр К.',
-      'organizerLevel': '4.0',
-      'organizerRating': '4.8',
-      'gameType': 'Парная игра',
-      'levelRange': 'Уровень 3.5-4.5',
-      'playersCount': '2 из 4 игроков',
-      'avatarColor': AppColors.primary,
-      'avatarText': 'АК',
-    },
-    {
-      'venue': 'Спорткомплекс "Динамо"',
-      'time': 'Сегодня, 18:00',
-      'distance': '2.5 км',
-      'price': 500,
-      'organizer': 'Елена П.',
-      'organizerLevel': '3.0',
-      'organizerRating': '5.0',
-      'gameType': 'Одиночная',
-      'levelRange': 'Уровень 2.5-3.5',
-      'playersCount': '1 из 2 игроков',
-      'avatarColor': AppColors.warning,
-      'avatarText': 'ЕП',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadOpenGames();
+  }
+  
+  Future<void> _loadOpenGames() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      final provider = context.read<OpenGamesProvider>();
+      await provider.loadOpenGames();
+      
+      // Преобразуем данные для отображения
+      final games = provider.openGames.where((game) {
+        if (selectedFilter == 'Все') return true;
+        // TODO: Фильтрация по типу спорта корта
+        return true;
+      }).map((game) async {
+        // Получаем информацию о бронировании и корте
+        final bookingDoc = await _firestoreService.getDocument('bookings', game.bookingId);
+        if (bookingDoc == null || !bookingDoc.exists) return null;
+        
+        final bookingData = bookingDoc.data() as Map<String, dynamic>;
+        final courtDoc = await _firestoreService.getDocument('courts', bookingData['courtId']);
+        final venueDoc = await _firestoreService.getDocument('venues', bookingData['venueId']);
+        
+        if (courtDoc == null || !courtDoc.exists || venueDoc == null || !venueDoc.exists) return null;
+        
+        final courtData = courtDoc.data() as Map<String, dynamic>;
+        final venueData = venueDoc.data() as Map<String, dynamic>;
+        
+        // Фильтрация по типу спорта
+        if (selectedFilter != 'Все') {
+          final sportType = sportTypeMap[selectedFilter];
+          if (courtData['type'] != sportType) return null;
+        }
+        
+        return {
+          'id': game.id,
+          'bookingId': game.bookingId,
+          'venue': venueData['name'] ?? 'Неизвестный клуб',
+          'time': _formatDateTime(bookingData['date'], bookingData['time']),
+          'distance': '2.5 км', // TODO: Рассчитать реальное расстояние
+          'price': bookingData['price'] ?? 0,
+          'pricePerPlayer': game.pricePerPlayer.toInt(),
+          'organizer': 'Организатор', // TODO: Получить имя организатора
+          'organizerLevel': game.playerLevel,
+          'organizerRating': '4.5',
+          'gameType': courtData['courtType'] == 'indoor' ? 'Крытый корт' : 'Открытый корт',
+          'levelRange': _getLevelRange(game.playerLevel),
+          'playersCount': '${game.playersJoined.length} из ${game.playersNeeded} игроков',
+          'avatarColor': AppColors.primary,
+          'avatarText': 'ОИ',
+          'sportType': courtData['type'],
+        };
+      }).toList();
+      
+      // Ждем завершения всех промисов и фильтруем null значения
+      final resolvedGames = await Future.wait(games);
+      setState(() {
+        _games = resolvedGames.where((game) => game != null).cast<Map<String, dynamic>>().toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка загрузки игр: ${e.toString()}')),
+        );
+      }
+    }
+  }
+  
+  String _formatDateTime(dynamic date, String time) {
+    final DateTime dateTime = date is Timestamp ? date.toDate() : date as DateTime;
+    final now = DateTime.now();
+    final isToday = dateTime.year == now.year && dateTime.month == now.month && dateTime.day == now.day;
+    final isTomorrow = dateTime.year == now.year && dateTime.month == now.month && dateTime.day == now.day + 1;
+    
+    String dateStr;
+    if (isToday) {
+      dateStr = 'Сегодня';
+    } else if (isTomorrow) {
+      dateStr = 'Завтра';
+    } else {
+      dateStr = '${dateTime.day}.${dateTime.month.toString().padLeft(2, '0')}';
+    }
+    
+    return '$dateStr, $time';
+  }
+  
+  String _getLevelRange(String level) {
+    switch (level) {
+      case 'beginner':
+        return 'Начинающий';
+      case 'amateur':
+        return 'Любитель';
+      case 'pro':
+        return 'Профессионал';
+      default:
+        return 'Все уровни';
+    }
+  }
+  
+  String _getGamesWord(int count) {
+    if (count % 10 == 1 && count % 100 != 11) {
+      return 'открытая игра';
+    } else if ([2, 3, 4].contains(count % 10) && ![12, 13, 14].contains(count % 100)) {
+      return 'открытые игры';
+    } else {
+      return 'открытых игр';
+    }
+  }
+  
+  String _getWaitWord(int count) {
+    if (count % 10 == 1 && count % 100 != 11) {
+      return 'ждет';
+    } else {
+      return 'ждут';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +194,9 @@ class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               ),
               child: Text(
-                '12 открытых игр ждут партнёров',
+                _games.isEmpty 
+                    ? 'Пока нет открытых игр' 
+                    : '${_games.length} ${_getGamesWord(_games.length)} ${_getWaitWord(_games.length)} партнёров',
                 style: AppTextStyles.tiny.copyWith(
                   color: AppColors.primaryDark,
                   fontWeight: FontWeight.w600,
@@ -117,6 +222,7 @@ class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
                         setState(() {
                           selectedFilter = filter;
                         });
+                        _loadOpenGames();
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -147,17 +253,48 @@ class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
             
             // Games list
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-                itemCount: games.length,
-                itemBuilder: (context, index) {
-                  final game = games[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.cardPadding),
-                    child: _buildGameCard(game),
-                  );
-                },
-              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _games.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.sports_tennis,
+                                size: 64,
+                                color: AppColors.lightGray,
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              Text(
+                                'Нет открытых игр',
+                                style: AppTextStyles.h3.copyWith(color: AppColors.gray),
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                selectedFilter == 'Все' 
+                                    ? 'Создайте свою игру или попробуйте позже'
+                                    : 'Попробуйте выбрать другой вид спорта',
+                                style: AppTextStyles.body.copyWith(color: AppColors.gray),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _loadOpenGames,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                            itemCount: _games.length,
+                            itemBuilder: (context, index) {
+                              final game = _games[index];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: AppSpacing.cardPadding),
+                                child: _buildGameCard(game),
+                              );
+                            },
+                          ),
+                        ),
             ),
           ],
         ),

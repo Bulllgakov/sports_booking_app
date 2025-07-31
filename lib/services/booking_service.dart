@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/booking_model.dart';
+import '../models/open_game_model.dart';
+import 'firestore_service.dart';
 
 class BookingService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirestoreService _firestoreService = FirestoreService();
   
   Future<List<BookingModel>> getBookingsForDateAndCourt(
     DateTime date, 
@@ -89,9 +92,63 @@ class BookingService {
       }
       
       final docRef = await _firestore.collection('bookings').add(bookingData);
+      
+      // Create open game if it's an open game type
+      if (gameType == 'open' && pricePerPlayer != null && playersCount != null) {
+        try {
+          await _firestoreService.createOpenGame(
+            organizerId: customerPhone, // Using phone as organizer ID for now
+            bookingId: docRef.id,
+            playerLevel: 'amateur', // Default level, should be passed from UI
+            playersNeeded: playersCount,
+            pricePerPlayer: pricePerPlayer,
+            description: 'Открытая игра в $venueName',
+          );
+        } catch (e) {
+          print('Error creating open game: $e');
+          // Don't throw here - booking is already created
+        }
+      }
+      
       return docRef.id;
     } catch (e) {
       print('Error creating booking: $e');
+      throw e;
+    }
+  }
+  
+  Future<void> joinOpenGame({
+    required String openGameId,
+    required String userId,
+    required String userName,
+    required String userPhone,
+  }) async {
+    try {
+      // Join the open game
+      await _firestoreService.joinOpenGame(openGameId, userId);
+      
+      // Get the open game details
+      final gameDoc = await _firestore.collection('openGames').doc(openGameId).get();
+      if (!gameDoc.exists) throw Exception('Open game not found');
+      
+      final gameData = gameDoc.data()!;
+      final bookingId = gameData['bookingId'] as String;
+      
+      // Update the booking to add the new player
+      final bookingDoc = await _firestore.collection('bookings').doc(bookingId).get();
+      if (!bookingDoc.exists) throw Exception('Booking not found');
+      
+      final bookingData = bookingDoc.data()!;
+      final players = List<String>.from(bookingData['players'] ?? []);
+      
+      if (!players.contains(userPhone)) {
+        players.add(userPhone);
+        await _firestore.collection('bookings').doc(bookingId).update({
+          'players': players,
+        });
+      }
+    } catch (e) {
+      print('Error joining open game: $e');
       throw e;
     }
   }
