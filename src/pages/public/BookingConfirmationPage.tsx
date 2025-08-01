@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { format, parse } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { doc, getDoc } from 'firebase/firestore'
@@ -17,7 +17,9 @@ interface Booking {
   customerPhone: string
   customerEmail?: string
   status: string
+  paymentStatus?: string
   price: number
+  totalPrice?: number
 }
 
 interface Venue {
@@ -35,12 +37,15 @@ interface Court {
 export default function BookingConfirmationPage() {
   const { clubId, bookingId } = useParams<{ clubId: string; bookingId: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   
   const [booking, setBooking] = useState<Booking | null>(null)
   const [venue, setVenue] = useState<Venue | null>(null)
   const [court, setCourt] = useState<Court | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  
+  const paymentError = searchParams.get('paymentError') === 'true'
 
   useEffect(() => {
     loadBookingData()
@@ -147,7 +152,7 @@ export default function BookingConfirmationPage() {
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--background)' }}>
       {/* Success header */}
       <div style={{
-        backgroundColor: 'var(--success)',
+        backgroundColor: paymentError ? 'var(--error)' : 'var(--success)',
         padding: 'var(--spacing-3xl) var(--spacing-xl)',
         textAlign: 'center',
         color: 'white'
@@ -163,13 +168,21 @@ export default function BookingConfirmationPage() {
           margin: '0 auto var(--spacing-lg)',
           fontSize: '40px'
         }}>
-          ✅
+          {paymentError ? '❌' : '✅'}
         </div>
         <h1 className="h2" style={{ color: 'white', marginBottom: 'var(--spacing-sm)' }}>
-          Заявка отправлена!
+          {booking.status === 'confirmed' 
+            ? 'Бронирование подтверждено!' 
+            : paymentError 
+              ? 'Ошибка оплаты'
+              : 'Заявка отправлена!'}
         </h1>
         <p className="body" style={{ color: 'white', opacity: 0.9 }}>
-          Ваша заявка на бронирование успешно отправлена
+          {booking.status === 'confirmed' 
+            ? 'Ваше бронирование успешно подтверждено' 
+            : paymentError
+              ? 'Произошла ошибка при оплате. Пожалуйста, свяжитесь с администратором'
+              : 'Ваша заявка на бронирование успешно отправлена'}
         </p>
       </div>
 

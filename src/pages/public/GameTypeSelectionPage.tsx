@@ -69,7 +69,19 @@ export default function GameTypeSelectionPage() {
   const handleGameTypeSelect = (gameType: GameTypeOption) => {
     if (gameType.available) {
       setSelectedGameType(gameType.id)
-      setShowBookingForm(true)
+      
+      // Navigate to payment page with all parameters
+      const params = new URLSearchParams({
+        date: dateParam || '',
+        time: timeParam || '',
+        duration: durationParam || '60',
+        gameType: gameType.id,
+        playersCount: (gameType.playersCount || 1).toString(),
+        price: gameType.price.toString(),
+        pricePerPlayer: (gameType.pricePerPlayer || gameType.price).toString()
+      })
+      
+      navigate(`/club/${clubId}/court/${courtId}/payment?${params.toString()}`)
     } else {
       // Show app download dialog
       const shouldDownload = window.confirm(
