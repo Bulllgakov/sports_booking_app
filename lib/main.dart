@@ -8,6 +8,7 @@ import 'core/theme/spacing.dart';
 import 'providers/venues_provider.dart';
 import 'providers/location_provider.dart';
 import 'providers/open_games_provider.dart';
+import 'services/auth_service.dart';
 import 'screens/simple_home_screen.dart';
 import 'screens/simple_find_game_screen.dart';
 import 'screens/simple_my_bookings_screen.dart';
@@ -31,6 +32,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LocationProvider()),
         ChangeNotifierProvider(create: (_) => VenuesProvider()),
         ChangeNotifierProvider(create: (_) => OpenGamesProvider()),
+        ChangeNotifierProvider(create: (_) => AuthService()),
       ],
       child: MaterialApp(
         title: 'Все Корты',

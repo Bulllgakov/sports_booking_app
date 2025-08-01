@@ -10,6 +10,7 @@ import '../services/booking_service.dart';
 import '../services/payment_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login_screen.dart';
+import 'payment_processing_screen.dart';
 
 class SimpleBookingFormScreen extends StatefulWidget {
   final String venueId;
@@ -164,68 +165,40 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
         return;
       }
       
-      String bookingId;
-      String description;
+      // Платежи включены - переходим к оплате без создания бронирования
+      // Сохраняем данные для передачи на страницу оплаты
+      final paymentData = {
+        'venueId': widget.venueId,
+        'venueName': widget.venue?.name ?? '',
+        'courtId': widget.courtId,
+        'courtName': widget.court?.name ?? '',
+        'date': widget.date.toIso8601String(),
+        'dateString': _formatDate(widget.date),
+        'time': widget.time,
+        'startTime': widget.time,
+        'endTime': _calculateEndTime(widget.time, widget.duration),
+        'duration': widget.duration,
+        'gameType': widget.gameType,
+        'customerName': _nameController.text.trim(),
+        'customerPhone': _phoneController.text.trim(),
+        'customerEmail': _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
+        'price': widget.price,
+        'pricePerPlayer': widget.pricePerPlayer,
+        'playersCount': widget.playersCount,
+        'userId': authService?.currentUser?.uid ?? '',
+        'openGameId': widget.openGameId,
+      };
       
-      // Создаем бронирование в зависимости от типа
-      if (widget.gameType == 'open_join' && widget.openGameId != null) {
-        // Присоединение к открытой игре
-        await bookingService.joinOpenGame(
-          openGameId: widget.openGameId!,
-          userId: authService?.currentUser?.uid ?? '',
-          userName: _nameController.text.trim(),
-          userPhone: _phoneController.text.trim(),
-        );
-        
-        // Получаем ID бронирования из открытой игры
-        final openGameDoc = await FirebaseFirestore.instance
-            .collection('openGames')
-            .doc(widget.openGameId)
-            .get();
-        bookingId = openGameDoc.data()?['bookingId'] ?? '';
-        description = 'Присоединение к открытой игре';
-      } else {
-        // Создаем новое бронирование
-        final endTime = _calculateEndTime(widget.time, widget.duration);
-        bookingId = await bookingService.createBooking(
-          courtId: widget.courtId,
-          courtName: widget.court?.name ?? '',
-          venueId: widget.venueId,
-          venueName: widget.venue?.name ?? '',
-          date: widget.date,
-          dateString: _formatDate(widget.date),
-          time: widget.time,
-          startTime: widget.time,
-          endTime: endTime,
-          duration: widget.duration,
-          gameType: widget.gameType,
-          customerName: _nameController.text.trim(),
-          customerPhone: _phoneController.text.trim(),
-          price: widget.price,
-          pricePerPlayer: widget.pricePerPlayer,
-          playersCount: widget.playersCount,
-          userId: authService?.currentUser?.uid ?? '',
-          customerEmail: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
-        );
-        
-        description = widget.gameType == 'open' 
-            ? 'Создание открытой игры' 
-            : 'Бронирование корта';
-      }
-      
-      // Инициируем платеж
-      await paymentService.processBookingPayment(
-        bookingId: bookingId,
-        amount: widget.pricePerPlayer > 0 ? widget.pricePerPlayer.toDouble() : widget.price.toDouble(),
-        description: description,
-        userId: authService?.currentUser?.uid ?? '',
-        customerEmail: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
-        customerPhone: _phoneController.text.trim(),
-      );
-      
-      // После перенаправления на платежную страницу закрываем экран
+      // Переходим на страницу оплаты с данными
       if (!mounted) return;
-      Navigator.pop(context);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PaymentProcessingScreen(
+            paymentData: paymentData,
+          ),
+        ),
+      );
       
     } catch (e) {
       if (!mounted) return;

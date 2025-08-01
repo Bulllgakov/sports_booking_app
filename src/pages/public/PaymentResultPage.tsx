@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { doc, getDoc, updateDoc } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import '../../styles/flutter-theme.css'
 
@@ -55,15 +55,11 @@ export default function PaymentResultPage() {
         // Redirect to confirmation page
         navigate(`/club/${venueId}/booking-confirmation/${bookingId}`, { replace: true })
       } else {
-        // Payment failed
-        await updateDoc(doc(db, 'bookings', bookingId), {
-          paymentStatus: 'failed',
-          paymentError: `Payment failed with status: ${status}`,
-          updatedAt: new Date()
-        })
+        // Payment failed - delete the booking
+        await deleteDoc(doc(db, 'bookings', bookingId))
         
-        // Redirect to confirmation page with error
-        navigate(`/club/${venueId}/booking-confirmation/${bookingId}?paymentError=true`, { replace: true })
+        // Redirect to payment error page
+        navigate(`/club/${venueId}/payment-error?paymentError=true`, { replace: true })
       }
     } catch (err) {
       console.error('Error processing payment result:', err)

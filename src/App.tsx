@@ -31,6 +31,7 @@ import GameTypeSelectionPage from './pages/public/GameTypeSelectionPage'
 import BookingPaymentPage from './pages/public/BookingPaymentPage'
 import BookingConfirmationPage from './pages/public/BookingConfirmationPage'
 import PaymentResultPage from './pages/public/PaymentResultPage'
+import PaymentErrorPage from './pages/public/PaymentErrorPage'
 import UnifiedBookingPage from './pages/public/UnifiedBookingPage'
 import UserAgreement from './pages/public/UserAgreement'
 
@@ -83,6 +84,7 @@ function App() {
             <Route path="/club/:clubId/court/:courtId/payment" element={<BookingPaymentPage />} />
             <Route path="/club/:clubId/booking-confirmation/:bookingId" element={<BookingConfirmationPage />} />
             <Route path="/payment-result" element={<PaymentResultPage />} />
+            <Route path="/club/:clubId/payment-error" element={<PaymentErrorPage />} />
             <Route path="/club/:clubId/user-agreement" element={<UserAgreement />} />
             
             {/* Публичные маршруты */}
