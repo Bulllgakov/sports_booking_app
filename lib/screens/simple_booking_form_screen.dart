@@ -238,7 +238,7 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.gameType == 'open_join' ? 'Присоединение к игре' : 'Оформление бронирования',
+              'Оплата бронирования',
               style: AppTextStyles.h3.copyWith(color: AppColors.dark),
             ),
             if (widget.venue != null && widget.court != null)
@@ -265,39 +265,100 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
                     style: AppTextStyles.bodyBold,
                   ),
                   const SizedBox(height: AppSpacing.md),
+                  // Корт
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _formatDate(widget.date),
-                            style: AppTextStyles.body,
-                          ),
-                          Text(
-                            '${widget.time}-${_calculateEndTime(widget.time, widget.duration)}',
-                            style: AppTextStyles.bodySmall.copyWith(color: AppColors.gray),
-                          ),
-                        ],
+                      Text(
+                        'Корт:',
+                        style: AppTextStyles.body,
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            (widget.gameType == 'open' || widget.gameType == 'open_join') && widget.playersCount > 1
-                                ? '${widget.pricePerPlayer} ₽/чел'
-                                : '${widget.price} ₽',
-                            style: AppTextStyles.h3.copyWith(color: AppColors.primary),
-                          ),
-                          if ((widget.gameType == 'open' || widget.gameType == 'open_join') && widget.playersCount > 1)
-                            Text(
-                              'Всего: ${widget.price} ₽',
-                              style: AppTextStyles.caption.copyWith(color: AppColors.gray),
-                            ),
-                        ],
+                      Text(
+                        widget.court?.name ?? '',
+                        style: AppTextStyles.bodyBold,
                       ),
                     ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  // Дата
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Дата:',
+                        style: AppTextStyles.body,
+                      ),
+                      Text(
+                        _formatDate(widget.date),
+                        style: AppTextStyles.bodyBold,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  // Время
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Время:',
+                        style: AppTextStyles.body,
+                      ),
+                      Text(
+                        '${widget.time} - ${_calculateEndTime(widget.time, widget.duration)}',
+                        style: AppTextStyles.bodyBold,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  // Тип игры
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Тип игры:',
+                        style: AppTextStyles.body,
+                      ),
+                      Text(
+                        widget.gameType == 'open' ? 'Открытая игра' : 
+                        widget.gameType == 'open_join' ? 'Присоединение к игре' : 
+                        'Приватная игра',
+                        style: AppTextStyles.bodyBold,
+                      ),
+                    ],
+                  ),
+                  Container(
+                    margin: const EdgeInsets.only(top: AppSpacing.md),
+                    padding: const EdgeInsets.only(top: AppSpacing.md),
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        top: BorderSide(color: AppColors.divider),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Итого:',
+                          style: AppTextStyles.body,
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              (widget.gameType == 'open' || widget.gameType == 'open_join') && widget.playersCount > 1
+                                  ? '${widget.pricePerPlayer} ₽/чел'
+                                  : '${widget.price} ₽',
+                              style: AppTextStyles.h3.copyWith(color: AppColors.primary),
+                            ),
+                            if ((widget.gameType == 'open' || widget.gameType == 'open_join') && widget.playersCount > 1)
+                              Text(
+                                'Всего: ${widget.price} ₽',
+                                style: AppTextStyles.caption.copyWith(color: AppColors.gray),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                   if (widget.gameType == 'open' || widget.gameType == 'open_join') ...[
                     const SizedBox(height: AppSpacing.sm),

@@ -65,9 +65,7 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
-  const [cardNumber, setCardNumber] = useState('')
-  const [cardExpiry, setCardExpiry] = useState('')
-  const [cardCvc, setCardCvc] = useState('')
+  // Remove card fields - payment will be handled externally
   const [unsubscribe, setUnsubscribe] = useState<(() => void) | null>(null)
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
 
@@ -503,7 +501,7 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
 
   const handleConfirmBooking = async () => {
     // Базовая проверка заполненности
-    if (!customerName || !customerPhone || !customerEmail || !cardNumber || !cardExpiry || !cardCvc) {
+    if (!customerName || !customerPhone || !customerEmail) {
       alert('Пожалуйста, заполните все поля')
       return
     }
@@ -577,12 +575,21 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
         source: 'web' // Добавляем источник для совместимости
       }
 
-      // В реальном приложении здесь бы была интеграция с платежной системой
-      // await processPayment(cardNumber, cardExpiry, cardCvc, bookingData.price)
+      // Redirect to payment page instead of creating booking directly
+      const params = new URLSearchParams({
+        date: format(selectedDate, 'yyyy-MM-dd'),
+        time: selectedTime,
+        duration: selectedDuration.toString(),
+        gameType: selectedGameType,
+        playersCount: '1',
+        price: bookingData.price.toString(),
+        pricePerPlayer: bookingData.price.toString(),
+        customerName: customerName,
+        customerPhone: customerPhone,
+        customerEmail: customerEmail
+      })
       
-      const docRef = await addDoc(collection(db, 'bookings'), bookingData)
-      alert(`Бронирование успешно оплачено и создано! ID: ${docRef.id}`)
-      onClose()
+      window.location.href = `/club/${venue.id}/court/${court.id}/payment?${params.toString()}`
     } catch (error) {
       console.error('Error creating booking:', error)
       alert('Ошибка при создании бронирования')
@@ -1266,44 +1273,21 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Номер карты</label>
-            <input
-              type="text"
-              className="form-input"
-              value={cardNumber}
-              onChange={(e) => setCardNumber(e.target.value)}
-              placeholder="1234 5678 9012 3456"
-              maxLength={19}
-              required
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-            <div className="form-group">
-              <label className="form-label">Срок действия</label>
-              <input
-                type="text"
-                className="form-input"
-                value={cardExpiry}
-                onChange={(e) => setCardExpiry(e.target.value)}
-                placeholder="MM/YY"
-                maxLength={5}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">CVC</label>
-              <input
-                type="text"
-                className="form-input"
-                value={cardCvc}
-                onChange={(e) => setCardCvc(e.target.value)}
-                placeholder="123"
-                maxLength={3}
-                required
-              />
-            </div>
+          {/* Payment info */}
+          <div style={{
+            marginTop: 'var(--spacing-md)',
+            padding: 'var(--spacing-md)',
+            backgroundColor: 'var(--chip-background)',
+            borderRadius: 'var(--radius-md)',
+            border: `1px solid var(--primary-light)`,
+            display: 'flex',
+            gap: 'var(--spacing-sm)',
+            alignItems: 'flex-start'
+          }}>
+            <span style={{ fontSize: '20px', color: 'var(--primary)' }}>ℹ️</span>
+            <p className="caption" style={{ color: 'var(--primary-dark)' }}>
+              Бронирование будет подтверждено только после успешной оплаты
+            </p>
           </div>
         </div>
 
@@ -1336,10 +1320,10 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
           <button
             className="flutter-button"
             onClick={handleConfirmBooking}
-            disabled={loading || !customerName || !customerPhone || !customerEmail || !cardNumber || !cardExpiry || !cardCvc}
+            disabled={loading || !customerName || !customerPhone || !customerEmail}
             style={{ flex: 1 }}
           >
-            {loading ? <div className="spinner" /> : `Оплатить ${totalPrice}₽`}
+            {loading ? <div className="spinner" /> : 'Перейти к оплате'}
           </button>
         </div>
       </>

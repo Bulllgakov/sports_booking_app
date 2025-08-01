@@ -811,6 +811,9 @@ export {testEmailSending} from "./test/testEmail";
 // Экспорт функции для исправления доступа админов
 export {fixAdminAccess} from "./test/fixAdminAccess";
 
+// Экспорт функции для создания тестовых открытых игр
+export {createTestOpenGames} from "./test/createTestOpenGames";
+
 // Временная функция для обработки email очереди
 import {processEmailQueue} from "./email/sendEmail";
 

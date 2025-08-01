@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { format, parse, addMinutes } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { addDoc, collection } from 'firebase/firestore'
+import { addDoc, collection, doc, getDoc } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import '../../styles/flutter-theme.css'
 
@@ -14,6 +14,15 @@ interface GameTypeOption {
   iconColor: string
   tags: string[]
   available: boolean
+  playersCount?: number
+  price?: number
+  pricePerPlayer?: number
+}
+
+interface Court {
+  id: string
+  name: string
+  pricePerHour: number
 }
 
 export default function GameTypeSelectionPage() {
@@ -27,6 +36,27 @@ export default function GameTypeSelectionPage() {
   
   const [selectedGameType, setSelectedGameType] = useState<string>('open')
   const [showBookingForm, setShowBookingForm] = useState(false)
+  const [court, setCourt] = useState<Court | null>(null)
+  const [loading, setLoading] = useState(true)
+  
+  useEffect(() => {
+    loadCourt()
+  }, [courtId])
+  
+  const loadCourt = async () => {
+    if (!courtId) return
+    
+    try {
+      const courtDoc = await getDoc(doc(db, 'venues', clubId!, 'courts', courtId))
+      if (courtDoc.exists()) {
+        setCourt({ id: courtDoc.id, ...courtDoc.data() } as Court)
+      }
+    } catch (error) {
+      console.error('Error loading court:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -42,18 +72,18 @@ export default function GameTypeSelectionPage() {
       title: 'Приватная игра',
       subtitle: 'Только для вас и ваших друзей',
       icon: '🔒',
-      iconColor: 'var(--gray)',
+      iconColor: 'var(--primary)',
       tags: ['Только для вас', 'Без посторонних'],
-      available: false
+      available: true
     },
     {
       id: 'open',
       title: 'Открытая игра',
       subtitle: 'Найдите партнёров для игры',
       icon: '👥',
-      iconColor: 'var(--primary)',
+      iconColor: 'var(--success)',
       tags: ['Найти партнёров', 'Разделить оплату'],
-      available: true
+      available: false
     },
     {
       id: 'find',
@@ -68,7 +98,9 @@ export default function GameTypeSelectionPage() {
 
   const handleGameTypeSelect = (gameType: GameTypeOption) => {
     if (gameType.available) {
-      setSelectedGameType(gameType.id)
+      // Calculate price based on court and duration
+      const pricePerHour = court?.pricePerHour || 0
+      const price = Math.round((pricePerHour / 60) * parseInt(durationParam || '60'))
       
       // Navigate to payment page with all parameters
       const params = new URLSearchParams({
@@ -77,8 +109,8 @@ export default function GameTypeSelectionPage() {
         duration: durationParam || '60',
         gameType: gameType.id,
         playersCount: (gameType.playersCount || 1).toString(),
-        price: gameType.price.toString(),
-        pricePerPlayer: (gameType.pricePerPlayer || gameType.price).toString()
+        price: price.toString(),
+        pricePerPlayer: (gameType.pricePerPlayer || price).toString()
       })
       
       navigate(`/club/${clubId}/court/${courtId}/payment?${params.toString()}`)
@@ -118,38 +150,26 @@ export default function GameTypeSelectionPage() {
   const handleSubmit = async () => {
     if (!validateForm()) return
     
-    setSubmitting(true)
+    // Calculate price based on court and duration
+    const pricePerHour = court?.pricePerHour || 0
+    const price = Math.round((pricePerHour / 60) * parseInt(durationParam!))
     
-    try {
-      const bookingData = {
-        venueId: clubId,
-        courtId: courtId,
-        date: dateParam,
-        startTime: timeParam,
-        endTime: format(addMinutes(parse(timeParam!, 'HH:mm', new Date()), parseInt(durationParam!)), 'HH:mm'),
-        duration: parseInt(durationParam!),
-        gameType: selectedGameType,
-        customerName: formData.name,
-        customerPhone: formData.phone,
-        customerEmail: formData.email,
-        comment: formData.comment,
-        status: 'pending',
-        source: 'web',
-        createdAt: new Date(),
-        price: 0 // Will be calculated on backend
-      }
-      
-      const docRef = await addDoc(collection(db, 'bookings'), bookingData)
-      navigate(`/club/${clubId}/booking-confirmation/${docRef.id}`)
-    } catch (err) {
-      console.error('Error creating booking:', err)
-      alert('Ошибка при создании бронирования. Попробуйте еще раз.')
-    } finally {
-      setSubmitting(false)
-    }
+    // Navigate to payment page with all necessary data
+    const params = new URLSearchParams({
+      date: dateParam!,
+      time: timeParam!,
+      duration: durationParam!,
+      gameType: selectedGameType,
+      playersCount: '1',
+      price: price.toString(),
+      pricePerPlayer: price.toString()
+    })
+    
+    navigate(`/club/${clubId}/court/${courtId}/payment?${params.toString()}`)
   }
 
-  if (showBookingForm) {
+  // Remove the booking form - always redirect to payment page
+  if (false && showBookingForm) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: 'var(--background)' }}>
         {/* Header */}
