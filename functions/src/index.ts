@@ -797,6 +797,7 @@ export const createClubHttp = functions.region(region).https.onRequest(async (re
 // Экспорт функций для биллинга
 export {initSubscriptionPayment} from "./billing/initPayment";
 export {initBookingPayment} from "./billing/initBookingPayment";
+export {testPaymentConnection} from "./billing/testPaymentConnection";
 export {tbankWebhook} from "./billing/webhooks";
 export {yookassaWebhook} from "./billing/yookassaWebhook";
 export {processRecurringPayment, monthlyBilling} from "./billing/recurringPayment";

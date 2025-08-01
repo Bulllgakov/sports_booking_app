@@ -94,7 +94,7 @@ async function handlePaymentConfirmed(notification: TBankNotification) {
   try {
     // Проверяем тип платежа по OrderId
     const isBookingPayment = notification.OrderId.startsWith("booking_");
-    
+
     if (isBookingPayment) {
       // Обрабатываем платеж за бронирование
       await handleBookingPaymentConfirmed(notification);
@@ -345,7 +345,7 @@ async function handleBookingPaymentConfirmed(notification: TBankNotification) {
     // Обновляем статус бронирования
     const bookingRef = db.collection("bookings").doc(bookingId);
     const bookingDoc = await bookingRef.get();
-    
+
     if (!bookingDoc.exists) {
       console.error(`Booking not found: ${bookingId}`);
       return;

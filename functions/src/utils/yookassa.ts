@@ -83,7 +83,7 @@ export class YooKassaAPI {
   async createPayment(request: YooKassaPaymentRequest): Promise<YooKassaPaymentResponse> {
     try {
       const idempotenceKey = crypto.randomBytes(16).toString("hex");
-      
+
       const response = await axios.post(
         `${this.baseURL}/payments`,
         request,
@@ -132,7 +132,7 @@ export class YooKassaAPI {
   async capturePayment(paymentId: string, amount: string): Promise<YooKassaPaymentResponse> {
     try {
       const idempotenceKey = crypto.randomBytes(16).toString("hex");
-      
+
       const response = await axios.post(
         `${this.baseURL}/payments/${paymentId}/capture`,
         {
@@ -164,7 +164,7 @@ export class YooKassaAPI {
   async cancelPayment(paymentId: string): Promise<YooKassaPaymentResponse> {
     try {
       const idempotenceKey = crypto.randomBytes(16).toString("hex");
-      
+
       const response = await axios.post(
         `${this.baseURL}/payments/${paymentId}/cancel`,
         {},
@@ -192,7 +192,7 @@ export class YooKassaAPI {
   async createRefund(paymentId: string, amount: string): Promise<any> {
     try {
       const idempotenceKey = crypto.randomBytes(16).toString("hex");
-      
+
       const response = await axios.post(
         `${this.baseURL}/refunds`,
         {
@@ -230,7 +230,7 @@ export class YooKassaAPI {
         .createHmac("sha256", this.config.secretKey)
         .update(json)
         .digest("base64");
-      
+
       return signature === expectedSignature;
     } catch (error) {
       console.error("YooKassa Webhook verification error:", error);

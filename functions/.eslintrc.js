@@ -32,5 +32,7 @@ module.exports = {
     "max-len": ["error", {"code": 120}],
     "@typescript-eslint/no-non-null-assertion": "off",
     "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "valid-jsdoc": "off",
+    "require-jsdoc": "off",
   },
 };

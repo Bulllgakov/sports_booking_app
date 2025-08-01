@@ -60,7 +60,7 @@ export const initBookingPayment = functions
       }
 
       const bookingData = bookingDoc.data();
-      
+
       // Проверяем, что пользователь имеет право оплачивать это бронирование
       if (bookingData?.userId !== userId && bookingData?.userId !== context.auth.uid) {
         throw new functions.https.HttpsError(
@@ -114,35 +114,35 @@ export const initBookingPayment = functions
 
       // Инициализируем платеж в зависимости от провайдера
       switch (paymentProvider) {
-        case "tbank":
-          paymentResponse = await initTBankPayment({
-            credentials: paymentCredentials,
-            bookingId,
-            amount,
-            description,
-            returnUrl,
-            customerEmail,
-            customerPhone,
-            testMode: venueData.paymentTestMode || false,
-          });
-          break;
+      case "tbank":
+        paymentResponse = await initTBankPayment({
+          credentials: paymentCredentials,
+          bookingId,
+          amount,
+          description,
+          returnUrl,
+          customerEmail,
+          customerPhone,
+          testMode: venueData.paymentTestMode || false,
+        });
+        break;
 
-        case "yookassa":
-          paymentResponse = await initYooKassaPayment({
-            credentials: paymentCredentials,
-            bookingId,
-            amount,
-            description,
-            returnUrl,
-            testMode: venueData.paymentTestMode || false,
-          });
-          break;
+      case "yookassa":
+        paymentResponse = await initYooKassaPayment({
+          credentials: paymentCredentials,
+          bookingId,
+          amount,
+          description,
+          returnUrl,
+          testMode: venueData.paymentTestMode || false,
+        });
+        break;
 
-        default:
-          throw new functions.https.HttpsError(
-            "unimplemented",
-            `Payment provider ${paymentProvider} is not supported`
-          );
+      default:
+        throw new functions.https.HttpsError(
+          "unimplemented",
+          `Payment provider ${paymentProvider} is not supported`
+        );
       }
 
       if (!paymentResponse.success) {

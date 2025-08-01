@@ -93,7 +93,7 @@ export const yookassaWebhook = functions
       }
 
       const venueData = venueDoc.data();
-      
+
       if (venueData?.paymentProvider !== "yookassa") {
         console.error("YooKassa is not configured for this venue");
         res.status(400).send("Payment provider mismatch");
@@ -176,7 +176,7 @@ async function handlePaymentSucceeded(notification: YooKassaNotification, bookin
     // Если это открытая игра, обновляем количество занятых мест
     const bookingDoc = await db.collection("bookings").doc(bookingId).get();
     const bookingData = bookingDoc.data();
-    
+
     if (bookingData?.gameType === "open_join" && bookingData?.openGameId) {
       const openGameRef = db.collection("open_games").doc(bookingData.openGameId);
       await db.runTransaction(async (transaction) => {

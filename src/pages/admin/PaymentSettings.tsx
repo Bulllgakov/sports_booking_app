@@ -72,34 +72,12 @@ const PAYMENT_PROVIDERS: PaymentProvider[] = [
     ]
   },
   {
-    id: 'sber',
-    name: 'Сбербанк',
-    commission: 2.3,
-    fields: [
-      { name: 'merchantLogin', label: 'Merchant Login', type: 'text', required: true },
-      { name: 'password', label: 'Пароль', type: 'password', required: true },
-      { name: 'gateway', label: 'Gateway', type: 'select', required: true, options: [
-        { value: 'securepayments.sberbank.ru', label: 'Боевой' },
-        { value: '3dsec.sberbank.ru', label: 'Тестовый' }
-      ]}
-    ]
-  },
-  {
     id: 'yookassa',
     name: 'ЮKassa',
     commission: 2.8,
     fields: [
       { name: 'shopId', label: 'Shop ID', type: 'text', required: true },
       { name: 'secretKey', label: 'Secret Key', type: 'password', required: true }
-    ]
-  },
-  {
-    id: 'tinkoff',
-    name: 'Тинькофф',
-    commission: 2.49,
-    fields: [
-      { name: 'terminalKey', label: 'Terminal Key', type: 'text', required: true },
-      { name: 'password', label: 'Пароль', type: 'password', required: true }
     ]
   }
 ]
@@ -211,16 +189,30 @@ export default function PaymentSettings() {
     setTestDialogOpen(true)
     setTestResult(null)
 
-    // Имитация тестирования подключения
-    setTimeout(() => {
-      const success = Math.random() > 0.3 // 70% успех
-      setTestResult({
-        success,
-        message: success 
-          ? 'Подключение успешно проверено. Платежи готовы к работе.'
-          : 'Ошибка подключения. Проверьте правильность введенных данных.'
+    const venueId = isSuperAdmin ? selectedVenueId : admin?.venueId
+    if (!venueId || !selectedProvider) return
+
+    try {
+      // Вызываем Cloud Function для проверки подключения
+      const testPaymentConnection = (await import('firebase/functions')).httpsCallable(
+        (await import('../../services/firebase')).functions,
+        'testPaymentConnection'
+      )
+      
+      const result = await testPaymentConnection({
+        venueId,
+        provider: selectedProvider,
+        credentials
       })
-    }, 2000)
+
+      setTestResult(result.data as { success: boolean; message: string })
+    } catch (error: any) {
+      console.error('Error testing connection:', error)
+      setTestResult({
+        success: false,
+        message: error.message || 'Ошибка при проверке подключения'
+      })
+    }
   }
 
   if (loading) {
