@@ -503,7 +503,7 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
-                      'Бронирование будет подтверждено только после успешной оплаты',
+                      'Бронирование будет подтверждено только после успешной оплаты, у вас будет 10 мин на оплату. Возврат по бронированию осуществляется не позже 12 часов до игры в мобильном приложении',
                       style: AppTextStyles.caption.copyWith(
                         color: AppColors.primaryDark,
                       ),

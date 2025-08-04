@@ -292,37 +292,50 @@ class CourtDetailScreen extends StatelessWidget {
                 ),
               ],
             ),
-            child: SizedBox(
-              height: AppSpacing.buttonHeight,
-              child: ElevatedButton(
-                onPressed: provider.selectedCourt != null
-                    ? () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => SimpleTimeSelectionScreen(
-                              venueId: provider.selectedVenue?.id ?? '',
-                              courtId: provider.selectedCourt!.id,
-                              venue: provider.selectedVenue,
-                              court: provider.selectedCourt,
-                            ),
-                          ),
-                        );
-                      }
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: AppSpacing.buttonHeight,
+                  child: ElevatedButton(
+                    onPressed: provider.selectedCourt != null
+                        ? () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => SimpleTimeSelectionScreen(
+                                  venueId: provider.selectedVenue?.id ?? '',
+                                  courtId: provider.selectedCourt!.id,
+                                  venue: provider.selectedVenue,
+                                  court: provider.selectedCourt,
+                                ),
+                              ),
+                            );
+                          }
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                      ),
+                    ),
+                    child: Text(
+                      provider.selectedCourt != null
+                          ? 'Выбрать время для ${provider.selectedCourt!.name}'
+                          : 'Выберите корт',
+                      style: AppTextStyles.button.copyWith(color: AppColors.white),
+                    ),
                   ),
                 ),
-                child: Text(
-                  provider.selectedCourt != null
-                      ? 'Выбрать время для ${provider.selectedCourt!.name}'
-                      : 'Выберите корт',
-                  style: AppTextStyles.button.copyWith(color: AppColors.white),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Продолжая, соглашаюсь с политикой и соглашением',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-              ),
+              ],
             ),
           ),
         );
