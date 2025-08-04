@@ -46,10 +46,33 @@ export default function BookingConfirmationPage() {
   const [error, setError] = useState('')
   
   const paymentError = searchParams.get('paymentError') === 'true'
+  const isProcessing = searchParams.get('processing') === 'true'
 
   useEffect(() => {
     loadBookingData()
   }, [bookingId])
+  
+  // Если платеж еще обрабатывается, периодически проверяем статус
+  useEffect(() => {
+    if (isProcessing && booking && booking.paymentStatus !== 'paid') {
+      const interval = setInterval(async () => {
+        try {
+          const bookingDoc = await getDoc(doc(db, 'bookings', bookingId!))
+          if (bookingDoc.exists()) {
+            const updatedBooking = bookingDoc.data()
+            if (updatedBooking.paymentStatus === 'paid') {
+              // Платеж обработан - перезагружаем данные
+              window.location.reload()
+            }
+          }
+        } catch (err) {
+          console.error('Error checking payment status:', err)
+        }
+      }, 3000) // Проверяем каждые 3 секунды
+      
+      return () => clearInterval(interval)
+    }
+  }, [isProcessing, booking, bookingId])
 
   const loadBookingData = async () => {
     if (!bookingId) {
@@ -61,7 +84,8 @@ export default function BookingConfirmationPage() {
     try {
       const bookingDoc = await getDoc(doc(db, 'bookings', bookingId))
       if (!bookingDoc.exists()) {
-        setError('Бронирование не найдено')
+        // Если бронирование не найдено, показываем специальное сообщение
+        setError('cancelled')
         setLoading(false)
         return
       }
@@ -71,6 +95,16 @@ export default function BookingConfirmationPage() {
         ...bookingDoc.data()
       } as Booking
 
+      // Проверяем статус бронирования
+      // Если платеж успешный, показываем подтверждение независимо от статуса
+      if (bookingData.paymentStatus === 'paid') {
+        // Бронирование оплачено - продолжаем загрузку
+      } else if (bookingData.status === 'cancelled' || bookingData.paymentStatus === 'cancelled') {
+        setError('cancelled')
+        setLoading(false)
+        return
+      }
+
       setBooking(bookingData)
 
       const venueDoc = await getDoc(doc(db, 'venues', bookingData.venueId))
@@ -78,15 +112,24 @@ export default function BookingConfirmationPage() {
         setVenue(venueDoc.data() as Venue)
       }
 
-      const courtDoc = await getDoc(doc(db, 'courts', bookingData.courtId))
+      // Корты хранятся как подколлекция venues/{venueId}/courts/{courtId}
+      const courtDoc = await getDoc(doc(db, 'venues', bookingData.venueId, 'courts', bookingData.courtId))
       if (courtDoc.exists()) {
         setCourt(courtDoc.data() as Court)
       }
 
       setLoading(false)
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error loading booking:', err)
-      setError('Ошибка при загрузке данных бронирования')
+      
+      // Если ошибка доступа или бронирование не найдено, показываем специальное сообщение
+      if (err?.code === 'permission-denied' || err?.code === 'not-found' || 
+          err?.message?.includes('Missing or insufficient permissions')) {
+        // Для оплаченных бронирований проблема может быть временной
+        setError('loading-error')
+      } else {
+        setError('Ошибка при загрузке данных бронирования')
+      }
       setLoading(false)
     }
   }
@@ -124,6 +167,133 @@ export default function BookingConfirmationPage() {
   }
 
   if (error) {
+    // Специальная обработка для проблем с загрузкой
+    if (error === 'loading-error') {
+      return (
+        <div style={{ 
+          minHeight: '100vh', 
+          backgroundColor: 'var(--background)',
+          padding: 'var(--spacing-xl)'
+        }}>
+          <div className="flutter-card" style={{ 
+            maxWidth: '600px', 
+            margin: '0 auto',
+            textAlign: 'center',
+            padding: 'var(--spacing-2xl)'
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: 'var(--spacing-md)' }}>⏳</div>
+            <h2 className="h2" style={{ marginBottom: 'var(--spacing-sm)' }}>
+              Обработка платежа
+            </h2>
+            <p className="body" style={{ 
+              color: 'var(--text-secondary)', 
+              marginBottom: 'var(--spacing-xl)' 
+            }}>
+              Ваш платеж обрабатывается. Пожалуйста, подождите несколько секунд и обновите страницу.
+            </p>
+            
+            <button
+              className="flutter-button"
+              style={{ width: '100%', marginBottom: 'var(--spacing-md)' }}
+              onClick={() => window.location.reload()}
+            >
+              Обновить страницу
+            </button>
+            
+            <button
+              className="flutter-button secondary"
+              style={{ width: '100%' }}
+              onClick={() => navigate('/')}
+            >
+              На главную
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    // Специальная обработка для отмененного бронирования
+    if (error === 'cancelled') {
+      return (
+        <div style={{ 
+          minHeight: '100vh', 
+          backgroundColor: 'var(--background)',
+          padding: 'var(--spacing-xl)'
+        }}>
+          <div className="flutter-card" style={{ 
+            maxWidth: '600px', 
+            margin: '0 auto',
+            textAlign: 'center',
+            padding: 'var(--spacing-2xl)'
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: 'var(--spacing-md)' }}>⚠️</div>
+            <h2 className="h2" style={{ marginBottom: 'var(--spacing-md)' }}>
+              Бронирование не создано
+            </h2>
+            <p className="body" style={{ 
+              color: 'var(--text-secondary)', 
+              marginBottom: 'var(--spacing-lg)',
+              lineHeight: '1.6'
+            }}>
+              Вы отменили процесс оплаты, поэтому бронирование не было создано.
+            </p>
+            <p className="body" style={{ 
+              color: 'var(--text-secondary)', 
+              marginBottom: 'var(--spacing-xl)',
+              lineHeight: '1.6'
+            }}>
+              Если вы хотите забронировать корт, пожалуйста, начните процесс бронирования заново и завершите оплату.
+            </p>
+            
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: 'var(--spacing-md)',
+              marginTop: 'var(--spacing-xl)'
+            }}>
+              <button
+                className="flutter-button"
+                style={{ width: '100%' }}
+                onClick={() => navigate(`/club/${clubId}`)}
+              >
+                Вернуться к клубу
+              </button>
+              
+              <button
+                className="flutter-button-outlined"
+                style={{ 
+                  width: '100%',
+                  backgroundColor: 'transparent',
+                  color: 'var(--primary)',
+                  border: '2px solid var(--primary)'
+                }}
+                onClick={() => navigate('/')}
+              >
+                На главную
+              </button>
+            </div>
+            
+            {/* Контакты клуба для прямого бронирования */}
+            <div style={{
+              marginTop: 'var(--spacing-2xl)',
+              padding: 'var(--spacing-lg)',
+              backgroundColor: 'var(--background)',
+              borderRadius: 'var(--radius-md)',
+              textAlign: 'center'
+            }}>
+              <p className="caption" style={{ marginBottom: 'var(--spacing-sm)' }}>
+                Или позвоните в клуб для бронирования по телефону
+              </p>
+              <p className="body-bold" style={{ color: 'var(--primary)' }}>
+                📞 Контакты клуба доступны на странице клуба
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // Обычная ошибка
     return (
       <div style={{ 
         minHeight: '100vh', 
@@ -139,6 +309,14 @@ export default function BookingConfirmationPage() {
           <div style={{ fontSize: '48px', marginBottom: 'var(--spacing-md)' }}>❌</div>
           <h2 className="h2" style={{ marginBottom: 'var(--spacing-sm)' }}>Ошибка</h2>
           <p className="body" style={{ color: 'var(--text-secondary)' }}>{error}</p>
+          
+          <button
+            className="flutter-button"
+            style={{ width: '100%', marginTop: 'var(--spacing-xl)' }}
+            onClick={() => navigate('/')}
+          >
+            На главную
+          </button>
         </div>
       </div>
     )
@@ -171,15 +349,15 @@ export default function BookingConfirmationPage() {
           {paymentError ? '❌' : '✅'}
         </div>
         <h1 className="h2" style={{ color: 'white', marginBottom: 'var(--spacing-sm)' }}>
-          {booking.status === 'confirmed' 
+          {booking.paymentStatus === 'paid' || booking.status === 'confirmed' 
             ? 'Бронирование подтверждено!' 
             : paymentError 
               ? 'Ошибка оплаты'
               : 'Заявка отправлена!'}
         </h1>
         <p className="body" style={{ color: 'white', opacity: 0.9 }}>
-          {booking.status === 'confirmed' 
-            ? 'Ваше бронирование успешно подтверждено' 
+          {booking.paymentStatus === 'paid' || booking.status === 'confirmed' 
+            ? 'Ваше бронирование успешно оплачено и подтверждено' 
             : paymentError
               ? 'Произошла ошибка при оплате. Пожалуйста, свяжитесь с администратором'
               : 'Ваша заявка на бронирование успешно отправлена'}
@@ -197,22 +375,22 @@ export default function BookingConfirmationPage() {
               <div style={{
                 width: '32px',
                 height: '32px',
-                backgroundColor: 'var(--primary-light)',
+                backgroundColor: 'var(--success)',
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
-                color: 'var(--primary)'
+                color: 'white'
               }}>
-                1
+                ✓
               </div>
               <div>
                 <p className="body-bold" style={{ marginBottom: 'var(--spacing-xxs)' }}>
-                  Ожидайте звонка
+                  Бронирование подтверждено
                 </p>
                 <p className="caption">
-                  Менеджер клуба свяжется с вами в течение 30 минут
+                  Оплата прошла успешно, ваш корт забронирован
                 </p>
               </div>
             </div>
@@ -229,14 +407,14 @@ export default function BookingConfirmationPage() {
                 flexShrink: 0,
                 color: 'var(--primary)'
               }}>
-                2
+                📱
               </div>
               <div>
                 <p className="body-bold" style={{ marginBottom: 'var(--spacing-xxs)' }}>
-                  Подтверждение бронирования
+                  SMS-уведомления
                 </p>
                 <p className="caption">
-                  Вы получите SMS с подтверждением
+                  Получите SMS с подтверждением сейчас и напоминание за 2 часа до игры
                 </p>
               </div>
             </div>
@@ -253,14 +431,14 @@ export default function BookingConfirmationPage() {
                 flexShrink: 0,
                 color: 'var(--primary)'
               }}>
-                3
+                ⚠️
               </div>
               <div>
                 <p className="body-bold" style={{ marginBottom: 'var(--spacing-xxs)' }}>
-                  Оплата в клубе
+                  Отмена бронирования
                 </p>
                 <p className="caption">
-                  Оплатите бронирование при посещении клуба
+                  Отменить можно за 24 часа до игры через мобильное приложение или позвонив администратору в рабочее время
                 </p>
               </div>
             </div>

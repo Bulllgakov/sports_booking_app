@@ -668,10 +668,6 @@ tr:hover {
   transition: all 0.3s ease;
 }
 
-/* Mobile bookings list - hidden by default */
-.mobile-bookings-list {
-  display: none;
-}
 
 @media (max-width: 768px) {
   .menu-toggle {
@@ -784,11 +780,6 @@ tr:hover {
     min-height: 25px !important;
   }
   
-  /* Скрываем мобильный список по умолчанию */
-  .mobile-bookings-list {
-    display: none !important;
-  }
-  
   /* Таблицы */
   .table-wrapper {
     margin: 0 -16px;
@@ -802,110 +793,6 @@ tr:hover {
   th, td {
     padding: 8px !important;
     font-size: 11px;
-  }
-  
-  /* Мобильная версия списка бронирований */
-  .bookings-mobile-cards {
-    display: none;
-  }
-  
-  @media (max-width: 768px) {
-    /* Скрываем таблицу на мобильных */
-    .section-card .table-wrapper table {
-      display: none;
-    }
-    
-    /* Показываем карточки на мобильных */
-    .bookings-mobile-cards {
-      display: block;
-    }
-  }
-  
-  .booking-card-mobile {
-    background: var(--background);
-    border-radius: 8px;
-    padding: 16px;
-    margin-bottom: 12px;
-    border: 1px solid var(--extra-light-gray);
-  }
-  
-  .booking-card-mobile:last-child {
-    margin-bottom: 0;
-  }
-  
-  .booking-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 12px;
-  }
-  
-  .booking-card-court {
-    font-weight: 600;
-    font-size: 16px;
-    color: var(--dark);
-  }
-  
-  .booking-card-amount {
-    font-weight: 700;
-    font-size: 18px;
-    color: var(--primary);
-  }
-  
-  .booking-card-info {
-    margin-bottom: 12px;
-  }
-  
-  .booking-card-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-    font-size: 14px;
-  }
-  
-  .booking-card-row:last-child {
-    margin-bottom: 0;
-  }
-  
-  .booking-card-label {
-    color: var(--gray);
-  }
-  
-  .booking-card-value {
-    color: var(--dark);
-    font-weight: 500;
-  }
-  
-  .booking-card-client {
-    background: var(--white);
-    padding: 8px 12px;
-    border-radius: 6px;
-    margin-bottom: 12px;
-  }
-  
-  .booking-card-client-name {
-    font-weight: 600;
-    color: var(--dark);
-    margin-bottom: 4px;
-  }
-  
-  .booking-card-client-phone {
-    font-size: 14px;
-    color: var(--gray);
-  }
-  
-  .booking-card-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 12px;
-    border-top: 1px solid var(--extra-light-gray);
-  }
-  
-  .booking-card-actions {
-    display: flex;
-    gap: 8px;
   }
   
   /* Фильтры на мобильных */

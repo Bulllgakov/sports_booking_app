@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест функции cleanupWebBookings</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #00A86B;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover:not(:disabled) {
+            background: #008855;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .loading {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Очистка веб-бронирований</h1>
+        <p>Эта страница позволяет запустить функцию cleanupWebBookings для удаления проблемных бронирований.</p>
+        
+        <div>
+            <button id="loginBtn" onclick="login()">1. Войти как администратор</button>
+            <button id="callBtn" onclick="callCleanup()" disabled>2. Запустить очистку</button>
+            <button onclick="location.reload()">🔄 Обновить страницу</button>
+        </div>
+        
+        <div id="status" class="status info"></div>
+    </div>
+
+    <script>
+        // Конфигурация Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnp3SY9XEyF-le5q_Tcv-7Le2qqvtz0ZM",
+            authDomain: "sports-booking-app-1d7e5.firebaseapp.com",
+            databaseURL: "https://sports-booking-app-1d7e5-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "sports-booking-app-1d7e5",
+            storageBucket: "sports-booking-app-1d7e5.firebasestorage.app",
+            messagingSenderId: "648540980109",
+            appId: "1:648540980109:web:97fbe182c59bb2641ab3c4",
+            measurementId: "G-VL4MCP1PZP"
+        };
+
+        // Инициализация Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const functions = firebase.functions('europe-west1');
+        
+        let currentUser = null;
+
+        // Проверка текущего пользователя
+        auth.onAuthStateChanged(user => {
+            console.log('Auth state changed:', user);
+            currentUser = user;
+            updateUI();
+        });
+
+        function updateUI() {
+            const loginBtn = document.getElementById('loginBtn');
+            const callBtn = document.getElementById('callBtn');
+            
+            if (currentUser) {
+                loginBtn.textContent = `✅ Вошли как: ${currentUser.email}`;
+                loginBtn.disabled = true;
+                callBtn.disabled = false;
+                showStatus(`✅ Вы вошли как: ${currentUser.email}\n\nТеперь можете нажать кнопку "Запустить очистку"`, 'success');
+            } else {
+                loginBtn.textContent = '1. Войти как администратор';
+                loginBtn.disabled = false;
+                callBtn.disabled = true;
+                showStatus('Готов к работе. Сначала войдите как администратор.', 'info');
+            }
+        }
+
+        window.login = async function() {
+            showStatus('Введите email и пароль администратора...', 'loading');
+            
+            const email = prompt('Email администратора:');
+            if (!email) {
+                showStatus('Вход отменен', 'info');
+                return;
+            }
+            
+            const password = prompt('Пароль:');
+            if (!password) {
+                showStatus('Вход отменен', 'info');
+                return;
+            }
+            
+            try {
+                showStatus('Выполняется вход...', 'loading');
+                const result = await auth.signInWithEmailAndPassword(email, password);
+                console.log('Login successful:', result);
+                // updateUI будет вызван автоматически через onAuthStateChanged
+            } catch (error) {
+                console.error('Login error:', error);
+                showStatus(`❌ Ошибка входа: ${error.message}`, 'error');
+            }
+        }
+
+        window.callCleanup = async function() {
+            if (!currentUser) {
+                showStatus('❌ Сначала войдите в систему', 'error');
+                return;
+            }
+            
+            const confirmDelete = confirm('Вы уверены, что хотите удалить все веб-бронирования с онлайн оплатой?\n\nЭто действие нельзя отменить!');
+            if (!confirmDelete) {
+                showStatus('Операция отменена', 'info');
+                return;
+            }
+            
+            showStatus('🔄 Вызов функции cleanupWebBookings...', 'loading');
+            
+            try {
+                const cleanupWebBookings = functions.httpsCallable('cleanupWebBookings');
+                console.log('Calling cleanupWebBookings...');
+                
+                const result = await cleanupWebBookings({});
+                console.log('Result:', result);
+                
+                if (result.data.success) {
+                    showStatus(`✅ Успешно выполнено!\n\nУдалено бронирований: ${result.data.deletedBookings}\nУдалено платежей: ${result.data.deletedPayments}\n\n${result.data.message}`, 'success');
+                } else {
+                    showStatus(`❌ Ошибка: ${result.data.message || 'Неизвестная ошибка'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error calling function:', error);
+                showStatus(`❌ Ошибка вызова функции:\n${error.message}\n\nКод: ${error.code}\nДетали: ${JSON.stringify(error.details || {}, null, 2)}`, 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
+        // Начальная проверка
+        updateUI();
+    </script>
+</body>
+</html>

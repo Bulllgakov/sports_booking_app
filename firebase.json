@@ -22,6 +22,11 @@
     ],
     "rewrites": [
       {
+        "source": "/api/webhooks/yookassa",
+        "function": "yookassaWebhook",
+        "region": "europe-west1"
+      },
+      {
         "source": "/admin/**",
         "destination": "/admin/index.html"
       },

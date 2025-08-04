@@ -84,6 +84,14 @@ export const usePermission = () => {
   }
 
   const canManageClub = (): boolean => {
+    // Суперадмин всегда может управлять клубами
+    if (admin?.role === 'superadmin') return true
+    
+    // Администратор клуба может управлять своим клубом
+    // (даже если у него временно отсутствует право manage_club)
+    if (admin?.role === 'admin' && admin?.venueId) return true
+    
+    // Проверка конкретных прав
     return hasPermission(['manage_club', 'manage_all_venues'])
   }
 

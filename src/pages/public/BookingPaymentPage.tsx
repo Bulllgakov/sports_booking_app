@@ -35,16 +35,22 @@ export default function BookingPaymentPage() {
   const price = parseInt(searchParams.get('price') || '0')
   const pricePerPlayer = parseInt(searchParams.get('pricePerPlayer') || '0')
   
+  // Get customer data from URL if passed from modal
+  const customerName = searchParams.get('customerName') || ''
+  const customerPhone = searchParams.get('customerPhone') || ''
+  const customerEmail = searchParams.get('customerEmail') || ''
+  
   const [court, setCourt] = useState<Court | null>(null)
   const [venue, setVenue] = useState<Venue | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [autoSubmitted, setAutoSubmitted] = useState(false)
   
-  // Form fields
-  const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
+  // Form fields - initialize with URL params if available
+  const [name, setName] = useState(customerName)
+  const [phone, setPhone] = useState(customerPhone)
+  const [email, setEmail] = useState(customerEmail)
   
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
 
@@ -57,6 +63,17 @@ export default function BookingPaymentPage() {
   useEffect(() => {
     loadData()
   }, [clubId, courtId])
+  
+  // Auto-submit if all data is provided from modal
+  useEffect(() => {
+    if (!loading && court && venue && customerName && customerPhone && !submitting && !autoSubmitted) {
+      setAutoSubmitted(true)
+      // Small delay to ensure everything is loaded
+      setTimeout(() => {
+        handleSubmit()
+      }, 500)
+    }
+  }, [loading, court, venue, customerName, customerPhone, submitting, autoSubmitted])
 
   const loadData = async () => {
     if (!clubId || !courtId) {
@@ -66,8 +83,8 @@ export default function BookingPaymentPage() {
     }
 
     try {
-      // Load court data
-      const courtDoc = await getDoc(doc(db, 'courts', courtId))
+      // Load court data from venue subcollection
+      const courtDoc = await getDoc(doc(db, 'venues', clubId, 'courts', courtId))
       if (!courtDoc.exists()) {
         setError('Корт не найден')
         setLoading(false)
@@ -76,7 +93,8 @@ export default function BookingPaymentPage() {
 
       const courtData = {
         id: courtDoc.id,
-        ...courtDoc.data()
+        ...courtDoc.data(),
+        venueId: clubId
       } as Court
       setCourt(courtData)
 
@@ -171,7 +189,7 @@ export default function BookingPaymentPage() {
         customerPhone: phone,
         customerEmail: email || null,
         status: 'pending',
-        paymentStatus: 'pending',
+        paymentStatus: 'awaiting_payment',
         createdAt: new Date(),
         updatedAt: new Date()
       }
@@ -187,7 +205,10 @@ export default function BookingPaymentPage() {
             bookingId: bookingRef.id,
             amount: price,
             description: `Бронирование ${court.name} на ${formatDate(date)} ${time}`,
-            returnUrl: `${window.location.origin}/payment-result`
+            returnUrl: `${window.location.origin}/club/${clubId}/booking-confirmation/${bookingRef.id}`,
+            userId: '', // Empty for anonymous users
+            customerEmail: email || undefined,
+            customerPhone: phone
           })
           
           const paymentData = paymentResult.data as any
@@ -234,7 +255,7 @@ export default function BookingPaymentPage() {
     }
   }
 
-  if (loading) {
+  if (loading || (customerName && customerPhone && submitting)) {
     return (
       <div style={{ 
         display: 'flex', 
@@ -253,7 +274,7 @@ export default function BookingPaymentPage() {
             animation: 'spin 1s linear infinite',
             margin: '0 auto 16px'
           }}></div>
-          <p className="body-small">Загрузка...</p>
+          <p className="body-small">{submitting ? 'Создание бронирования...' : 'Загрузка...'}</p>
         </div>
         <style>
           {`
@@ -446,19 +467,36 @@ export default function BookingPaymentPage() {
         {/* Payment info */}
         <div style={{
           padding: 'var(--spacing-md)',
-          backgroundColor: 'var(--chip-background)',
+          backgroundColor: venue?.paymentEnabled ? 'rgba(255, 152, 0, 0.08)' : 'var(--chip-background)',
           borderRadius: 'var(--radius-md)',
-          border: `1px solid var(--primary-light)`,
+          border: venue?.paymentEnabled ? '1px solid rgba(255, 152, 0, 0.3)' : '1px solid var(--primary-light)',
           display: 'flex',
           gap: 'var(--spacing-sm)',
           alignItems: 'flex-start'
         }}>
-          <span style={{ fontSize: '20px', color: 'var(--primary)' }}>ℹ️</span>
-          <p className="caption" style={{ color: 'var(--primary-dark)' }}>
-            {venue?.paymentEnabled 
-              ? 'Бронирование будет подтверждено только после успешной оплаты'
-              : 'Оплата производится на месте при посещении клуба'}
-          </p>
+          <span style={{ fontSize: '20px', color: venue?.paymentEnabled ? '#ff9800' : 'var(--primary)' }}>
+            {venue?.paymentEnabled ? '⏱️' : 'ℹ️'}
+          </span>
+          <div style={{ flex: 1 }}>
+            <p className="caption" style={{ 
+              color: venue?.paymentEnabled ? '#e65100' : 'var(--primary-dark)',
+              fontWeight: venue?.paymentEnabled ? '500' : '400',
+              marginBottom: venue?.paymentEnabled ? '8px' : '0'
+            }}>
+              {venue?.paymentEnabled 
+                ? 'Бронирование будет подтверждено только после успешной оплаты.'
+                : 'Оплата производится на месте при посещении клуба'}
+            </p>
+            {venue?.paymentEnabled && (
+              <p className="caption" style={{ 
+                color: '#e65100',
+                fontWeight: '600',
+                fontSize: '14px'
+              }}>
+                ⚠️ На оплату дается 10 минут. После этого бронирование будет автоматически отменено.
+              </p>
+            )}
+          </div>
         </div>
       </div>
 

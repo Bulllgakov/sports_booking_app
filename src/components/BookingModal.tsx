@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { format, addDays, startOfToday, parse, isBefore, isAfter, setHours, setMinutes } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { collection, query, where, getDocs, Timestamp, addDoc, onSnapshot } from 'firebase/firestore'
-import { db } from '../services/firebase'
+import { collection, query, where, getDocs, Timestamp, addDoc, onSnapshot, deleteDoc, doc } from 'firebase/firestore'
+import { httpsCallable } from 'firebase/functions'
+import { db, functions } from '../services/firebase'
 import '../styles/flutter-theme.css'
 import { 
   isValidEmail, 
@@ -45,6 +46,10 @@ interface BookingModalProps {
       [key: number]: boolean
     }
     bookingSlotInterval?: 30 | 60 // Интервал слотов: 30 минут (по умолчанию) или 60 минут (только с 00)
+    paymentEnabled?: boolean
+    paymentProvider?: string
+    paymentTestMode?: boolean
+    phone?: string
   }
 }
 
@@ -126,16 +131,14 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
       const stringDateQuery = query(
         collection(db, 'bookings'),
         where('courtId', '==', court.id),
-        where('date', '==', dateString),
-        where('status', 'in', ['confirmed', 'pending'])
+        where('date', '==', dateString)
       )
       
       const timestampDateQuery = query(
         collection(db, 'bookings'),
         where('courtId', '==', court.id),
         where('date', '>=', Timestamp.fromDate(startOfDay)),
-        where('date', '<=', Timestamp.fromDate(endOfDay)),
-        where('status', 'in', ['confirmed', 'pending'])
+        where('date', '<=', Timestamp.fromDate(endOfDay))
       )
 
       // Subscribe to both queries
@@ -194,11 +197,11 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
 
       // First try to query with string date format (used by public pages)
       const dateString = format(currentDate, 'yyyy-MM-dd')
+      // Сначала пробуем запрос с датой как строкой
       let bookingsQuery = query(
         collection(db, 'bookings'),
         where('courtId', '==', court.id),
-        where('date', '==', dateString),
-        where('status', 'in', ['confirmed', 'pending'])
+        where('date', '==', dateString)
       )
 
       let bookingsSnapshot = await getDocs(bookingsQuery)
@@ -209,13 +212,18 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
           collection(db, 'bookings'),
           where('courtId', '==', court.id),
           where('date', '>=', Timestamp.fromDate(startOfDay)),
-          where('date', '<=', Timestamp.fromDate(endOfDay)),
-          where('status', 'in', ['confirmed', 'pending'])
+          where('date', '<=', Timestamp.fromDate(endOfDay))
         )
         bookingsSnapshot = await getDocs(bookingsQuery)
       }
       
-      const bookings = bookingsSnapshot.docs.map(doc => {
+      const bookings = bookingsSnapshot.docs
+        .filter(doc => {
+          const data = doc.data()
+          // Учитываем бронирования со статусом confirmed (из админки) или с paymentStatus paid/awaiting_payment
+          return data.status === 'confirmed' || data.paymentStatus === 'paid' || data.paymentStatus === 'awaiting_payment'
+        })
+        .map(doc => {
         const data = doc.data()
         // Поддержка обоих форматов времени и длительности
         let duration = data.duration || 60
@@ -418,8 +426,7 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
       let bookingsQuery = query(
         collection(db, 'bookings'),
         where('courtId', '==', court.id),
-        where('date', '==', dateString),
-        where('status', 'in', ['confirmed', 'pending'])
+        where('date', '==', dateString)
       )
 
       let bookingsSnapshot = await getDocs(bookingsQuery)
@@ -430,13 +437,18 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
           collection(db, 'bookings'),
           where('courtId', '==', court.id),
           where('date', '>=', Timestamp.fromDate(startOfDay)),
-          where('date', '<=', Timestamp.fromDate(endOfDay)),
-          where('status', 'in', ['confirmed', 'pending'])
+          where('date', '<=', Timestamp.fromDate(endOfDay))
         )
         bookingsSnapshot = await getDocs(bookingsQuery)
       }
       
-      const bookings = bookingsSnapshot.docs.map(doc => {
+      const bookings = bookingsSnapshot.docs
+        .filter(doc => {
+          const data = doc.data()
+          // Учитываем бронирования со статусом confirmed (из админки) или с paymentStatus paid/awaiting_payment
+          return data.status === 'confirmed' || data.paymentStatus === 'paid' || data.paymentStatus === 'awaiting_payment'
+        })
+        .map(doc => {
         const data = doc.data()
         // Поддержка обоих форматов времени и длительности
         let duration = data.duration || 60
@@ -501,8 +513,8 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
 
   const handleConfirmBooking = async () => {
     // Базовая проверка заполненности
-    if (!customerName || !customerPhone || !customerEmail) {
-      alert('Пожалуйста, заполните все поля')
+    if (!customerName || !customerPhone) {
+      alert('Пожалуйста, заполните обязательные поля')
       return
     }
     
@@ -517,7 +529,7 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
       return
     }
     
-    if (!isValidEmail(customerEmail)) {
+    if (customerEmail && !isValidEmail(customerEmail)) {
       alert('Некорректный email')
       return
     }
@@ -552,13 +564,13 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
         gameType: selectedGameType,
         customerName: sanitizeString(customerName),
         customerPhone: normalizePhone(customerPhone),
-        customerEmail: customerEmail.toLowerCase().trim(),
+        customerEmail: customerEmail ? customerEmail.toLowerCase().trim() : '',
         clientName: sanitizeString(customerName), // Для совместимости с веб-версией
         clientPhone: normalizePhone(customerPhone),
         price: selectedSlot ? selectedSlot.price : 0,
         amount: selectedSlot ? selectedSlot.price : 0,
-        status: 'confirmed', // После оплаты статус confirmed
-        paymentStatus: 'online_payment', // Онлайн оплата для клиентов
+        status: 'pending', // Изначально pending до оплаты
+        paymentStatus: 'awaiting_payment', // Статус оплаты - ожидает оплаты
         paymentMethod: 'online',
         paymentHistory: [{
           timestamp: Timestamp.now(),
@@ -575,24 +587,85 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
         source: 'web' // Добавляем источник для совместимости
       }
 
-      // Redirect to payment page instead of creating booking directly
-      const params = new URLSearchParams({
-        date: format(selectedDate, 'yyyy-MM-dd'),
-        time: selectedTime,
-        duration: selectedDuration.toString(),
-        gameType: selectedGameType,
-        playersCount: '1',
-        price: bookingData.price.toString(),
-        pricePerPlayer: bookingData.price.toString(),
-        customerName: customerName,
-        customerPhone: customerPhone,
-        customerEmail: customerEmail
+      // Check if payment is enabled for the venue
+      console.log('Venue payment settings from props:', {
+        paymentEnabled: venue.paymentEnabled,
+        paymentProvider: venue.paymentProvider,
+        paymentTestMode: venue.paymentTestMode,
+        phone: venue.phone
       })
       
-      window.location.href = `/club/${venue.id}/court/${court.id}/payment?${params.toString()}`
-    } catch (error) {
+      if (!venue.paymentEnabled) {
+        const phoneNumber = venue.phone || 'не указан'
+        alert(`К сожалению, клуб "${venue.name}" пока не подключил онлайн оплату.\n\nПожалуйста, позвоните по телефону клуба для бронирования:\n${phoneNumber}`)
+        setLoading(false)
+        return
+      }
+      
+      // Create booking first
+      console.log('Creating booking with data:', bookingData)
+      const bookingRef = await addDoc(collection(db, 'bookings'), bookingData)
+      console.log('Booking created with ID:', bookingRef.id)
+
+      // Initialize payment with YooKassa
+      const initBookingPayment = httpsCallable(functions, 'initBookingPayment')
+      console.log('Calling initBookingPayment with params:', {
+        bookingId: bookingRef.id,
+        amount: bookingData.price,
+        description: `Бронирование ${court.name} на ${format(selectedDate, 'd MMMM', { locale: ru })} ${selectedTime}`,
+        returnUrl: `${window.location.origin}/club/${venue.id}/booking-confirmation/${bookingRef.id}`,
+        userId: '', // Empty for anonymous users
+        customerEmail: customerEmail,
+        customerPhone: customerPhone
+      })
+      
+      const paymentResult = await initBookingPayment({
+        bookingId: bookingRef.id,
+        amount: bookingData.price,
+        description: `Бронирование ${court.name} на ${format(selectedDate, 'd MMMM', { locale: ru })} ${selectedTime}`,
+        returnUrl: `${window.location.origin}/club/${venue.id}/booking-confirmation/${bookingRef.id}`,
+        userId: '', // Empty for anonymous users
+        customerEmail: customerEmail,
+        customerPhone: customerPhone
+      })
+      
+      console.log('Payment result:', paymentResult)
+
+      const payment = paymentResult.data as { success: boolean; paymentUrl?: string; error?: string }
+      
+      if (payment.success && payment.paymentUrl) {
+        // Redirect directly to YooKassa payment page
+        window.location.href = payment.paymentUrl
+      } else {
+        // Если не удалось инициализировать платеж, удаляем созданное бронирование
+        try {
+          await deleteDoc(bookingRef)
+          console.log('Booking deleted due to payment initialization failure')
+        } catch (deleteError) {
+          console.error('Failed to delete booking after payment failure:', deleteError)
+        }
+        throw new Error(payment.error || 'Ошибка инициализации платежа')
+      }
+    } catch (error: any) {
       console.error('Error creating booking:', error)
-      alert('Ошибка при создании бронирования')
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        stack: error.stack
+      })
+      
+      // Более информативное сообщение об ошибке
+      let errorMessage = 'Ошибка при создании бронирования'
+      if (error.code === 'functions/not-found') {
+        errorMessage = 'Функция оплаты не найдена. Проверьте настройки.'
+      } else if (error.code === 'functions/failed-precondition') {
+        errorMessage = 'Платежи не настроены для этого клуба'
+      } else if (error.message) {
+        errorMessage = `Ошибка: ${error.message}`
+      }
+      
+      alert(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -637,9 +710,10 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
                   const isToday = index === 0
                   const dayOfWeek = daysOfWeek[date.getDay()]
                   const showMonth = index === 0 || date.getDate() === 1
+                  const dateKey = format(date, 'yyyy-MM-dd')
                   
                   return (
-                    <div key={date.toISOString()} style={{ textAlign: 'center' }}>
+                    <div key={dateKey} style={{ textAlign: 'center' }}>
                       {showMonth && (
                         <div className="caption" style={{ 
                           marginBottom: 'var(--spacing-xs)', 
@@ -713,7 +787,7 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
                   
                   return (
                     <button
-                      key={duration}
+                      key={`duration-${duration}`}
                       onClick={() => {
                         if (duration !== selectedDuration) {
                           setSelectedDuration(duration)
@@ -738,12 +812,6 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
                     >
                       <span className="body-bold" style={{ fontSize: isMobile ? '14px' : '16px' }}>
                         {duration === 60 ? '1 час' : duration === 90 ? '1.5 часа' : '2 часа'}
-                      </span>
-                      <span className="caption" style={{
-                        color: selectedDuration === duration ? 'white' : 'var(--primary)',
-                        fontWeight: 600
-                      }}>
-                        {price}₽
                       </span>
                     </button>
                   )
@@ -776,7 +844,7 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
                     const isSelected = selectedTime === slot.time
                     return (
                       <button
-                        key={slot.time}
+                        key={`slot-${slot.time}`}
                         onClick={() => slot.available && setSelectedTime(slot.time)}
                         disabled={!slot.available}
                         style={{
@@ -820,12 +888,19 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
                           })()}
                         </span>
                         {slot.available ? (
-                          isSelected && (
+                          isSelected ? (
                             <span className="caption" style={{ 
                               color: 'white',
                               fontWeight: 600
                             }}>
                               Выбрано
+                            </span>
+                          ) : (
+                            <span className="caption" style={{ 
+                              color: 'var(--primary)',
+                              fontWeight: 600
+                            }}>
+                              {slot.price}₽
                             </span>
                           )
                         ) : (
@@ -953,9 +1028,10 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
         }}>
           {dates.map((date) => {
             const isSelected = format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')
+            const dateKey = format(date, 'yyyy-MM-dd')
             return (
               <button
-                key={date.toISOString()}
+                key={`date-${dateKey}`}
                 onClick={() => handleDateSelect(date)}
                 style={{
                   padding: 'var(--spacing-md)',
@@ -995,7 +1071,7 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
             const isAvailable = bookingDurations[duration] !== false
             return (
               <button
-                key={duration}
+                key={`time-duration-${duration}`}
                 onClick={() => {
                   if (isAvailable && duration !== selectedDuration) {
                     setSelectedDuration(duration)
@@ -1056,7 +1132,7 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
         }}>
           {timeSlots.map((slot) => (
             <button
-              key={slot.time}
+              key={`time-slot-${slot.time}`}
               onClick={() => handleTimeSelect(slot.time)}
               disabled={!slot.available}
               style={{
@@ -1262,15 +1338,19 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
           </div>
 
           <div className="form-group">
-            <label className="form-label">Email</label>
+            <label className="form-label">Email (необязательно)</label>
             <input
               type="email"
               className="form-input"
               value={customerEmail}
               onChange={(e) => setCustomerEmail(e.target.value)}
               placeholder="email@example.com"
-              required
             />
+            <div className="caption" style={{ marginTop: '8px', color: 'var(--gray)' }}>
+              {customerEmail 
+                ? 'Чек будет отправлен на указанный email' 
+                : 'Если не указать email, чек можно будет получить только в клубе'}
+            </div>
           </div>
 
           {/* Payment info */}
@@ -1320,7 +1400,7 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
           <button
             className="flutter-button"
             onClick={handleConfirmBooking}
-            disabled={loading || !customerName || !customerPhone || !customerEmail}
+            disabled={loading || !customerName || !customerPhone}
             style={{ flex: 1 }}
           >
             {loading ? <div className="spinner" /> : 'Перейти к оплате'}

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Очистка бронирований</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+</head>
+<body style="font-family: Arial; padding: 50px;">
+    <h1>Очистка веб-бронирований</h1>
+    
+    <div style="margin: 20px 0;">
+        <input type="email" id="email" placeholder="Email" style="padding: 10px; width: 300px;"><br><br>
+        <input type="password" id="password" placeholder="Пароль" style="padding: 10px; width: 300px;"><br><br>
+        <button onclick="doLogin()" style="padding: 10px 20px;">Войти и запустить очистку</button>
+    </div>
+    
+    <div id="status" style="margin-top: 20px; padding: 20px; background: #f0f0f0; border-radius: 5px;"></div>
+
+    <script>
+        // Firebase config
+        firebase.initializeApp({
+            apiKey: "AIzaSyAnp3SY9XEyF-le5q_Tcv-7Le2qqvtz0ZM",
+            authDomain: "sports-booking-app-1d7e5.firebaseapp.com",
+            projectId: "sports-booking-app-1d7e5",
+            storageBucket: "sports-booking-app-1d7e5.firebasestorage.app",
+            messagingSenderId: "648540980109",
+            appId: "1:648540980109:web:97fbe182c59bb2641ab3c4"
+        });
+
+        const auth = firebase.auth();
+        const functions = firebase.functions('europe-west1');
+
+        function setStatus(msg) {
+            document.getElementById('status').innerHTML = msg;
+        }
+
+        async function doLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                setStatus('❌ Введите email и пароль');
+                return;
+            }
+            
+            setStatus('⏳ Вход в систему...');
+            
+            try {
+                // Вход
+                await auth.signInWithEmailAndPassword(email, password);
+                setStatus('✅ Вход выполнен. Запускаем очистку...');
+                
+                // Вызов функции
+                const cleanupWebBookings = functions.httpsCallable('cleanupWebBookings');
+                const result = await cleanupWebBookings({});
+                
+                if (result.data.success) {
+                    setStatus(`
+                        <h3>✅ Успешно!</h3>
+                        <p>Удалено бронирований: <b>${result.data.deletedBookings}</b></p>
+                        <p>Удалено платежей: <b>${result.data.deletedPayments}</b></p>
+                        <p>${result.data.message}</p>
+                    `);
+                } else {
+                    setStatus(`❌ Ошибка: ${result.data.message}`);
+                }
+                
+            } catch (error) {
+                setStatus(`❌ Ошибка: ${error.message}`);
+                console.error(error);
+            }
+        }
+        
+        setStatus('Введите данные администратора и нажмите кнопку');
+    </script>
+</body>
+</html>

@@ -53,10 +53,19 @@ class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
         if (bookingDoc == null || !bookingDoc.exists) return null;
         
         final bookingData = bookingDoc.data() as Map<String, dynamic>;
-        final courtDoc = await FirestoreService.getDocument('courts', bookingData['courtId']);
         final venueDoc = await FirestoreService.getDocument('venues', bookingData['venueId']);
         
-        if (courtDoc == null || !courtDoc.exists || venueDoc == null || !venueDoc.exists) return null;
+        if (venueDoc == null || !venueDoc.exists) return null;
+        
+        // Получаем корт из подколлекции venue
+        final courtDoc = await FirebaseFirestore.instance
+            .collection('venues')
+            .doc(bookingData['venueId'])
+            .collection('courts')
+            .doc(bookingData['courtId'])
+            .get();
+            
+        if (!courtDoc.exists) return null;
         
         final courtData = courtDoc.data() as Map<String, dynamic>;
         final venueData = venueDoc.data() as Map<String, dynamic>;
@@ -320,9 +329,15 @@ class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
 
       final bookingData = bookingDoc.data() as Map<String, dynamic>;
       
-      // Получаем информацию о корте
-      final courtDoc = await FirestoreService.getDocument('courts', bookingData['courtId']);
-      if (courtDoc == null || !courtDoc.exists) {
+      // Получаем информацию о корте из подколлекции venue
+      final courtDoc = await FirebaseFirestore.instance
+          .collection('venues')
+          .doc(bookingData['venueId'])
+          .collection('courts')
+          .doc(bookingData['courtId'])
+          .get();
+          
+      if (!courtDoc.exists) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Ошибка: корт не найден')),

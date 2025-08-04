@@ -41,6 +41,12 @@ export const yookassaWebhook = functions
     }
 
     try {
+      console.log("YooKassa webhook received:", {
+        method: req.method,
+        headers: JSON.stringify(req.headers),
+        body: JSON.stringify(req.body),
+      });
+
       const notification = req.body as YooKassaNotification;
       const signature = req.headers["http-signature"] as string;
 
@@ -51,10 +57,36 @@ export const yookassaWebhook = functions
         status: notification.object.status,
       });
 
-      // Получаем bookingId из metadata
-      const bookingId = notification.object.metadata?.bookingId;
+      // Получаем bookingId из metadata для платежей или ищем по payment_id для возвратов
+      let bookingId: string | undefined;
+
+      if (notification.event === "refund.succeeded") {
+        // Для возвратов ищем booking по payment_id
+        const paymentId = (notification.object as any).payment_id;
+        if (paymentId) {
+          console.log(`Looking for booking with paymentId: ${paymentId}`);
+          const bookingQuery = await admin.firestore()
+            .collection("bookings")
+            .where("paymentId", "==", paymentId)
+            .limit(1)
+            .get();
+
+          if (!bookingQuery.empty) {
+            bookingId = bookingQuery.docs[0].id;
+            console.log(`Found booking ${bookingId} for payment ${paymentId}`);
+          } else {
+            console.error(`Booking not found for paymentId: ${paymentId}`);
+            res.status(404).send("Booking not found for refund");
+            return;
+          }
+        }
+      } else {
+        // Для обычных платежей используем metadata
+        bookingId = notification.object.metadata?.bookingId;
+      }
+
       if (!bookingId) {
-        console.error("Booking ID not found in metadata");
+        console.error("Booking ID not found");
         res.status(400).send("Invalid notification");
         return;
       }
@@ -107,6 +139,7 @@ export const yookassaWebhook = functions
         testMode: venueData.paymentTestMode || false,
       });
 
+      // Проверяем подпись webhook (YooKassa всегда работает в боевом режиме)
       if (signature && !yookassaAPI.verifyWebhook(notification, signature)) {
         console.error("Invalid notification signature");
         res.status(400).send("Invalid signature");
@@ -221,15 +254,16 @@ async function handlePaymentCanceled(notification: YooKassaNotification, booking
       });
     }
 
-    // Обновляем статус бронирования
+    // Помечаем бронирование как отмененное вместо удаления
+    // Это позволяет пользователю увидеть страницу отмены
     await db.collection("bookings").doc(bookingId).update({
-      paymentStatus: "canceled",
-      status: "canceled",
-      canceledAt: admin.firestore.FieldValue.serverTimestamp(),
+      paymentStatus: "cancelled",
+      status: "cancelled",
+      cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    console.log(`Payment canceled for booking: ${bookingId}`);
+    console.log(`Payment canceled, booking marked as cancelled: ${bookingId}`);
   } catch (error) {
     console.error("Error handling payment canceled:", error);
   }
@@ -242,11 +276,18 @@ async function handleRefundSucceeded(notification: YooKassaNotification, booking
   const db = admin.firestore();
 
   try {
-    // Обновляем статус платежа
+    // Получаем payment_id из объекта возврата
+    const paymentId = (notification.object as any).payment_id;
+    const refundId = notification.object.id;
+    const refundAmount = parseFloat(notification.object.amount.value);
+
+    console.log(`Processing refund ${refundId} for payment ${paymentId}, booking ${bookingId}`);
+
+    // Обновляем статус платежа в коллекции payments (если есть)
     const paymentQuery = await db
       .collection("payments")
       .where("bookingId", "==", bookingId)
-      .where("paymentId", "==", notification.object.id)
+      .where("paymentId", "==", paymentId)
       .limit(1)
       .get();
 
@@ -255,19 +296,32 @@ async function handleRefundSucceeded(notification: YooKassaNotification, booking
       await paymentDoc.ref.update({
         status: "refunded",
         refundedAt: admin.firestore.FieldValue.serverTimestamp(),
-        refundAmount: parseFloat(notification.object.amount.value),
+        refundAmount: refundAmount,
+        refundId: refundId,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     }
 
-    // Обновляем статус бронирования
+    // Обновляем статус бронирования и добавляем запись в историю платежей
     await db.collection("bookings").doc(bookingId).update({
       paymentStatus: "refunded",
+      status: "cancelled",
       refundedAt: admin.firestore.FieldValue.serverTimestamp(),
+      cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      cancelReason: "Возврат платежа",
+      refundAmount: refundAmount,
+      refundId: refundId,
+      paymentHistory: admin.firestore.FieldValue.arrayUnion({
+        timestamp: new Date().toISOString(),
+        action: "refunded",
+        userId: "system",
+        userName: "YooKassa Webhook",
+        note: `Возврат ${refundAmount} руб. (ID: ${refundId})`,
+      }),
     });
 
-    console.log(`Refund succeeded for booking: ${bookingId}`);
+    console.log(`Refund succeeded for booking: ${bookingId} - booking cancelled`);
   } catch (error) {
     console.error("Error handling refund succeeded:", error);
   }

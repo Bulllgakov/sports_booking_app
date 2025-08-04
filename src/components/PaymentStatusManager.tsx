@@ -6,37 +6,42 @@ import { CheckCircle, Cancel, AttachMoney, Timer } from '@mui/icons-material'
 
 interface PaymentStatusManagerProps {
   bookingId: string
-  currentStatus: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled'
-  paymentMethod?: 'cash' | 'card_on_site' | 'transfer' | 'online'
+  currentStatus: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled' | 'refunded'
+  paymentMethod?: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card'
   onStatusUpdate?: () => void
+  onRefund?: () => void
 }
 
 const statusLabels = {
   awaiting_payment: 'Ожидает оплаты',
   paid: 'Оплачено',
   online_payment: 'Онлайн оплата',
-  cancelled: 'Отменено'
+  cancelled: 'Отменено',
+  refunded: 'Возврат'
 }
 
 const statusColors = {
   awaiting_payment: '#F59E0B',
   paid: '#10B981',
   online_payment: '#3B82F6',
-  cancelled: '#EF4444'
+  cancelled: '#EF4444',
+  refunded: '#8B5CF6'
 }
 
 const statusIcons = {
   awaiting_payment: Timer,
   paid: CheckCircle,
   online_payment: AttachMoney,
-  cancelled: Cancel
+  cancelled: Cancel,
+  refunded: Cancel
 }
 
 export default function PaymentStatusManager({ 
   bookingId, 
   currentStatus, 
   paymentMethod,
-  onStatusUpdate 
+  onStatusUpdate,
+  onRefund 
 }: PaymentStatusManagerProps) {
   const { admin } = useAuth()
   const [isUpdating, setIsUpdating] = useState(false)
@@ -67,6 +72,7 @@ export default function PaymentStatusManager({
     return () => unsubscribe()
   }, [bookingId])
 
+  // Запрещаем менять статус для онлайн оплаты (только через вебхук)
   const canChangeStatus = localStatus === 'awaiting_payment' && paymentMethod !== 'online'
 
   const handleStatusChange = async (status: 'paid' | 'cancelled') => {
@@ -155,12 +161,15 @@ export default function PaymentStatusManager({
     }
   }
 
-  const StatusIcon = statusIcons[localStatus]
+  // Защита от undefined статуса
+  const safeStatus = localStatus || 'awaiting_payment'
+  const StatusIcon = statusIcons[safeStatus] || statusIcons.awaiting_payment
   
   console.log('PaymentStatusManager render:', {
     bookingId,
     currentStatus,
     localStatus,
+    safeStatus,
     canChangeStatus
   })
 
@@ -171,15 +180,16 @@ export default function PaymentStatusManager({
         alignItems: 'center', 
         gap: '8px',
         padding: '6px 12px',
-        background: `${statusColors[localStatus]}1A`,
-        color: statusColors[localStatus],
+        background: `${statusColors[safeStatus]}1A`,
+        color: statusColors[safeStatus],
         borderRadius: '20px',
         fontSize: '14px',
         fontWeight: '600'
       }}>
         <StatusIcon style={{ fontSize: '18px' }} />
-        <span>{statusLabels[localStatus]}</span>
+        <span>{statusLabels[safeStatus]}</span>
         
+        {/* Кнопки изменения статуса для неоплаченных */}
         {canChangeStatus && (
           <div style={{ marginLeft: '8px', display: 'flex', gap: '4px' }}>
             <button
@@ -221,6 +231,28 @@ export default function PaymentStatusManager({
               Отменить
             </button>
           </div>
+        )}
+        
+        {/* Кнопка возврата для оплаченных */}
+        {localStatus === 'paid' && onRefund && (
+          <button
+            onClick={onRefund}
+            disabled={isUpdating}
+            style={{
+              marginLeft: '8px',
+              padding: '4px 8px',
+              fontSize: '12px',
+              background: '#8B5CF6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              opacity: isUpdating ? 0.5 : 1
+            }}
+            title="Оформить возврат"
+          >
+            Возврат
+          </button>
         )}
       </div>
 

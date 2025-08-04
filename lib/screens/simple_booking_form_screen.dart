@@ -160,8 +160,38 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
       // Проверяем, включены ли платежи для клуба
       final paymentsEnabled = await paymentService.isPaymentEnabledForVenue(widget.venueId);
       if (!paymentsEnabled) {
-        // Если платежи не включены, создаем бронирование без оплаты
-        await _createBookingWithoutPayment();
+        // Если платежи не включены, показываем сообщение
+        setState(() {
+          _isLoading = false;
+        });
+        
+        // Получаем информацию о клубе для телефона
+        final venueDoc = await FirebaseFirestore.instance
+            .collection('venues')
+            .doc(widget.venueId)
+            .get();
+        
+        final venueData = venueDoc.data();
+        final phoneNumber = venueData?['phone'] ?? 'не указан';
+        
+        if (!mounted) return;
+        
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Онлайн оплата недоступна'),
+            content: Text(
+              'К сожалению, клуб "${widget.venue?.name ?? "Клуб"}" пока не подключил онлайн оплату.\n\n'
+              'Пожалуйста, позвоните по телефону клуба для бронирования:\n$phoneNumber'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Закрыть'),
+              ),
+            ],
+          ),
+        );
         return;
       }
       

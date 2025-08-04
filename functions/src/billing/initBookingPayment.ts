@@ -27,13 +27,8 @@ interface PaymentResponse {
 export const initBookingPayment = functions
   .region(region)
   .https.onCall(async (data: InitBookingPaymentRequest, context) => {
-    // Проверяем авторизацию
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
-        "unauthenticated",
-        "User must be authenticated"
-      );
-    }
+    // Для публичных бронирований авторизация не требуется
+    const isAuthenticated = !!context.auth;
 
     const {bookingId, amount, description, returnUrl, userId, customerEmail, customerPhone} = data;
 
@@ -61,12 +56,14 @@ export const initBookingPayment = functions
 
       const bookingData = bookingDoc.data();
 
-      // Проверяем, что пользователь имеет право оплачивать это бронирование
-      if (bookingData?.userId !== userId && bookingData?.userId !== context.auth.uid) {
-        throw new functions.https.HttpsError(
-          "permission-denied",
-          "Access denied to this booking"
-        );
+      // Проверяем права доступа только для авторизованных пользователей
+      if (isAuthenticated && bookingData?.userId) {
+        if (bookingData.userId !== userId && bookingData.userId !== context.auth?.uid) {
+          throw new functions.https.HttpsError(
+            "permission-denied",
+            "Access denied to this booking"
+          );
+        }
       }
 
       // Проверяем, что бронирование еще не оплачено
@@ -80,7 +77,7 @@ export const initBookingPayment = functions
       // Получаем информацию о клубе
       const venueDoc = await admin.firestore()
         .collection("venues")
-        .doc(bookingData.venueId)
+        .doc(bookingData?.venueId || "")
         .get();
 
       if (!venueDoc.exists) {
@@ -135,6 +132,8 @@ export const initBookingPayment = functions
           description,
           returnUrl,
           testMode: venueData.paymentTestMode || false,
+          customerEmail,
+          customerPhone,
         });
         break;
 
@@ -155,8 +154,8 @@ export const initBookingPayment = functions
       // Создаем запись о платеже
       await admin.firestore().collection("payments").add({
         bookingId: bookingId,
-        venueId: bookingData.venueId,
-        userId: userId,
+        venueId: bookingData?.venueId || "",
+        userId: userId || null,
         amount: amount,
         currency: "RUB",
         status: "pending",
@@ -259,15 +258,70 @@ async function initYooKassaPayment(params: {
   description: string;
   returnUrl: string;
   testMode: boolean;
+  customerEmail?: string;
+  customerPhone?: string;
 }): Promise<PaymentResponse> {
   try {
+    console.log("Initializing YooKassa with params:", {
+      shopId: params.credentials.shopId,
+      testMode: params.testMode,
+      hasSecretKey: !!params.credentials.secretKey,
+    });
+
     const yooKassaAPI = new YooKassaAPI({
       shopId: params.credentials.shopId,
       secretKey: params.credentials.secretKey,
       testMode: params.testMode,
     });
 
-    const payment = await yooKassaAPI.createPayment({
+    // Подготавливаем данные чека
+    // Форматируем телефон для YooKassa (должен быть в формате +79999999999)
+    let formattedPhone = "";
+    if (params.customerPhone) {
+      console.log("Original phone:", params.customerPhone);
+      // Убираем все символы кроме цифр
+      const cleanPhone = params.customerPhone.replace(/\D/g, "");
+      console.log("Cleaned phone:", cleanPhone);
+      // Добавляем + если нет, и проверяем что начинается с 7
+      if (cleanPhone.startsWith("7") && cleanPhone.length === 11) {
+        formattedPhone = `+${cleanPhone}`;
+      } else if (cleanPhone.startsWith("8") && cleanPhone.length === 11) {
+        formattedPhone = `+7${cleanPhone.substring(1)}`;
+      } else if (cleanPhone.length === 10) {
+        formattedPhone = `+7${cleanPhone}`;
+      }
+      console.log("Formatted phone:", formattedPhone);
+    }
+
+    // Проверяем обязательные поля для чека
+    if (!params.customerEmail && !formattedPhone) {
+      console.log("No customer contact info provided, creating payment without receipt");
+    } else {
+      console.log("Creating payment with receipt for:", {
+        email: !!params.customerEmail,
+        phone: !!formattedPhone,
+      });
+    }
+
+    const receiptData = {
+      customer: {
+        ...(params.customerEmail && {email: params.customerEmail}),
+        ...(formattedPhone && {phone: formattedPhone}),
+      },
+      items: [{
+        description: params.description.substring(0, 128), // YooKassa ограничивает длину описания
+        quantity: "1.00",
+        amount: {
+          value: params.amount.toFixed(2),
+          currency: "RUB",
+        },
+        vat_code: 1, // НДС не облагается
+        payment_mode: "full_payment",
+        payment_subject: "service",
+      }],
+    };
+
+    const paymentRequest = {
       amount: {
         value: params.amount.toFixed(2),
         currency: "RUB",
@@ -281,7 +335,13 @@ async function initYooKassaPayment(params: {
       metadata: {
         bookingId: params.bookingId,
       },
-    });
+      // Добавляем чек только если есть контактные данные
+      ...(Object.keys(receiptData.customer).length > 0 && {receipt: receiptData}),
+    };
+
+    console.log("Creating payment with request:", JSON.stringify(paymentRequest, null, 2));
+
+    const payment = await yooKassaAPI.createPayment(paymentRequest);
 
     if (payment.status === "canceled") {
       return {
@@ -289,6 +349,30 @@ async function initYooKassaPayment(params: {
         error: "Payment was canceled",
       };
     }
+
+    console.log("Payment created successfully:", {
+      id: payment.id,
+      status: payment.status,
+      hasConfirmationUrl: !!payment.confirmation?.confirmation_url,
+    });
+
+    // Обновляем статус бронирования на awaiting_payment
+    await admin.firestore().collection("bookings").doc(params.bookingId).update({
+      paymentStatus: "awaiting_payment",
+      paymentId: payment.id,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Создаем запись о платеже
+    await admin.firestore().collection("payments").add({
+      bookingId: params.bookingId,
+      paymentId: payment.id,
+      amount: params.amount,
+      status: "pending",
+      provider: "yookassa",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
 
     return {
       success: true,

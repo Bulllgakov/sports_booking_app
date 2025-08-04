@@ -508,7 +508,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildVenueCard(VenueModel venue, int index, VenuesProvider provider) {
     final minPrice = venue.courts.isNotEmpty 
-        ? venue.courts.map((c) => c.pricePerHour).reduce((a, b) => a < b ? a : b)
+        ? venue.courts.map((c) => c.getPriceRange().min).reduce((a, b) => a < b ? a : b)
         : 1500;
     final availableSlots = 5 - (index % 3); // TODO: Calculate real available slots
     final distance = ((index + 1) * 0.6 + 0.6).toStringAsFixed(1);

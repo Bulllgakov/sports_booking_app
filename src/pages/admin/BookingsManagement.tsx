@@ -13,11 +13,12 @@ import {
   Timestamp,
   doc,
   updateDoc,
-  arrayUnion
+  arrayUnion,
+  onSnapshot
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
-import { Alert, AlertTitle } from '@mui/material'
+import { Alert } from '@mui/material'
 import BookingsList from '../../components/BookingsList'
 import BookingDetailsModal from '../../components/BookingDetailsModal'
 import CreateBookingModal from '../../components/CreateBookingModal'
@@ -44,7 +45,7 @@ interface Booking {
   endTime: string
   status: 'confirmed' | 'pending' | 'cancelled'
   amount: number
-  paymentMethod: 'cash' | 'card_on_site' | 'transfer' | 'online'
+  paymentMethod: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card'
   paymentStatus?: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled'
   paymentHistory?: PaymentHistory[]
   createdBy?: {
@@ -74,7 +75,8 @@ export default function BookingsManagement() {
   const { isSuperAdmin, canManageBookings, hasPermission } = usePermission()
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null)
   const [venues, setVenues] = useState<Venue[]>([])
-  const [bookings, setBookings] = useState<Booking[]>([])
+  const [bookings, setBookings] = useState<Booking[]>([]) // Для календаря - только занимающие корт
+  const [allBookings, setAllBookings] = useState<Booking[]>([]) // Для списка - все бронирования
   const [courts, setCourts] = useState<Court[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(new Date())
@@ -94,7 +96,8 @@ export default function BookingsManagement() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedSlotDate, setSelectedSlotDate] = useState<Date | null>(null)
   const [selectedSlotTime, setSelectedSlotTime] = useState<string | null>(null)
-  const [hoveredSlot, setHoveredSlot] = useState<{date: Date, time: string} | null>(null)
+  const [hoveredSlot, setHoveredSlot] = useState<{date: Date, time: string, courtId?: string} | null>(null)
+  const [bookingsUnsubscribe, setBookingsUnsubscribe] = useState<(() => void) | null>(null)
 
   useEffect(() => {
     
@@ -116,6 +119,13 @@ export default function BookingsManagement() {
       fetchBookings(admin.venueId)
     } else {
       setLoading(false)
+    }
+    
+    // Cleanup функция для отписки от listener при размонтировании
+    return () => {
+      if (bookingsUnsubscribe) {
+        bookingsUnsubscribe()
+      }
     }
   }, [admin, selectedDate, isSuperAdmin])
 
@@ -197,6 +207,11 @@ export default function BookingsManagement() {
   const fetchBookings = async (venueId: string) => {
     if (!venueId) return
 
+    // Отписываемся от предыдущего listener, если есть
+    if (bookingsUnsubscribe) {
+      bookingsUnsubscribe()
+    }
+
     try {
       setLoading(true)
       const startOfWeek = new Date(selectedDate)
@@ -207,51 +222,170 @@ export default function BookingsManagement() {
       endOfWeek.setDate(startOfWeek.getDate() + 6)
       endOfWeek.setHours(23, 59, 59, 999)
 
-      // Упрощенный запрос без лишних индексов
-      console.log('Fetching bookings for venue:', venueId)
+      console.log('Setting up real-time listener for venue:', venueId)
       console.log('Date range:', startOfWeek, 'to', endOfWeek)
       
-      // Простой запрос без orderBy чтобы избежать проблем с индексами
+      // Создаем real-time listener
       const q = query(
         collection(db, 'bookings'),
         where('venueId', '==', venueId)
       )
       
-      const snapshot = await getDocs(q)
-      console.log('Found bookings:', snapshot.size)
-      
-      const bookingsData = snapshot.docs.map(doc => {
-        const data = doc.data()
-        console.log('Raw booking data:', data)
-        return {
-          id: doc.id,
-          ...data,
-          date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || Date.now())
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        try {
+          console.log('Real-time update: Found bookings:', snapshot.size)
+        
+        const bookingsData = snapshot.docs.map(doc => {
+          const data = doc.data()
+          
+          // Безопасная обработка даты
+          let bookingDate: Date
+          try {
+            if (data.date?.toDate) {
+              bookingDate = data.date.toDate()
+            } else if (data.date) {
+              bookingDate = new Date(data.date)
+            } else {
+              console.warn(`Booking ${doc.id} has invalid date:`, data.date)
+              bookingDate = new Date() // Fallback to current date
+            }
+          } catch (err) {
+            console.error(`Error processing date for booking ${doc.id}:`, err)
+            bookingDate = new Date()
+          }
+
+          // Безопасная обработка createdAt
+          let createdAt: Date
+          try {
+            if (data.createdAt?.toDate) {
+              createdAt = data.createdAt.toDate()
+            } else if (data.createdAt) {
+              createdAt = new Date(data.createdAt)
+            } else {
+              createdAt = new Date()
+            }
+          } catch (err) {
+            console.error(`Error processing createdAt for booking ${doc.id}:`, err)
+            createdAt = new Date()
+          }
+
+          return {
+            id: doc.id,
+            ...data,
+            // Обеспечиваем наличие обязательных полей
+            status: data.status || 'pending',
+            paymentStatus: data.paymentStatus || 'awaiting_payment',
+            venueId: data.venueId || '',
+            courtId: data.courtId || '',
+            startTime: data.startTime || '',
+            endTime: data.endTime || '',
+            customerName: data.customerName || '',
+            customerPhone: data.customerPhone || '',
+            amount: data.amount || data.totalPrice || 0,
+            date: bookingDate,
+            createdAt: createdAt
+          }
+        }) as Booking[]
+        
+        console.log('All bookings data:', bookingsData)
+        
+        // Фильтруем бронирования для недели
+        const weekBookings = bookingsData.filter(booking => {
+          // Дополнительная проверка на валидность данных
+          if (!booking || !booking.date || !booking.venueId) {
+            console.warn('Invalid booking data:', booking)
+            return false
+          }
+          
+          try {
+            const bookingDate = new Date(booking.date)
+            if (isNaN(bookingDate.getTime())) {
+              console.warn('Invalid booking date:', booking.date)
+              return false
+            }
+            
+            const inRange = bookingDate >= startOfWeek && bookingDate <= endOfWeek
+            return inRange && booking.venueId === venueId
+          } catch (err) {
+            console.error('Error filtering booking:', booking.id, err)
+            return false
+          }
+        })
+        
+        // Для календаря - только те, что занимают корт
+        const calendarBookings = weekBookings.filter(booking => {
+          // Дополнительная проверка на валидность данных
+          if (!booking || !booking.id) {
+            console.warn('Invalid booking for calendar:', booking)
+            return false
+          }
+          
+          try {
+            // Проверяем, что бронирование действительно занимает корт
+            const status = booking.status || 'pending'
+            const paymentStatus = booking.paymentStatus || 'awaiting_payment'
+            
+            const occupiesCourt = (
+              status === 'confirmed' || 
+              paymentStatus === 'paid' || 
+              paymentStatus === 'awaiting_payment'
+            ) && status !== 'cancelled' && paymentStatus !== 'cancelled' && paymentStatus !== 'refunded'
+            
+            console.log('Booking:', booking.id, 'Status:', status, 'PaymentStatus:', paymentStatus, 'Occupies court:', occupiesCourt)
+            
+            return occupiesCourt
+          } catch (err) {
+            console.error('Error processing booking for calendar:', booking.id, err)
+            return false
+          }
+        })
+        
+        // Сортируем по дате с защитой от ошибок
+        const sortedCalendarBookings = calendarBookings.sort((a, b) => {
+          try {
+            const dateA = new Date(a.date || new Date())
+            const dateB = new Date(b.date || new Date())
+            return dateB.getTime() - dateA.getTime()
+          } catch (err) {
+            console.error('Error sorting calendar bookings:', err)
+            return 0
+          }
+        })
+        
+        const sortedAllBookings = bookingsData.sort((a, b) => {
+          try {
+            const dateA = new Date(a.date || new Date())
+            const dateB = new Date(b.date || new Date())
+            return dateB.getTime() - dateA.getTime()
+          } catch (err) {
+            console.error('Error sorting all bookings:', err)
+            return 0
+          }
+        })
+        
+        console.log('Calendar bookings (occupying courts):', sortedCalendarBookings)
+        console.log('All bookings:', sortedAllBookings)
+        
+          setBookings(sortedCalendarBookings) // Для календаря
+          setAllBookings(sortedAllBookings) // Для списка
+          setLoading(false)
+        } catch (callbackError) {
+          console.error('Error processing bookings snapshot:', callbackError)
+          setLoading(false)
+          // Устанавливаем пустые массивы в случае ошибки
+          setBookings([])
+          setAllBookings([])
         }
-      }) as Booking[]
-      
-      console.log('All bookings data:', bookingsData)
-      
-      // Фильтруем на клиенте, если не удалось отфильтровать в запросе
-      const filteredBookings = bookingsData.filter(booking => {
-        const bookingDate = new Date(booking.date)
-        const inRange = bookingDate >= startOfWeek && bookingDate <= endOfWeek
-        console.log('Booking date:', bookingDate, 'In range:', inRange, 'Venue match:', booking.venueId === venueId)
-        // ВАЖНО: фильтруем также по venueId
-        return inRange && booking.venueId === venueId
+      }, (error) => {
+        console.error('Error in bookings listener:', error)
+        setLoading(false)
       })
       
-      // Сортируем по дате на клиенте
-      const sortedBookings = filteredBookings.sort((a, b) => {
-        return new Date(b.date).getTime() - new Date(a.date).getTime()
-      })
+      // Сохраняем функцию отписки
+      setBookingsUnsubscribe(() => unsubscribe)
       
-      console.log('Filtered and sorted bookings:', sortedBookings)
-      setBookings(sortedBookings)
     } catch (error) {
-      console.error('Error fetching bookings:', error)
-    } finally {
+      console.error('Error setting up bookings listener:', error)
       setLoading(false)
     }
   }
@@ -318,6 +452,8 @@ export default function BookingsManagement() {
   }
 
   const getWeekDates = () => {
+    if (!selectedDate) return []
+    
     const dates = []
     const startOfWeek = new Date(selectedDate)
     startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay() + 1)
@@ -331,14 +467,29 @@ export default function BookingsManagement() {
   }
 
   const getBookingsForSlot = (date: Date, time: string, courtId: string) => {
-    return bookings.filter(booking => {
-      const bookingDate = new Date(booking.date)
-      // Проверяем оба поля - startTime и time для совместимости
-      const bookingTime = booking.startTime || booking.time
-      return bookingDate.toDateString() === date.toDateString() &&
-             bookingTime === time &&
-             booking.courtId === courtId
-    })
+    if (!date || !time || !courtId) return []
+    
+    try {
+      return bookings.filter(booking => {
+        if (!booking || !booking.date) return false
+        
+        const bookingDate = booking.date instanceof Date 
+          ? booking.date 
+          : (booking.date?.toDate ? booking.date.toDate() : new Date(booking.date))
+          
+        // Проверяем оба поля - startTime и time для совместимости
+        const bookingTime = booking.startTime || booking.time
+        
+        return bookingDate && 
+               date && 
+               bookingDate.toDateString() === date.toDateString() &&
+               bookingTime === time &&
+               booking.courtId === courtId
+      })
+    } catch (error) {
+      console.error('Error in getBookingsForSlot:', error, { date, time, courtId })
+      return []
+    }
   }
 
   // Проверка, занят ли временной слот
@@ -436,7 +587,7 @@ export default function BookingsManagement() {
   if (!hasPermission(['manage_bookings', 'manage_all_bookings', 'view_bookings'])) {
     return (
       <Alert severity="error">
-        <AlertTitle>Доступ запрещен</AlertTitle>
+        <strong>Доступ запрещен</strong><br />
         У вас недостаточно прав для просмотра бронирований.
       </Alert>
     )
@@ -549,6 +700,41 @@ export default function BookingsManagement() {
           </div>
         </div>
         
+        {/* Легенда кортов */}
+        {courts.length > 0 && (
+          <div style={{
+            display: 'flex',
+            gap: '16px',
+            marginTop: '16px',
+            marginBottom: '8px',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ fontSize: '12px', color: 'var(--gray)', fontWeight: '600' }}>
+              Корты:
+            </div>
+            {courts.map((court, index) => (
+              <div key={court.id} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '12px'
+              }}>
+                <div style={{
+                  width: '12px',
+                  height: '12px',
+                  borderRadius: '3px',
+                  backgroundColor: court.color || '#00A86B',
+                  border: '1px solid rgba(0, 0, 0, 0.1)'
+                }} />
+                <span>{court.name}</span>
+                {index < courts.length - 1 && (
+                  <span style={{ color: 'var(--extra-light-gray)', marginLeft: '4px' }}>|</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        
         <div className="calendar-grid" style={{
           display: 'grid',
           gridTemplateColumns: '60px repeat(7, 1fr)',
@@ -559,18 +745,18 @@ export default function BookingsManagement() {
           overflow: 'hidden'
         }}>
           <div style={{ background: 'var(--white)', padding: '12px' }}></div>
-          {weekDates.map((date, index) => (
+          {(weekDates || []).map((date, index) => (
             <div key={index} className="day-header" style={{ 
               fontWeight: '600', 
               textAlign: 'center',
               background: 'var(--background)',
               padding: '12px'
             }}>
-              {dayNames[index]} {date.getDate()}
+              {dayNames[index]} {date ? date.getDate() : ''}
             </div>
           ))}
           
-          {timeSlots.map(time => (
+          {(timeSlots || []).map(time => (
             <React.Fragment key={time}>
               <div className="time-slot" style={{ 
                 fontSize: '12px',
@@ -579,148 +765,164 @@ export default function BookingsManagement() {
                 padding: '8px',
                 background: 'var(--white)'
               }}>
-                {time}
+                {time || ''}
               </div>
-              {weekDates.map((date, dateIndex) => {
-                const bookingsInSlot = courts.flatMap(court => 
-                  getBookingsForSlot(date, time, court.id)
-                )
-                
-                const isSelected = selectedSlotDate && selectedSlotTime && 
-                  date.toDateString() === selectedSlotDate.toDateString() && 
-                  time === selectedSlotTime
-                const isHovered = hoveredSlot && 
-                  date.toDateString() === hoveredSlot.date.toDateString() && 
-                  time === hoveredSlot.time
-                
+              {(weekDates || []).map((date, dateIndex) => {
                 return (
                   <div 
-                    key={`${time}-${dateIndex}`} 
-                    className="booking-slot"
+                    key={`${time || 'unknown'}-${dateIndex}`}
+                    className="booking-slot-container"
                     style={{
-                      position: 'relative',
-                      cursor: 'pointer',
-                      minHeight: '60px',
-                      background: bookingsInSlot.length > 0 
-                        ? (() => {
-                            // Находим цвет корта для первого бронирования
-                            const booking = bookingsInSlot[0]
-                            const court = courts.find(c => c.id === booking.courtId)
-                            const courtColor = court?.color || '#00A86B'
-                            // Преобразуем HEX в RGBA с прозрачностью
-                            const r = parseInt(courtColor.slice(1, 3), 16)
-                            const g = parseInt(courtColor.slice(3, 5), 16)
-                            const b = parseInt(courtColor.slice(5, 7), 16)
-                            return `rgba(${r}, ${g}, ${b}, 0.15)`
-                          })() 
-                        : isSelected 
-                          ? 'rgba(0, 168, 107, 0.2)'
-                          : isHovered
-                            ? 'rgba(0, 168, 107, 0.05)'
-                            : 'var(--white)',
-                      padding: '8px',
-                      overflow: 'hidden',
-                      border: isSelected ? '2px solid var(--primary)' : '2px solid transparent',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={() => {
-                      if (bookingsInSlot.length === 0) {
-                        setHoveredSlot({date, time})
-                      }
-                    }}
-                    onMouseLeave={() => {
-                      setHoveredSlot(null)
-                    }}
-                    onClick={() => {
-                      if (bookingsInSlot.length > 0) {
-                        // Если есть бронирование, показываем детали
-                        setSelectedBooking(bookingsInSlot[0])
-                        setShowDetailsModal(true)
-                      } else {
-                        // Если слот пустой, открываем форму создания
-                        setSelectedSlotDate(date)
-                        setSelectedSlotTime(time)
-                        setShowCreateModal(true)
-                      }
+                      display: 'flex',
+                      flexDirection: 'column',
+                      minHeight: `${Math.max(60, courts.length * 40)}px`,
+                      background: 'var(--white)',
+                      border: '1px solid var(--extra-light-gray)',
+                      borderRadius: '4px',
+                      overflow: 'hidden'
                     }}
                   >
-                    {bookingsInSlot.length === 0 && (isHovered || isSelected) && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        fontSize: '12px',
-                        color: 'var(--primary)',
-                        fontWeight: '600',
-                        textAlign: 'center'
-                      }}>
-                        {time}
-                      </div>
-                    )}
-                    {bookingsInSlot.map((booking, idx) => {
-                      const paymentStatus = booking.paymentStatus || 'awaiting_payment'
-                      const statusColors = {
-                        awaiting_payment: '#F59E0B',
-                        paid: '#10B981',
-                        online_payment: '#3B82F6',
-                        cancelled: '#EF4444'
-                      }
-                      const statusLabels = {
-                        awaiting_payment: 'Ожидает',
-                        paid: 'Оплачено',
-                        online_payment: 'Онлайн',
-                        cancelled: 'Отменено'
+                    {/* Разделяем ячейку на корты */}
+                    {(courts || []).map((court, courtIndex) => {
+                      const bookingForCourt = date && time && court?.id 
+                        ? getBookingsForSlot(date, time, court.id)[0]
+                        : null
+                      
+                      // Debug log for awaiting_payment bookings
+                      if (bookingForCourt?.paymentStatus === 'awaiting_payment') {
+                        console.log('Rendering awaiting_payment booking:', {
+                          id: bookingForCourt.id,
+                          courtId: court?.id,
+                          courtName: court?.name,
+                          paymentStatus: bookingForCourt.paymentStatus,
+                          clientName: bookingForCourt.clientName,
+                          hasAllRequiredFields: !!(bookingForCourt && court && date && time)
+                        })
                       }
                       
+                      const isSelected = selectedSlotDate && selectedSlotTime && date &&
+                        date.toDateString() === selectedSlotDate.toDateString() && 
+                        time === selectedSlotTime && 
+                        formData.courtId === court.id
+                      
+                      const isHovered = hoveredSlot && date &&
+                        date.toDateString() === hoveredSlot.date.toDateString() && 
+                        time === hoveredSlot.time &&
+                        hoveredSlot.courtId === court.id
+                      
                       return (
-                        <div key={idx} style={{ 
-                          fontSize: '11px',
-                          marginBottom: '4px',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}>
-                          <div style={{ 
-                            fontWeight: '600', 
-                            color: 'var(--dark)',
+                        <div
+                          key={court.id}
+                          className="court-slot"
+                          style={{
+                            flex: 1,
+                            position: 'relative',
+                            cursor: 'pointer',
+                            minHeight: '40px',
+                            background: bookingForCourt
+                              ? (() => {
+                                  const courtColor = court.color || '#00A86B'
+                                  const r = parseInt(courtColor.slice(1, 3), 16)
+                                  const g = parseInt(courtColor.slice(3, 5), 16)
+                                  const b = parseInt(courtColor.slice(5, 7), 16)
+                                  return `rgba(${r}, ${g}, ${b}, 0.15)`
+                                })()
+                              : isSelected
+                                ? 'rgba(0, 168, 107, 0.2)'
+                                : isHovered
+                                  ? 'rgba(0, 168, 107, 0.05)'
+                                  : 'transparent',
+                            padding: '4px 8px',
+                            borderTop: courtIndex > 0 ? '1px solid var(--extra-light-gray)' : 'none',
+                            transition: 'all 0.2s ease',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px'
-                          }}>
-                            {(() => {
-                              const court = courts.find(c => c.id === booking.courtId)
-                              if (court?.color) {
-                                return (
+                            justifyContent: 'center'
+                          }}
+                          onMouseEnter={() => {
+                            if (!bookingForCourt) {
+                              setHoveredSlot({date, time, courtId: court.id})
+                            }
+                          }}
+                          onMouseLeave={() => {
+                            setHoveredSlot(null)
+                          }}
+                          onClick={() => {
+                            if (bookingForCourt) {
+                              // Если есть бронирование, показываем детали
+                              setSelectedBooking(bookingForCourt)
+                              setShowDetailsModal(true)
+                            } else {
+                              // Если слот пустой, открываем форму создания с предвыбранным кортом
+                              setSelectedSlotDate(date)
+                              setSelectedSlotTime(time)
+                              setFormData(prev => ({ ...prev, courtId: court.id }))
+                              setShowCreateModal(true)
+                            }
+                          }}
+                        >
+                          {/* Показываем контент для каждого корта */}
+                          {!bookingForCourt && (isHovered || isSelected) && (
+                            <div style={{
+                              fontSize: '11px',
+                              color: court.color || 'var(--primary)',
+                              fontWeight: '600',
+                              textAlign: 'center',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              justifyContent: 'center'
+                            }}>
+                              {court.color && (
+                                <div style={{
+                                  width: '8px',
+                                  height: '8px',
+                                  borderRadius: '2px',
+                                  backgroundColor: court.color,
+                                  flexShrink: 0
+                                }} />
+                              )}
+                              {court.name}
+                            </div>
+                          )}
+                          
+                          {bookingForCourt && (
+                            <div style={{
+                              fontSize: '10px',
+                              width: '100%',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}>
+                              <div style={{
+                                fontWeight: '600',
+                                color: 'var(--dark)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}>
+                                {court?.color && (
                                   <div style={{
-                                    width: '8px',
-                                    height: '8px',
+                                    width: '6px',
+                                    height: '6px',
                                     borderRadius: '2px',
                                     backgroundColor: court.color,
                                     flexShrink: 0
                                   }} />
-                                )
-                              }
-                              return null
-                            })()}
-                            {booking.courtName}
-                          </div>
-                          <div className="booking-slot-details" style={{ color: 'var(--gray)', fontSize: '10px' }}>
-                            {booking.clientName || booking.customerName}
-                            {(booking.clientPhone || booking.customerPhone) && (
-                              <span style={{ fontSize: '9px', marginLeft: '4px' }}>
-                                {booking.clientPhone || booking.customerPhone}
-                              </span>
-                            )}
-                          </div>
-                          <div className="booking-slot-status" style={{ 
-                            fontSize: '9px',
-                            marginTop: '2px',
-                            color: statusColors[paymentStatus],
-                            fontWeight: '500'
-                          }}>
-                            {statusLabels[paymentStatus]}
-                          </div>
+                                )}
+                                {bookingForCourt?.clientName || bookingForCourt?.customerName || 'Клиент'}
+                              </div>
+                              {(bookingForCourt?.clientPhone || bookingForCourt?.customerPhone) && (
+                                <div style={{ 
+                                  color: 'var(--gray)', 
+                                  fontSize: '9px',
+                                  marginTop: '1px'
+                                }}>
+                                  {bookingForCourt.clientPhone || bookingForCourt.customerPhone}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )
                     })}
@@ -732,9 +934,10 @@ export default function BookingsManagement() {
         </div>
       </div>
       
-      {/* Список бронирований */}
+      {/* Список бронирований - показываем ВСЕ бронирования */}
       <BookingsList 
         venueId={selectedVenueId || admin?.venueId || ''} 
+        bookings={allBookings}
         onRefresh={() => fetchBookings(selectedVenueId || admin?.venueId || '')}
       />
       
@@ -756,6 +959,7 @@ export default function BookingsManagement() {
           setShowCreateModal(false)
           setSelectedSlotDate(null)
           setSelectedSlotTime(null)
+          setFormData(prev => ({ ...prev, courtId: '' }))
         }}
         onSuccess={() => {
           fetchBookings(selectedVenueId || admin?.venueId || '')
@@ -763,6 +967,7 @@ export default function BookingsManagement() {
         venueId={selectedVenueId || admin?.venueId || ''}
         preSelectedDate={selectedSlotDate || undefined}
         preSelectedTime={selectedSlotTime || undefined}
+        preSelectedCourtId={formData.courtId || undefined}
       />
     </div>
     </PermissionGate>

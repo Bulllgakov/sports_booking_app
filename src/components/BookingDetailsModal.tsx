@@ -4,6 +4,7 @@ import { doc, getDoc, onSnapshot } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import PaymentStatusManager from './PaymentStatusManager'
 import PaymentHistory from './PaymentHistory'
+import RefundModal from './RefundModal'
 
 interface PaymentHistory {
   timestamp: any
@@ -27,7 +28,7 @@ interface Booking {
   endTime: string
   status: 'confirmed' | 'pending' | 'cancelled'
   amount: number
-  paymentMethod: 'cash' | 'card_on_site' | 'transfer' | 'online'
+  paymentMethod: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card'
   paymentStatus?: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled'
   paymentHistory?: PaymentHistory[]
   createdBy?: {
@@ -53,6 +54,7 @@ export default function BookingDetailsModal({
   onUpdate 
 }: BookingDetailsModalProps) {
   const [currentBooking, setCurrentBooking] = useState<Booking | null>(booking)
+  const [showRefundModal, setShowRefundModal] = useState(false)
 
   useEffect(() => {
     if (booking && isOpen) {
@@ -126,8 +128,10 @@ export default function BookingDetailsModal({
   const paymentMethodLabels = {
     cash: 'Наличные',
     card_on_site: 'Карта на месте',  
-    transfer: 'Перевод',
-    online: 'Онлайн'
+    transfer: 'Перевод на р.счет клуба (юр.лицо)',
+    online: 'Онлайн',
+    sberbank_card: 'На карту Сбербанка',
+    tbank_card: 'На карту Т-Банка'
   }
 
   const statusLabels = {
@@ -143,7 +147,16 @@ export default function BookingDetailsModal({
   }
 
   return (
-    <div className="modal active">
+    <>
+    <div 
+      className="modal active"
+      onClick={(e) => {
+        // Закрываем при клике на оверлей (фон)
+        if (e.target === e.currentTarget) {
+          onClose()
+        }
+      }}
+    >
       <div className="modal-content" style={{ maxWidth: '700px' }}>
         <div className="modal-header">
           <h2 className="modal-title">Детали бронирования</h2>
@@ -273,6 +286,9 @@ export default function BookingDetailsModal({
                         await onUpdate()
                       }
                     }}
+                    onRefund={() => {
+                      setShowRefundModal(true)
+                    }}
                   />
                 </div>
               </div>
@@ -292,5 +308,21 @@ export default function BookingDetailsModal({
         </div>
       </div>
     </div>
+    
+    {/* Модальное окно возврата */}
+    <RefundModal
+      isOpen={showRefundModal}
+      onClose={() => {
+        setShowRefundModal(false)
+      }}
+      booking={currentBooking}
+      onSuccess={() => {
+        setShowRefundModal(false)
+        if (onUpdate) {
+          onUpdate()
+        }
+      }}
+    />
+  </>
   )
 }

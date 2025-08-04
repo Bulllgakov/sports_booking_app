@@ -1,5 +1,6 @@
 import * as crypto from "crypto";
 import axios from "axios";
+import {v4 as uuidv4} from "uuid";
 
 // Интерфейсы для YooKassa API
 interface YooKassaConfig {
@@ -24,6 +25,23 @@ interface YooKassaPaymentRequest {
   description?: string;
   metadata?: Record<string, any>;
   save_payment_method?: boolean;
+  receipt?: {
+    customer: {
+      email?: string;
+      phone?: string;
+    };
+    items: Array<{
+      description: string;
+      quantity: string;
+      amount: {
+        value: string;
+        currency: string;
+      };
+      vat_code: number;
+      payment_mode?: string;
+      payment_subject?: string;
+    }>;
+  };
 }
 
 interface YooKassaPaymentResponse {
@@ -84,20 +102,43 @@ export class YooKassaAPI {
     try {
       const idempotenceKey = crypto.randomBytes(16).toString("hex");
 
+      // В тестовом режиме YooKassa может требовать специальный заголовок
+      const headers: Record<string, string> = {
+        ...this.getHeaders(),
+        "Idempotence-Key": idempotenceKey,
+      };
+
+      // Добавляем тестовый режим в заголовки если включен
+      if (this.config.testMode) {
+        headers["X-Test-Mode"] = "true";
+      }
+
+      console.log("YooKassa API request:", {
+        url: `${this.baseURL}/payments`,
+        testMode: this.config.testMode,
+        shopId: this.config.shopId,
+      });
+
       const response = await axios.post(
         `${this.baseURL}/payments`,
         request,
-        {
-          headers: {
-            ...this.getHeaders(),
-            "Idempotence-Key": idempotenceKey,
-          },
-        }
+        {headers}
       );
+
+      console.log("YooKassa API response:", {
+        status: response.status,
+        id: response.data?.id,
+        paymentStatus: response.data?.status,
+        confirmationUrl: response.data?.confirmation?.confirmation_url,
+      });
 
       return response.data;
     } catch (error: any) {
-      console.error("YooKassa Create Payment error:", error.response?.data || error.message);
+      console.error("YooKassa Create Payment error:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
       throw new Error(`Payment creation failed: ${error.response?.data?.description || error.message}`);
     }
   }
@@ -236,5 +277,66 @@ export class YooKassaAPI {
       console.error("YooKassa Webhook verification error:", error);
       return false;
     }
+  }
+}
+
+/**
+ * Создание возврата платежа через YooKassa
+ * @param {string} shopId - ID магазина
+ * @param {string} secretKey - Секретный ключ
+ * @param {string} paymentId - ID платежа для возврата
+ * @param {number} amount - Сумма возврата
+ * @param {string} reason - Причина возврата
+ * @return {Promise<{success: boolean; refundId?: string; error?: string}>}
+ */
+export async function createRefund(
+  shopId: string,
+  secretKey: string,
+  paymentId: string,
+  amount: number,
+  reason: string
+): Promise<{success: boolean; refundId?: string; error?: string}> {
+  try {
+    const refundData = {
+      payment_id: paymentId,
+      amount: {
+        value: amount.toFixed(2),
+        currency: "RUB",
+      },
+      description: reason,
+    };
+
+    const authString = Buffer.from(`${shopId}:${secretKey}`).toString("base64");
+
+    const response = await fetch("https://api.yookassa.ru/v3/refunds", {
+      method: "POST",
+      headers: {
+        "Authorization": `Basic ${authString}`,
+        "Content-Type": "application/json",
+        "Idempotence-Key": uuidv4(),
+      },
+      body: JSON.stringify(refundData),
+    });
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      console.error("YooKassa refund error:", responseData);
+      return {
+        success: false,
+        error: responseData.description || "Ошибка при создании возврата",
+      };
+    }
+
+    return {
+      success: true,
+      refundId: responseData.id,
+    };
+  } catch (error) {
+    console.error("Error creating YooKassa refund:", error);
+    return {
+      success: false,
+      error: (error as Error).message,
+    };
   }
 }

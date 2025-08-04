@@ -22,6 +22,7 @@ import Finance from './pages/admin/Finance'
 import Marketing from './pages/admin/Marketing'
 import Settings from './pages/admin/Settings'
 import Debug from './pages/admin/Debug'
+import FixPermissions from './pages/admin/FixPermissions'
 import ErrorBoundary from './components/ErrorBoundary'
 // Public pages
 import ClubPage from './pages/public/ClubPage'
@@ -118,6 +119,7 @@ function App() {
               <Route path="marketing" element={<Marketing />} />
               <Route path="settings" element={<Settings />} />
               <Route path="debug" element={<Debug />} />
+              <Route path="fix-permissions" element={<FixPermissions />} />
             </Route>
           </Routes>
         </Router>

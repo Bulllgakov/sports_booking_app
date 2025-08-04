@@ -77,6 +77,7 @@ export default function CourtsManagement() {
   const [courts, setCourts] = useState<Court[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [success, setSuccess] = useState(false)
   const [editingCourt, setEditingCourt] = useState<Court | null>(null)
   const [formData, setFormData] = useState({
     name: '',
@@ -215,6 +216,10 @@ export default function CourtsManagement() {
         color: nextColor,
       })
       fetchCourts(venueId)
+      
+      // Показать сообщение об успехе
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
     } catch (error) {
       console.error('Error saving court:', error)
     }
@@ -249,6 +254,10 @@ export default function CourtsManagement() {
         
         await deleteDoc(doc(db, 'venues', venueId, 'courts', courtId))
         fetchCourts(venueId)
+        
+        // Показать сообщение об успешном удалении
+        setSuccess(true)
+        setTimeout(() => setSuccess(false), 3000)
       } catch (error) {
         console.error('Error deleting court:', error)
       }
@@ -312,6 +321,20 @@ export default function CourtsManagement() {
               Добавить корт
             </button>
           </div>
+          
+          {success && (
+            <div style={{ 
+              marginTop: '16px',
+              marginBottom: '16px',
+              padding: '12px', 
+              background: 'rgba(16, 185, 129, 0.1)', 
+              color: 'var(--success)',
+              borderRadius: '8px',
+              fontSize: '14px'
+            }}>
+              ✅ Корт успешно сохранен
+            </div>
+          )}
         
         <div className="courts-grid">
           {courts.map(court => (
@@ -509,7 +532,7 @@ export default function CourtsManagement() {
                               <input
                                 type="time"
                                 className="form-input"
-                                style={{ width: '100px' }}
+                                style={{ width: '140px' }}
                                 value={interval.from}
                                 onChange={(e) => {
                                   const newIntervals = [...formData.pricing[day.key as keyof typeof formData.pricing].intervals!]
@@ -531,7 +554,7 @@ export default function CourtsManagement() {
                               <input
                                 type="time"
                                 className="form-input"
-                                style={{ width: '100px' }}
+                                style={{ width: '140px' }}
                                 value={interval.to}
                                 onChange={(e) => {
                                   const newIntervals = [...formData.pricing[day.key as keyof typeof formData.pricing].intervals!]
@@ -552,7 +575,7 @@ export default function CourtsManagement() {
                               <input
                                 type="number"
                                 className="form-input"
-                                style={{ width: '100px' }}
+                                style={{ width: '120px' }}
                                 value={interval.price}
                                 onChange={(e) => {
                                   const newIntervals = [...formData.pricing[day.key as keyof typeof formData.pricing].intervals!]

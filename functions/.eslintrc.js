@@ -20,6 +20,8 @@ module.exports = {
   ignorePatterns: [
     "/lib/**/*", // Ignore built files.
     ".eslintrc.js", // Ignore this config file
+    "**/*.js", // Ignore all JS files
+    "*.js", // Ignore JS files in root
   ],
   plugins: [
     "@typescript-eslint",
@@ -32,6 +34,7 @@ module.exports = {
     "max-len": ["error", {"code": 120}],
     "@typescript-eslint/no-non-null-assertion": "off",
     "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "@typescript-eslint/no-explicit-any": "warn",
     "valid-jsdoc": "off",
     "require-jsdoc": "off",
   },

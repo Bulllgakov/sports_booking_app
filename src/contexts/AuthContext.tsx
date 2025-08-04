@@ -17,12 +17,27 @@ interface ClubData {
   address: string
   phone: string
   email: string
+  city?: string
+  location?: any
   description?: string
   logoUrl?: string
+  photos?: string[]
   amenities?: string[]
   organizationType?: string
   inn?: string
   bankAccount?: string
+  legalName?: string
+  ogrn?: string
+  kpp?: string
+  legalAddress?: string
+  bankName?: string
+  bankBik?: string
+  bankCorrespondentAccount?: string
+  directorName?: string
+  directorPosition?: string
+  workingHours?: any
+  bookingDurations?: any
+  bookingSlotInterval?: number
 }
 
 interface AuthContextType {
@@ -136,21 +151,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshClubData = async () => {
     if (admin?.venueId) {
       try {
+        console.log('Refreshing club data for venue:', admin.venueId)
         const venueDoc = await getDoc(doc(db, 'venues', admin.venueId))
         if (venueDoc.exists()) {
           const venueData = venueDoc.data()
+          console.log('Loaded venue data:', venueData)
           setClub({
             id: venueDoc.id,
             name: venueData.name || '',
             address: venueData.address || '',
             phone: venueData.phone || '',
             email: venueData.email || '',
+            city: venueData.city || '',
+            location: venueData.location,
             description: venueData.description,
             logoUrl: venueData.logoUrl,
+            photos: venueData.photos || [],
             amenities: venueData.amenities,
             organizationType: venueData.organizationType,
             inn: venueData.inn,
             bankAccount: venueData.bankAccount,
+            legalName: venueData.legalName,
+            ogrn: venueData.ogrn,
+            kpp: venueData.kpp,
+            legalAddress: venueData.legalAddress,
+            bankName: venueData.bankName,
+            bankBik: venueData.bankBik,
+            bankCorrespondentAccount: venueData.bankCorrespondentAccount,
+            directorName: venueData.directorName,
+            directorPosition: venueData.directorPosition,
+            workingHours: venueData.workingHours,
+            bookingDurations: venueData.bookingDurations,
+            bookingSlotInterval: venueData.bookingSlotInterval,
           })
         }
       } catch (error) {

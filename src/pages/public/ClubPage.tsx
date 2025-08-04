@@ -6,8 +6,8 @@ import { styles, mobileStyles, desktopStyles } from './ClubPage.styles'
 import OptimizedImage from '../../components/OptimizedImage'
 import '../../styles/flutter-theme.css'
 
-// Lazy load BookingModal for better performance
-const BookingModal = React.lazy(() => import('../../components/BookingModal'))
+// Import BookingModal directly to avoid dynamic import issues
+import BookingModal from '../../components/BookingModal'
 
 interface Venue {
   id: string
@@ -29,6 +29,11 @@ interface Venue {
     latitude: number
     longitude: number
   }
+  paymentEnabled?: boolean
+  paymentProvider?: string
+  paymentTestMode?: boolean
+  paymentCredentials?: any
+  status?: string
 }
 
 interface Court {
@@ -199,6 +204,11 @@ export default function ClubPage() {
       }
 
       console.log('Loaded venue data:', venueData)
+      console.log('Payment settings:', {
+        paymentEnabled: venueData.paymentEnabled,
+        paymentProvider: venueData.paymentProvider,
+        paymentTestMode: venueData.paymentTestMode
+      })
 
       const courtsData = courtsSnapshot.docs.map(doc => ({
         id: doc.id,
@@ -217,6 +227,44 @@ export default function ClubPage() {
 
   const handleCourtSelect = (court: Court) => {
     setSelectedCourt(court)
+  }
+
+  // Функция для получения диапазона цен корта
+  const getCourtPriceRange = (court: Court): { min: number; max: number; display: string } => {
+    if (court.pricing) {
+      const allPrices: number[] = []
+      
+      // Собираем все цены из всех дней
+      Object.values(court.pricing).forEach((dayPricing: any) => {
+        if (dayPricing && dayPricing.basePrice) {
+          allPrices.push(dayPricing.basePrice)
+          
+          // Добавляем цены из интервалов
+          if (dayPricing.intervals && Array.isArray(dayPricing.intervals)) {
+            dayPricing.intervals.forEach((interval: any) => {
+              if (interval.price) {
+                allPrices.push(interval.price)
+              }
+            })
+          }
+        }
+      })
+      
+      if (allPrices.length > 0) {
+        const min = Math.min(...allPrices)
+        const max = Math.max(...allPrices)
+        
+        if (min === max) {
+          return { min, max, display: `${min}₽` }
+        } else {
+          return { min, max, display: `от ${min}₽` }
+        }
+      }
+    }
+    
+    // Fallback на старую систему
+    const price = court.pricePerHour || court.priceWeekday || 0
+    return { min: price, max: price, display: `${price}₽` }
   }
 
   const handleContinue = () => {
@@ -252,6 +300,52 @@ export default function ClubPage() {
         prev === venue.photos!.length - 1 ? 0 : prev + 1
       )
     }
+  }
+
+  // Styles object
+  const styles: any = {
+    loadingContainer: { display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' },
+    loadingContent: { textAlign: 'center' },
+    spinner: { marginBottom: '16px' },
+    errorContainer: { display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: '20px' },
+    errorCard: { maxWidth: '400px', textAlign: 'center', padding: '40px' },
+    errorIcon: { fontSize: '48px', marginBottom: '16px' },
+    errorTitle: { marginBottom: '12px' },
+    errorText: { color: 'var(--gray)' },
+    pageContainer: { minHeight: '100vh', background: 'var(--background)' },
+    heroImage: { width: '100%', height: '300px', objectFit: 'cover', cursor: 'pointer' },
+    heroPlaceholder: { width: '100%', height: '300px', background: 'var(--extra-light-gray)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
+    heroPlaceholderIcon: { fontSize: '48px', marginBottom: '8px' },
+    heroPlaceholderText: { color: 'var(--gray)' },
+    desktopGallery: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px', marginTop: '16px' },
+    galleryImage: { width: '100%', height: '150px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer', transition: 'transform 0.2s' },
+    mobileGallery: { display: 'flex', gap: '8px', overflowX: 'auto', marginTop: '16px', paddingBottom: '8px' },
+    mobileGalleryImage: { width: '120px', height: '90px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0, cursor: 'pointer' },
+    clubInfoWrapper: { padding: '20px' },
+    clubTitle: { marginBottom: '16px' },
+    clubInfoItems: { display: 'flex', flexDirection: 'column', gap: '12px' },
+    infoItem: { display: 'flex', alignItems: 'center', gap: '8px' },
+    infoIcon: { fontSize: '18px' },
+    courtsWrapper: { padding: '20px' },
+    courtsWrapperDesktop: { marginTop: '32px' },
+    courtsTitle: { marginBottom: '16px' },
+    noCourtsCard: { padding: '40px', textAlign: 'center' },
+    noCourtsIcon: { fontSize: '48px', marginBottom: '8px', display: 'block' },
+    noCourtsText: { color: 'var(--gray)' },
+    courtCardContent: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
+    courtInfo: { flex: 1 },
+    courtName: { marginBottom: '8px' },
+    courtDetails: { display: 'flex', alignItems: 'center', gap: '8px' },
+    courtIndoor: { color: 'var(--gray)' },
+    courtSurface: { color: 'var(--gray)' },
+    courtPricing: { textAlign: 'right' },
+    courtPrice: { color: 'var(--primary)', marginBottom: '4px' },
+    courtPriceUnit: { color: 'var(--gray)' },
+    sidebarBookingCard: { position: 'sticky', top: '20px' },
+    selectedCourtSection: { marginBottom: '8px' },
+    selectedCourtDetails: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+    selectedCourtType: { color: 'var(--gray)' },
+    selectedCourtPrice: { color: 'var(--primary)' }
   }
 
   if (loading) {
@@ -433,7 +527,7 @@ export default function ClubPage() {
                           </div>
                           <div style={styles.courtPricing}>
                             <div className="h3" style={styles.courtPrice}>
-                              {court.pricePerHour || court.priceWeekday || 0}₽
+                              {getCourtPriceRange(court).display}
                             </div>
                             <div className="caption" style={styles.courtPriceUnit}>за час</div>
                           </div>
@@ -448,9 +542,9 @@ export default function ClubPage() {
 
           {/* Description - only on desktop in main content, on mobile in regular flow */}
           {!isDesktop && venue.description && (
-            <div className="info-section" style={styles.descriptionSection}>
+            <div className="info-section">
               <h3 className="info-section-title">О клубе</h3>
-              <p className="body" style={styles.descriptionText}>
+              <p className="body" style={{ color: 'var(--gray)', lineHeight: 1.6 }}>
                 {venue.description}
               </p>
             </div>
@@ -543,7 +637,7 @@ export default function ClubPage() {
                           </div>
                           <div style={styles.courtPricing}>
                             <div className="h3" style={styles.courtPrice}>
-                              {court.pricePerHour || court.priceWeekday || 0}₽
+                              {getCourtPriceRange(court).display}
                             </div>
                             <div className="caption" style={styles.courtPriceUnit}>за час</div>
                           </div>
@@ -558,9 +652,9 @@ export default function ClubPage() {
 
           {/* Description - Desktop only - now AFTER courts */}
           {isDesktop && venue.description && (
-            <div className="info-section" style={styles.descriptionSection}>
+            <div className="info-section" style={{ marginTop: 'var(--spacing-2xl)' }}>
               <h3 className="info-section-title">О клубе</h3>
-              <p className="body" style={styles.descriptionText}>
+              <p className="body" style={{ color: 'var(--gray)', lineHeight: 1.6 }}>
                 {venue.description}
               </p>
             </div>
@@ -582,7 +676,7 @@ export default function ClubPage() {
                       {sportLabels[selectedCourt.type]}
                     </span>
                     <span className="body-bold" style={styles.selectedCourtPrice}>
-                      {selectedCourt.pricePerHour || selectedCourt.priceWeekday || 0}₽/час
+                      {getCourtPriceRange(selectedCourt).display}/час
                     </span>
                   </div>
                 </div>
@@ -664,16 +758,14 @@ export default function ClubPage() {
 
 
 
-      {/* Booking Modal - Lazy loaded */}
+      {/* Booking Modal */}
       {selectedCourt && venue && (
-        <React.Suspense fallback={<div />}>
-          <BookingModal
-            isOpen={showBookingModal}
-            onClose={() => setShowBookingModal(false)}
-            court={selectedCourt}
-            venue={venue}
-          />
-        </React.Suspense>
+        <BookingModal
+          isOpen={showBookingModal}
+          onClose={() => setShowBookingModal(false)}
+          court={selectedCourt}
+          venue={venue}
+        />
       )}
 
       {/* Photo Gallery Modal */}

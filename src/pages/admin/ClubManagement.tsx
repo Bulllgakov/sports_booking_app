@@ -74,6 +74,7 @@ export default function ClubManagement() {
       }
     } else if (club) {
       // Для обычных админов используем их клуб
+      console.log('Updating form data from club:', club)
       setFormData({
         name: club.name || '',
         phone: club.phone || '',
@@ -391,18 +392,6 @@ export default function ClubManagement() {
         city: formData.city,
         description: formData.description,
         amenities: amenitiesList,
-        organizationType: formData.organizationType,
-        inn: formData.inn,
-        bankAccount: formData.bankAccount,
-        legalName: formData.legalName,
-        ogrn: formData.ogrn,
-        kpp: formData.kpp,
-        legalAddress: formData.legalAddress,
-        bankName: formData.bankName,
-        bankBik: formData.bankBik,
-        bankCorrespondentAccount: formData.bankCorrespondentAccount,
-        directorName: formData.directorName,
-        directorPosition: formData.directorPosition,
         workingHours: formData.workingHours,
         bookingDurations: formData.bookingDurations,
         bookingSlotInterval: formData.bookingSlotInterval,
@@ -425,6 +414,8 @@ export default function ClubManagement() {
       } else {
         // For regular admins, refresh club data from AuthContext
         await refreshClubData()
+        // После обновления данных клуба, данные автоматически обновятся через useEffect
+        console.log('Club data refreshed successfully')
       }
 
       setSuccess(true)
@@ -432,6 +423,53 @@ export default function ClubManagement() {
     } catch (error) {
       console.error('Error updating club:', error)
       setError('Ошибка при сохранении данных')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRequisitesSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    const venueId = isSuperAdmin ? selectedVenueId : admin?.venueId
+    if (!venueId) return
+
+    try {
+      setLoading(true)
+
+      const updateData: any = {
+        organizationType: formData.organizationType,
+        inn: formData.inn,
+        bankAccount: formData.bankAccount,
+        legalName: formData.legalName,
+        ogrn: formData.ogrn,
+        kpp: formData.kpp,
+        legalAddress: formData.legalAddress,
+        bankName: formData.bankName,
+        bankBik: formData.bankBik,
+        bankCorrespondentAccount: formData.bankCorrespondentAccount,
+        directorName: formData.directorName,
+        directorPosition: formData.directorPosition,
+        updatedAt: new Date(),
+      }
+
+      await updateDoc(doc(db, 'venues', venueId), updateData)
+
+      // Update local state for superadmin
+      if (isSuperAdmin && selectedVenue) {
+        await loadVenueData(venueId)
+      } else {
+        // For regular admins, refresh club data from AuthContext
+        await refreshClubData()
+        // После обновления данных клуба, данные автоматически обновятся через useEffect
+        console.log('Club data refreshed successfully')
+      }
+
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
+    } catch (error) {
+      console.error('Error updating requisites:', error)
+      setError('Ошибка при сохранении реквизитов')
     } finally {
       setLoading(false)
     }
@@ -1020,7 +1058,7 @@ export default function ClubManagement() {
         <div className="section-card">
         <h2 className="section-title">Реквизиты организации</h2>
         
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleRequisitesSubmit}>
           <div className="form-group" style={{ marginTop: '24px' }}>
             <label className="form-label">Тип организации</label>
             <select 
@@ -1181,6 +1219,19 @@ export default function ClubManagement() {
           <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? 'Сохранение...' : 'Сохранить реквизиты'}
           </button>
+          
+          {success && (
+            <div style={{ 
+              marginTop: '16px', 
+              padding: '12px', 
+              background: 'rgba(16, 185, 129, 0.1)', 
+              color: 'var(--success)',
+              borderRadius: '8px',
+              fontSize: '14px'
+            }}>
+              ✅ Реквизиты успешно сохранены
+            </div>
+          )}
         </form>
         
         <div style={{ 

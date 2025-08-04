@@ -19,7 +19,7 @@ class BookingService {
           .where('courtId', isEqualTo: courtId)
           .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
           .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
-          .where('status', whereIn: ['confirmed', 'pending'])
+          .where('paymentStatus', whereIn: ['paid', 'awaiting_payment'])
           .get();
       
       return snapshot.docs

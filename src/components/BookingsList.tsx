@@ -13,7 +13,9 @@ import { db } from '../services/firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { usePermission } from '../hooks/usePermission'
 import PaymentStatusManager from './PaymentStatusManager'
+import PaymentTimeLimit from './PaymentTimeLimit'
 import BookingDetailsModal from './BookingDetailsModal'
+import RefundModal from './RefundModal'
 import { Delete, FilterList, Info } from '@mui/icons-material'
 
 interface PaymentHistory {
@@ -38,8 +40,9 @@ interface Booking {
   endTime: string
   status: 'confirmed' | 'pending' | 'cancelled'
   amount: number
-  paymentMethod: 'cash' | 'card_on_site' | 'transfer' | 'online'
-  paymentStatus?: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled'
+  paymentMethod: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card'
+  paymentStatus?: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled' | 'refunded'
+  paymentId?: string
   paymentHistory?: PaymentHistory[]
   createdBy?: {
     userId: string
@@ -52,10 +55,11 @@ interface Booking {
 
 interface BookingsListProps {
   venueId: string
+  bookings?: Booking[]
   onRefresh?: () => void
 }
 
-export default function BookingsList({ venueId, onRefresh }: BookingsListProps) {
+export default function BookingsList({ venueId, bookings: propsBookings, onRefresh }: BookingsListProps) {
   const { admin } = useAuth()
   const { hasPermission } = usePermission()
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -65,12 +69,26 @@ export default function BookingsList({ venueId, onRefresh }: BookingsListProps) 
   const [showFilters, setShowFilters] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [showRefundModal, setShowRefundModal] = useState(false)
+  const [refundBooking, setRefundBooking] = useState<Booking | null>(null)
 
   useEffect(() => {
-    fetchBookings()
-  }, [venueId])
+    // Если бронирования переданы через props, используем их
+    if (propsBookings) {
+      setBookings(propsBookings)
+      setLoading(false)
+    } else {
+      // Иначе загружаем сами
+      fetchBookings()
+    }
+  }, [venueId, propsBookings])
 
   const fetchBookings = async () => {
+    // Если бронирования переданы через props, не загружаем их заново
+    if (propsBookings) {
+      return
+    }
+    
     if (!venueId) {
       console.log('No venueId provided to BookingsList')
       return
@@ -120,8 +138,13 @@ export default function BookingsList({ venueId, onRefresh }: BookingsListProps) 
 
     try {
       await deleteDoc(doc(db, 'bookings', bookingId))
-      fetchBookings()
-      if (onRefresh) onRefresh()
+      // Если есть функция обновления от родителя, вызываем её
+      if (onRefresh) {
+        onRefresh()
+      } else {
+        // Иначе обновляем локально
+        fetchBookings()
+      }
     } catch (error) {
       console.error('Error deleting booking:', error)
       alert('Ошибка при удалении бронирования')
@@ -160,8 +183,10 @@ export default function BookingsList({ venueId, onRefresh }: BookingsListProps) 
   const paymentMethodLabels = {
     cash: 'Наличные',
     card_on_site: 'Карта на месте',
-    transfer: 'Перевод',
-    online: 'Онлайн'
+    transfer: 'Перевод на р.счет клуба (юр.лицо)',
+    online: 'Онлайн',
+    sberbank_card: 'На карту Сбербанка',
+    tbank_card: 'На карту Т-Банка'
   }
 
   if (loading) {
@@ -230,7 +255,7 @@ export default function BookingsList({ venueId, onRefresh }: BookingsListProps) 
         </div>
       )}
 
-      <div className="table-wrapper">
+      <div className="table-wrapper" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <table>
           <thead>
             <tr>
@@ -269,12 +294,25 @@ export default function BookingsList({ venueId, onRefresh }: BookingsListProps) 
                   <td style={{ fontWeight: '600' }}>{formatAmount(booking.amount)}</td>
                   <td>{paymentMethodLabels[booking.paymentMethod] || booking.paymentMethod}</td>
                   <td>
-                    <PaymentStatusManager
-                      bookingId={booking.id}
-                      currentStatus={booking.paymentStatus || 'awaiting_payment'}
-                      paymentMethod={booking.paymentMethod}
-                      onStatusUpdate={fetchBookings}
-                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <PaymentStatusManager
+                        bookingId={booking.id}
+                        currentStatus={booking.paymentStatus || 'awaiting_payment'}
+                        paymentMethod={booking.paymentMethod}
+                        onStatusUpdate={fetchBookings}
+                        onRefund={() => {
+                          setRefundBooking(booking)
+                          setShowRefundModal(true)
+                        }}
+                      />
+                      {booking.createdAt && (
+                        <PaymentTimeLimit
+                          createdAt={booking.createdAt}
+                          paymentMethod={booking.paymentMethod}
+                          paymentStatus={booking.paymentStatus}
+                        />
+                      )}
+                    </div>
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: '8px' }}>
@@ -306,82 +344,6 @@ export default function BookingsList({ venueId, onRefresh }: BookingsListProps) 
         </table>
       </div>
       
-      {/* Mobile cards view */}
-      <div className="bookings-mobile-cards">
-        {filteredBookings.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px', color: 'var(--gray)' }}>
-            Нет бронирований
-          </div>
-        ) : (
-          filteredBookings.map(booking => (
-            <div key={booking.id} className="booking-card-mobile">
-              <div className="booking-card-header">
-                <div className="booking-card-court">{booking.courtName}</div>
-                <div className="booking-card-amount">{formatAmount(booking.amount)}</div>
-              </div>
-              
-              <div className="booking-card-client">
-                <div className="booking-card-client-name">
-                  {booking.clientName || booking.customerName}
-                </div>
-                <div className="booking-card-client-phone">
-                  {booking.clientPhone || booking.customerPhone}
-                </div>
-              </div>
-              
-              <div className="booking-card-info">
-                <div className="booking-card-row">
-                  <span className="booking-card-label">Дата:</span>
-                  <span className="booking-card-value">{formatDate(booking.date)}</span>
-                </div>
-                <div className="booking-card-row">
-                  <span className="booking-card-label">Время:</span>
-                  <span className="booking-card-value">
-                    {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
-                  </span>
-                </div>
-                <div className="booking-card-row">
-                  <span className="booking-card-label">Способ оплаты:</span>
-                  <span className="booking-card-value">
-                    {paymentMethodLabels[booking.paymentMethod] || booking.paymentMethod}
-                  </span>
-                </div>
-              </div>
-              
-              <div className="booking-card-footer">
-                <PaymentStatusManager
-                  bookingId={booking.id}
-                  currentStatus={booking.paymentStatus || 'awaiting_payment'}
-                  paymentMethod={booking.paymentMethod}
-                  onStatusUpdate={fetchBookings}
-                />
-                <div className="booking-card-actions">
-                  <button
-                    className="btn btn-secondary btn-icon"
-                    onClick={() => {
-                      setSelectedBooking(booking)
-                      setShowDetailsModal(true)
-                    }}
-                    title="Подробности"
-                  >
-                    <Info />
-                  </button>
-                  {hasPermission(['manage_bookings', 'manage_all_bookings']) && (
-                    <button
-                      className="btn btn-danger btn-icon"
-                      onClick={() => handleDelete(booking.id)}
-                      title="Удалить"
-                    >
-                      <Delete />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-      
       <BookingDetailsModal
         booking={selectedBooking}
         isOpen={showDetailsModal}
@@ -390,6 +352,20 @@ export default function BookingsList({ venueId, onRefresh }: BookingsListProps) 
           setSelectedBooking(null)
         }}
         onUpdate={fetchBookings}
+      />
+      
+      <RefundModal
+        isOpen={showRefundModal}
+        onClose={() => {
+          setShowRefundModal(false)
+          setRefundBooking(null)
+        }}
+        booking={refundBooking}
+        onSuccess={() => {
+          fetchBookings()
+          setShowRefundModal(false)
+          setRefundBooking(null)
+        }}
       />
     </div>
   )

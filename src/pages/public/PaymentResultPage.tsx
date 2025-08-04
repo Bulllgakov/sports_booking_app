@@ -43,23 +43,32 @@ export default function PaymentResultPage() {
       const isSuccess = status === 'success' || status === 'CONFIRMED' || status === 'succeeded'
       
       if (isSuccess) {
-        // Update booking status
-        await updateDoc(doc(db, 'bookings', bookingId), {
-          status: 'confirmed',
-          paymentStatus: 'paid',
-          paymentId: paymentId,
-          paidAt: new Date(),
-          updatedAt: new Date()
-        })
+        // Платеж успешный - проверяем текущий статус бронирования
+        // Webhook уже должен был обновить статус, мы просто проверяем
+        const currentBooking = bookingDoc.data()
         
-        // Redirect to confirmation page
-        navigate(`/club/${venueId}/booking-confirmation/${bookingId}`, { replace: true })
+        if (currentBooking.paymentStatus === 'paid' || currentBooking.status === 'confirmed') {
+          // Бронирование уже оплачено через webhook - просто перенаправляем
+          navigate(`/club/${venueId}/booking-confirmation/${bookingId}`, { replace: true })
+        } else {
+          // Если webhook еще не обработал, ждем немного и проверяем снова
+          setTimeout(async () => {
+            const updatedBookingDoc = await getDoc(doc(db, 'bookings', bookingId))
+            if (updatedBookingDoc.exists()) {
+              const updatedBooking = updatedBookingDoc.data()
+              if (updatedBooking.paymentStatus === 'paid' || updatedBooking.status === 'confirmed') {
+                navigate(`/club/${venueId}/booking-confirmation/${bookingId}`, { replace: true })
+              } else {
+                // Если все еще не обновлено, перенаправляем с предупреждением
+                navigate(`/club/${venueId}/booking-confirmation/${bookingId}?processing=true`, { replace: true })
+              }
+            }
+          }, 2000) // Ждем 2 секунды для обработки webhook
+        }
       } else {
-        // Payment failed - delete the booking
-        await deleteDoc(doc(db, 'bookings', bookingId))
-        
-        // Redirect to payment error page
-        navigate(`/club/${venueId}/payment-error?paymentError=true`, { replace: true })
+        // Payment failed - НЕ удаляем бронирование сразу, оно будет отменено автоматически
+        // Просто перенаправляем на страницу ошибки
+        navigate(`/club/${venueId}/payment-error?paymentError=true&bookingId=${bookingId}`, { replace: true })
       }
     } catch (err) {
       console.error('Error processing payment result:', err)

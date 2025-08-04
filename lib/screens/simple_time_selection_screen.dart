@@ -140,7 +140,7 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
         .where('courtId', isEqualTo: widget.courtId)
         .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
         .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
-        .where('status', whereIn: ['confirmed', 'pending'])
+        .where('paymentStatus', whereIn: ['paid', 'awaiting_payment'])
         .snapshots();
   }
   

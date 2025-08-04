@@ -37,7 +37,8 @@ import {
   CreditCard,
   Security,
   Science,
-  Save
+  Save,
+  Info
 } from '@mui/icons-material'
 import { useAuth } from '../../contexts/AuthContext'
 import { usePermission } from '../../hooks/usePermission'
@@ -166,14 +167,24 @@ export default function PaymentSettings() {
 
     setSaving(true)
     try {
-      // В реальном приложении нужно шифровать учетные данные перед сохранением
-      await updateDoc(doc(db, 'venues', venueId), {
+      // Для YooKassa автоматически отключаем тестовый режим
+      const finalTestMode = selectedProvider === 'yookassa' ? false : testMode
+      
+      const updateData = {
         paymentEnabled,
-        paymentTestMode: testMode,
+        paymentTestMode: finalTestMode,
         paymentProvider: selectedProvider,
         paymentCredentials: credentials,
         paymentUpdatedAt: new Date()
+      }
+      
+      console.log('Saving payment settings:', {
+        venueId,
+        ...updateData
       })
+      
+      // В реальном приложении нужно шифровать учетные данные перед сохранением
+      await updateDoc(doc(db, 'venues', venueId), updateData)
 
       setActiveStep(2)
       alert('Настройки успешно сохранены')
@@ -260,16 +271,18 @@ export default function PaymentSettings() {
               </Typography>
             </Box>
             <Box display="flex" alignItems="center" gap={2}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={testMode}
-                    onChange={(e) => setTestMode(e.target.checked)}
-                    disabled={!paymentEnabled}
-                  />
-                }
-                label="Тестовый режим"
-              />
+              {selectedProvider !== 'yookassa' && (
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={testMode}
+                      onChange={(e) => setTestMode(e.target.checked)}
+                      disabled={!paymentEnabled}
+                    />
+                  }
+                  label="Тестовый режим"
+                />
+              )}
               <Chip
                 icon={paymentEnabled ? <Check /> : <Warning />}
                 label={paymentEnabled ? 'Подключено' : 'Не подключено'}
@@ -351,6 +364,12 @@ export default function PaymentSettings() {
                   Введите данные из личного кабинета {selectedProviderData.name}
                 </Typography>
 
+                {selectedProvider === 'yookassa' && (
+                  <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
+                    YooKassa не поддерживает тестовый режим через API. Используйте реальные ключи и проводите тестовые платежи на небольшие суммы с последующим возвратом.
+                  </Alert>
+                )}
+
                 <Box sx={{ mt: 2 }}>
                   {selectedProviderData.fields.map((field) => (
                     <Box key={field.name} sx={{ mb: 2 }}>
@@ -424,10 +443,32 @@ export default function PaymentSettings() {
             </Box>
 
             {paymentEnabled && (
-              <Alert severity="success" sx={{ mt: 3 }}>
-                Поздравляем! Платежи настроены и готовы к работе.
-                {testMode && ' Не забудьте отключить тестовый режим для приема реальных платежей.'}
-              </Alert>
+              <>
+                <Alert severity="success" sx={{ mt: 3 }}>
+                  Поздравляем! Платежи настроены и готовы к работе.
+                  {selectedProvider === 'yookassa' 
+                    ? ' YooKassa работает только с реальными платежами.'
+                    : testMode && ' Не забудьте отключить тестовый режим для приема реальных платежей.'}
+                </Alert>
+                
+                {selectedProvider === 'yookassa' && (
+                  <Alert severity="warning" icon={<Info />} sx={{ mt: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Важно! Для завершения настройки YooKassa:
+                    </Typography>
+                    <Box component="ol" sx={{ pl: 2, mb: 0 }}>
+                      <li>Войдите в личный кабинет YooKassa</li>
+                      <li>Перейдите в раздел "Настройки" → "Уведомления" → "HTTP-уведомления"</li>
+                      <li>Укажите URL для уведомлений: <strong>https://allcourt.ru/api/webhooks/yookassa</strong></li>
+                      <li>Выберите события: "Успешная оплата", "Отмена платежа", "Возврат платежа"</li>
+                      <li>Сохраните настройки</li>
+                    </Box>
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      <strong>Важно!</strong> Без настройки webhook в личном кабинете YooKassa статусы платежей не будут обновляться автоматически.
+                    </Typography>
+                  </Alert>
+                )}
+              </>
             )}
           </StepContent>
         </Step>
@@ -491,10 +532,40 @@ export default function PaymentSettings() {
             Закрыть
           </Button>
           {testResult?.success && (
-            <Button variant="contained" onClick={() => {
+            <Button variant="contained" onClick={async () => {
               setPaymentEnabled(true)
               setTestDialogOpen(false)
-              handleSave()
+              // Вызываем handleSave с явной передачей paymentEnabled = true
+              const venueId = isSuperAdmin ? selectedVenueId : admin?.venueId
+              if (!venueId || !selectedProvider) return
+
+              setSaving(true)
+              try {
+                // Для YooKassa автоматически отключаем тестовый режим
+                const finalTestMode = selectedProvider === 'yookassa' ? false : testMode
+                
+                const updateData = {
+                  paymentEnabled: true, // Явно устанавливаем true
+                  paymentTestMode: finalTestMode,
+                  paymentProvider: selectedProvider,
+                  paymentCredentials: credentials,
+                  paymentUpdatedAt: new Date()
+                }
+                
+                console.log('Activating payments:', {
+                  venueId,
+                  ...updateData
+                })
+                
+                await updateDoc(doc(db, 'venues', venueId), updateData)
+                setActiveStep(2)
+                alert('Платежи успешно активированы!')
+              } catch (error) {
+                console.error('Error activating payments:', error)
+                alert('Ошибка при активации платежей')
+              } finally {
+                setSaving(false)
+              }
             }}>
               Активировать платежи
             </Button>

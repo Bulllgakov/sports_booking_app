@@ -797,13 +797,25 @@ export const createClubHttp = functions.region(region).https.onRequest(async (re
 // Экспорт функций для биллинга
 export {initSubscriptionPayment} from "./billing/initPayment";
 export {initBookingPayment} from "./billing/initBookingPayment";
+export {processBookingRefund} from "./billing/processRefund";
 export {testPaymentConnection} from "./billing/testPaymentConnection";
 export {tbankWebhook} from "./billing/webhooks";
 export {yookassaWebhook} from "./billing/yookassaWebhook";
 export {processRecurringPayment, monthlyBilling} from "./billing/recurringPayment";
 
+// Booking functions
+export {cancelExpiredBookings, cancelExpiredBookingsManual} from "./booking/cancelExpiredBookings";
+
 // Экспорт функций для уведомлений о бронировании
 export {sendBookingNotifications, resendBookingNotification} from "./booking/notifications";
+
+// Экспорт функций для очистки просроченных бронирований
+export {cleanupExpiredBookings, manualCleanupExpiredBookings} from "./booking/cleanup";
+
+// Экспорт функции для очистки веб-бронирований
+export {cleanupWebBookings} from "./admin/cleanupWebBookings";
+// Экспорт функции для возврата от пользователей
+export {processUserRefund} from "./booking/processUserRefund";
 
 // Экспорт функции для тестирования email
 export {testEmailSending} from "./test/testEmail";
@@ -828,3 +840,7 @@ export const processEmailQueueManual = functions
       throw new functions.https.HttpsError("internal", error.message);
     }
   });
+
+// Admin functions
+export {fixRefundStatus} from "./admin/fixRefundStatus";
+export {manualRefundUpdate} from "./admin/manualRefundUpdate";

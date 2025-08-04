@@ -38,6 +38,7 @@ interface CreateBookingModalProps {
   venueId: string
   preSelectedDate?: Date
   preSelectedTime?: string
+  preSelectedCourtId?: string
 }
 
 export default function CreateBookingModal({
@@ -46,7 +47,8 @@ export default function CreateBookingModal({
   onSuccess,
   venueId,
   preSelectedDate,
-  preSelectedTime
+  preSelectedTime,
+  preSelectedCourtId
 }: CreateBookingModalProps) {
   const { admin } = useAuth()
   const [courts, setCourts] = useState<Court[]>([])
@@ -56,15 +58,51 @@ export default function CreateBookingModal({
   const [formData, setFormData] = useState({
     clientName: '',
     clientPhone: '',
-    courtId: '',
+    courtId: preSelectedCourtId || '',
     date: preSelectedDate ? preSelectedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     startTime: preSelectedTime || '10:00',
     duration: 1,
-    paymentMethod: 'cash' as 'cash' | 'card_on_site' | 'transfer' | 'online'
+    paymentMethod: 'cash' as 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card'
   })
   const [availableSlots, setAvailableSlots] = useState<string[]>([])
   const [existingBookings, setExistingBookings] = useState<any[]>([])
   const [unsubscribe, setUnsubscribe] = useState<(() => void) | null>(null)
+
+  // Функция для расчета цены с учетом интервалов
+  const calculatePrice = (time: string, duration: number): number => {
+    const court = courts.find(c => c.id === formData.courtId)
+    if (!court) return 0
+
+    const bookingDate = new Date(formData.date)
+    const [startHour] = time.split(':').map(Number)
+    const isWeekend = bookingDate.getDay() === 0 || bookingDate.getDay() === 6
+    
+    let pricePerHour = 0
+    
+    // Используем новую структуру с weekdayPricing и weekendPricing
+    const dayPricing = isWeekend ? court.weekendPricing : court.weekdayPricing
+    
+    if (dayPricing?.intervals && dayPricing.intervals.length > 0) {
+      // Проверяем интервалы с особыми ценами
+      const specialInterval = dayPricing.intervals.find(interval => {
+        const intervalStart = parseInt(interval.startTime.split(':')[0])
+        const intervalEnd = parseInt(interval.endTime.split(':')[0])
+        return startHour >= intervalStart && startHour < intervalEnd
+      })
+      
+      if (specialInterval) {
+        pricePerHour = specialInterval.price
+      } else {
+        // Используем базовую цену дня
+        pricePerHour = dayPricing.basePrice || court.pricePerHour || (isWeekend ? court.priceWeekend : court.priceWeekday) || 0
+      }
+    } else {
+      // Fallback на старую систему
+      pricePerHour = court.pricePerHour || (isWeekend ? court.priceWeekend : court.priceWeekday) || 0
+    }
+    
+    return pricePerHour * duration
+  }
 
   // Проверка, занят ли временной слот
   const isSlotOccupied = (startTime: string, duration: number) => {
@@ -142,6 +180,12 @@ export default function CreateBookingModal({
         setFormData(prev => ({
           ...prev,
           startTime: preSelectedTime
+        }))
+      }
+      if (preSelectedCourtId) {
+        setFormData(prev => ({
+          ...prev,
+          courtId: preSelectedCourtId
         }))
       }
       // Инициализируем слоты при открытии
@@ -372,38 +416,12 @@ export default function CreateBookingModal({
       const endMinutes = minutes + (formData.duration % 1) * 60
       const endTime = `${String(endHours + Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
 
-      const paymentStatus = formData.paymentMethod === 'online' ? 'online_payment' : 'awaiting_payment'
+      // Всегда начинаем со статуса "Ожидает оплаты", админ потом вручную меняет на "Оплачено"
+      const paymentStatus = 'awaiting_payment'
       
-      // Определяем цену в зависимости от дня недели и времени
-      const bookingDate = new Date(formData.date)
-      const [startHour] = formData.startTime.split(':').map(Number)
-      const dayIndex = bookingDate.getDay()
-      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-      const dayName = days[dayIndex]
-      
-      let pricePerHour = 0
-      
-      // Проверяем новую систему цен
-      if (court.pricing && court.pricing[dayName]) {
-        const dayPricing = court.pricing[dayName]
-        pricePerHour = dayPricing.basePrice
-        
-        // Проверяем интервалы с особыми ценами
-        if (dayPricing.intervals && dayPricing.intervals.length > 0) {
-          for (const interval of dayPricing.intervals) {
-            const [fromHour] = interval.from.split(':').map(Number)
-            const [toHour] = interval.to.split(':').map(Number)
-            if (startHour >= fromHour && startHour < toHour) {
-              pricePerHour = interval.price
-              break
-            }
-          }
-        }
-      } else {
-        // Fallback на старую систему
-        const isWeekend = dayIndex === 0 || dayIndex === 6
-        pricePerHour = court.pricePerHour || (isWeekend ? court.priceWeekend : court.priceWeekday) || 1900
-      }
+      // Используем функцию calculatePrice для единообразного расчета цены
+      const totalPrice = calculatePrice(formData.startTime, formData.duration)
+      const pricePerHour = formData.duration > 0 ? totalPrice / formData.duration : 0
       
       const bookingData = {
         venueId: venueId,
@@ -421,7 +439,7 @@ export default function CreateBookingModal({
         duration: formData.duration * 60, // Конвертируем часы в минуты для совместимости
         gameType: 'single',
         status: 'confirmed',
-        amount: formData.duration * pricePerHour,
+        amount: totalPrice,
         price: pricePerHour,
         paymentMethod: formData.paymentMethod,
         paymentStatus: paymentStatus,
@@ -466,7 +484,15 @@ export default function CreateBookingModal({
   if (!isOpen) return null
 
   return (
-    <div className="modal active">
+    <div 
+      className="modal active"
+      onClick={(e) => {
+        // Закрываем при клике на оверлей (фон)
+        if (e.target === e.currentTarget) {
+          onClose()
+        }
+      }}
+    >
       <div className="modal-content" style={{ maxWidth: '600px' }}>
         <div className="modal-header">
           <h2 className="modal-title">Создать бронирование</h2>
@@ -517,12 +543,9 @@ export default function CreateBookingModal({
                 >
                   <option value="">Выберите корт</option>
                   {courts.map(court => {
-                    const bookingDate = new Date(formData.date)
-                    const isWeekend = bookingDate.getDay() === 0 || bookingDate.getDay() === 6
-                    const price = court.pricePerHour || (isWeekend ? court.priceWeekend : court.priceWeekday) || 0
                     return (
                       <option key={court.id} value={court.id}>
-                        {court.name} - {price} ₽/час
+                        {court.name}
                       </option>
                     )
                   })}
@@ -561,7 +584,7 @@ export default function CreateBookingModal({
               </div>
               
               <div className="form-group">
-                <label className="form-label">Время начала</label>
+                <label className="form-label">Доступные интервалы</label>
                 <select 
                   className="form-select"
                   name="startTime"
@@ -580,9 +603,12 @@ export default function CreateBookingModal({
                     const finalEndMinute = endMinute % 60
                     const endTime = `${String(finalEndHour).padStart(2, '0')}:${String(finalEndMinute).padStart(2, '0')}`
                     
+                    // Вычисляем цену для этого интервала
+                    const price = calculatePrice(time, formData.duration)
+                    
                     return (
                       <option key={time} value={time} disabled={occupied}>
-                        {time} - {endTime} {occupied ? '(Занято)' : ''}
+                        {time} - {endTime} {occupied ? '(Занято)' : ` - ${price.toLocaleString('ru-RU')}₽`}
                       </option>
                     )
                   })}
@@ -600,9 +626,37 @@ export default function CreateBookingModal({
               >
                 <option value="cash">Оплата в клубе наличными</option>
                 <option value="card_on_site">Оплата в клубе картой</option>
-                <option value="transfer">Перевод на счет клуба</option>
-                <option value="online">Онлайн оплата</option>
+                <option value="transfer">Перевод на р.счет клуба (юр.лицо)</option>
+                <option value="sberbank_card">На карту Сбербанка</option>
+                <option value="tbank_card">На карту Т-Банка</option>
+                <option value="online">Онлайн оплата (Автоматическое подтверждение оплаты, ссылка на оплату в смс и в МП)</option>
               </select>
+              
+              {/* Информация об ограничениях по времени */}
+              {formData.paymentMethod && (
+                <div style={{
+                  marginTop: '8px',
+                  padding: '8px 12px',
+                  backgroundColor: formData.paymentMethod === 'online' ? 'rgba(239, 68, 68, 0.1)' : 
+                                   formData.paymentMethod === 'transfer' ? 'rgba(16, 185, 129, 0.1)' :
+                                   'rgba(245, 158, 11, 0.1)',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  color: formData.paymentMethod === 'online' ? 'var(--danger)' :
+                         formData.paymentMethod === 'transfer' ? 'var(--success)' :
+                         'var(--warning)'
+                }}>
+                  {formData.paymentMethod === 'online' ? 
+                    '⏱️ На оплату дается 15 минут. Статус меняется автоматически после оплаты.' :
+                   formData.paymentMethod === 'transfer' ? 
+                    '✓ Без ограничения по времени. Бронирование может ожидать оплату любое время.' :
+                   formData.paymentMethod === 'cash' || formData.paymentMethod === 'card_on_site' || 
+                   formData.paymentMethod === 'sberbank_card' || formData.paymentMethod === 'tbank_card' ?
+                    '⏱️ На оплату дается 30 минут. Администратор должен подтвердить оплату.' :
+                    ''
+                  }
+                </div>
+              )}
             </div>
 
             {/* Расчет стоимости */}
@@ -617,15 +671,37 @@ export default function CreateBookingModal({
                   const court = courts.find(c => c.id === formData.courtId)
                   if (!court) return null
                   
+                  // Используем функцию calculatePrice для правильного расчета с учетом интервалов
+                  const totalPrice = calculatePrice(formData.startTime, formData.duration)
+                  
+                  // Определяем, применен ли особый интервал
+                  const startHour = parseInt(formData.startTime.split(':')[0])
                   const bookingDate = new Date(formData.date)
                   const isWeekend = bookingDate.getDay() === 0 || bookingDate.getDay() === 6
-                  const pricePerHour = court.pricePerHour || (isWeekend ? court.priceWeekend : court.priceWeekday) || 0
-                  const totalPrice = pricePerHour * formData.duration
+                  const dayPricing = isWeekend ? court.weekendPricing : court.weekdayPricing
+                  let specialInterval = null
+                  
+                  if (dayPricing?.intervals) {
+                    specialInterval = dayPricing.intervals.find(interval => {
+                      const intervalStart = parseInt(interval.startTime.split(':')[0])
+                      const intervalEnd = parseInt(interval.endTime.split(':')[0])
+                      return startHour >= intervalStart && startHour < intervalEnd
+                    })
+                  }
+                  
+                  const pricePerHour = specialInterval ? specialInterval.price : 
+                                      (court.pricePerHour || (isWeekend ? court.priceWeekend : court.priceWeekday) || 0)
                   
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ color: 'var(--gray)' }}>Стоимость за час:</span>
+                        <span style={{ color: 'var(--gray)' }}>
+                          {specialInterval ? (
+                            <>Особый тариф ({specialInterval.startTime} - {specialInterval.endTime}):</>
+                          ) : (
+                            <>Стоимость за час:</>
+                          )}
+                        </span>
                         <span style={{ fontWeight: '500' }}>{pricePerHour.toLocaleString('ru-RU')} ₽</span>
                       </div>
                       
@@ -647,7 +723,9 @@ export default function CreateBookingModal({
                         Способ оплаты: {
                           formData.paymentMethod === 'cash' ? 'Оплата в клубе наличными' :
                           formData.paymentMethod === 'card_on_site' ? 'Оплата в клубе картой' :
-                          formData.paymentMethod === 'transfer' ? 'Перевод на счет клуба' :
+                          formData.paymentMethod === 'transfer' ? 'Перевод на р.счет клуба (юр.лицо)' :
+                          formData.paymentMethod === 'sberbank_card' ? 'На карту Сбербанка' :
+                          formData.paymentMethod === 'tbank_card' ? 'На карту Т-Банка' :
                           'Онлайн оплата'
                         }
                       </div>

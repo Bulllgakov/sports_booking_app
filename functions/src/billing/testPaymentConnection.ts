@@ -1,4 +1,5 @@
 import * as functions from "firebase-functions";
+import * as admin from "firebase-admin";
 import fetch from "node-fetch";
 
 const region = "europe-west1";
@@ -19,14 +20,25 @@ export const testPaymentConnection = functions
 
     const {venueId, provider, credentials} = data;
 
-    // Проверяем права доступа
-    const isAdmin = context.auth.token.role === "admin" || context.auth.token.role === "superadmin";
+    // Проверяем права доступа через коллекцию admins
+    const adminsSnapshot = await admin.firestore()
+      .collection("admins")
+      .where("email", "==", context.auth.token.email)
+      .limit(1)
+      .get();
+
+    if (adminsSnapshot.empty) {
+      throw new functions.https.HttpsError("permission-denied", "Недостаточно прав");
+    }
+
+    const adminData = adminsSnapshot.docs[0].data();
+    const isAdmin = adminData.role === "admin" || adminData.role === "superadmin";
     if (!isAdmin) {
       throw new functions.https.HttpsError("permission-denied", "Недостаточно прав");
     }
 
     // Для админа клуба проверяем, что он тестирует свой клуб
-    if (context.auth.token.role === "admin" && context.auth.token.venueId !== venueId) {
+    if (adminData.role === "admin" && adminData.venueId !== venueId) {
       throw new functions.https.HttpsError("permission-denied", "Нет доступа к этому клубу");
     }
 

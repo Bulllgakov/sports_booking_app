@@ -2,6 +2,18 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum CourtType { indoor, outdoor }
 
+class PriceRange {
+  final double min;
+  final double max;
+  final String display;
+
+  PriceRange({
+    required this.min,
+    required this.max,
+    required this.display,
+  });
+}
+
 class PriceInterval {
   final String from;
   final String to;
@@ -120,6 +132,42 @@ class CourtModel {
       'status': status,
       'createdAt': createdAt ?? FieldValue.serverTimestamp(),
     };
+  }
+
+  // Метод для получения диапазона цен
+  PriceRange getPriceRange() {
+    if (pricing != null && pricing!.isNotEmpty) {
+      final allPrices = <double>[];
+      
+      // Собираем все цены из всех дней
+      for (final dayPricing in pricing!.values) {
+        allPrices.add(dayPricing.basePrice);
+        
+        // Добавляем цены из интервалов
+        for (final interval in dayPricing.intervals) {
+          allPrices.add(interval.price);
+        }
+      }
+      
+      if (allPrices.isNotEmpty) {
+        final minPrice = allPrices.reduce((a, b) => a < b ? a : b);
+        final maxPrice = allPrices.reduce((a, b) => a > b ? a : b);
+        
+        return PriceRange(
+          min: minPrice,
+          max: maxPrice,
+          display: minPrice == maxPrice ? '${minPrice.toInt()}₽' : 'от ${minPrice.toInt()}₽',
+        );
+      }
+    }
+    
+    // Fallback на старую систему
+    final price = priceWeekday ?? priceWeekend ?? 1900;
+    return PriceRange(
+      min: price,
+      max: price,
+      display: '${price.toInt()}₽',
+    );
   }
 
   double calculatePrice(int durationMinutes, DateTime dateTime) {

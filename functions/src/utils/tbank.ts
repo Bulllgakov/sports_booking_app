@@ -79,7 +79,7 @@ export class TBankAPI {
    * @param {Record<string, any>} params - Параметры запроса
    * @return {string} - Сгенерированный токен
    */
-  private generateToken(params: Record<string, any>): string {
+  public generateToken(params: Record<string, any>): string {
     // Добавляем TerminalKey и Password
     const tokenParams: Record<string, any> = {
       ...params,
@@ -219,6 +219,65 @@ export class TBankAPI {
  * Загрузка конфигурации из Firestore
  * @return {Promise<TBankConfig>} - Конфигурация Т-Банк
  */
+/**
+ * Обработка возврата платежа через Т-Банк
+ * @param {string} terminalKey - Терминальный ключ
+ * @param {string} password - Пароль
+ * @param {string} paymentId - ID платежа
+ * @param {number} amount - Сумма возврата в рублях
+ * @return {Promise<{success: boolean; refundId?: string; error?: string}>}
+ */
+export async function processTBankRefund(
+  terminalKey: string,
+  password: string,
+  paymentId: string,
+  amount: number
+): Promise<{success: boolean; refundId?: string; error?: string}> {
+  try {
+    const tbank = new TBankAPI({terminalKey, password, testMode: false});
+    const params = {
+      TerminalKey: terminalKey,
+      PaymentId: paymentId,
+      Amount: Math.round(amount * 100), // Конвертируем в копейки
+    };
+
+    // Генерируем токен (подпись)
+    const token = tbank.generateToken(params);
+
+    const response = await fetch("https://securepay.tinkoff.ru/v2/Cancel", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...params,
+        Token: token,
+      }),
+    });
+
+    const responseData = await response.json();
+
+    if (!response.ok || !responseData.Success) {
+      console.error("T-Bank refund error:", responseData);
+      return {
+        success: false,
+        error: responseData.Message || responseData.Details || "Ошибка при создании возврата",
+      };
+    }
+
+    return {
+      success: true,
+      refundId: responseData.PaymentId,
+    };
+  } catch (error) {
+    console.error("Error processing T-Bank refund:", error);
+    return {
+      success: false,
+      error: (error as Error).message,
+    };
+  }
+}
+
 export async function getTBankConfig(): Promise<TBankConfig> {
   const doc = await admin.firestore()
     .collection("settings")
