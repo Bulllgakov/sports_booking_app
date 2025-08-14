@@ -110,6 +110,11 @@ export default function CustomersManagement() {
           // Всегда обновляем имя на самое свежее
           existing.name = customerName
           
+          // Обновляем статус "В приложении" если есть userId (означает авторизацию)
+          if (booking.userId && booking.userId.trim() !== '') {
+            existing.hasApp = true
+          }
+          
           // Статистику обновляем только для не отмененных бронирований
           if (isNotCancelled) {
             existing.bookingsCount++
@@ -130,7 +135,7 @@ export default function CustomersManagement() {
             bookingsCount: isNotCancelled ? 1 : 0,
             lastVisit: isNotCancelled ? bookingDate : undefined,
             totalSpent: isNotCancelled ? (booking.amount || booking.totalPrice || booking.price || 0) : 0,
-            hasApp: booking.paymentMethod === 'app' || booking.paymentMethod === 'mobile',
+            hasApp: (booking.userId && booking.userId.trim() !== '') || booking.paymentMethod === 'app' || booking.paymentMethod === 'mobile', // Проверяем userId ИЛИ paymentMethod для обратной совместимости
             venueId: targetVenueId,
             createdAt: createdDate
           })
