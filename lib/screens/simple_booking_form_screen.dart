@@ -61,28 +61,38 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
   void initState() {
     super.initState();
     _phoneController.text = '+7';
-    _loadUserData();
+    // Откладываем загрузку данных на следующий кадр
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserData();
+    });
   }
 
-  void _loadUserData() {
+  void _loadUserData() async {
     try {
       final authService = context.read<AuthService>();
+      
+      // Даем время на загрузку UserModel если нужно
+      if (authService.isAuthenticated && authService.currentUserModel == null) {
+        await authService.checkAuthStatus();
+      }
+      
       if (authService.isAuthenticated) {
-        // Заполняем телефон из Firebase Auth если есть
-        if (authService.currentUser?.phoneNumber != null && 
-            authService.currentUser!.phoneNumber!.isNotEmpty) {
-          _phoneController.text = authService.currentUser!.phoneNumber!;
-        }
-        
-        // Заполняем имя из UserModel если есть
+        // Приоритет: берем данные из UserModel
         if (authService.currentUserModel != null) {
           final user = authService.currentUserModel!;
-          if (user.displayName.isNotEmpty) {
-            _nameController.text = user.displayName;
-          }
-          // Если в UserModel есть телефон, используем его (приоритет)
+          
+          // Заполняем телефон
           if (user.phoneNumber.isNotEmpty) {
-            _phoneController.text = user.phoneNumber;
+            setState(() {
+              _phoneController.text = user.phoneNumber;
+            });
+          }
+          
+          // Заполняем имя
+          if (user.displayName.isNotEmpty) {
+            setState(() {
+              _nameController.text = user.displayName;
+            });
           }
         }
       }
@@ -255,6 +265,24 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Слушаем изменения AuthService для автообновления данных
+    return Consumer<AuthService>(
+      builder: (context, authService, child) {
+        // Обновляем данные при изменении состояния авторизации
+        if (authService.isAuthenticated && 
+            authService.currentUserModel != null &&
+            _phoneController.text == '+7') {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _loadUserData();
+          });
+        }
+        
+        return _buildScaffold(context);
+      },
+    );
+  }
+  
+  Widget _buildScaffold(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(

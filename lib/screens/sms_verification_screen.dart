@@ -110,18 +110,34 @@ class _SMSVerificationScreenState extends State<SMSVerificationScreen> {
         // Проверяем, новый ли это пользователь
         final isNewUser = result.data['isNewUser'] ?? false;
         
-        if (isNewUser) {
-          // Создаем профиль для нового пользователя
-          final user = FirebaseAuth.instance.currentUser;
-          if (user != null) {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          // Всегда обновляем или создаем документ пользователя с номером телефона
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+          
+          if (!userDoc.exists || isNewUser) {
+            // Создаем новый документ
             await FirebaseFirestore.instance
                 .collection('users')
                 .doc(user.uid)
                 .set({
+              'uid': user.uid,
               'phoneNumber': widget.phoneNumber,
               'createdAt': FieldValue.serverTimestamp(),
               'displayName': '',
               'email': '',
+            });
+          } else {
+            // Обновляем существующий документ, убеждаясь что phoneNumber актуален
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .update({
+              'phoneNumber': widget.phoneNumber,
+              'lastLogin': FieldValue.serverTimestamp(),
             });
           }
         }
