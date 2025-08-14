@@ -7,6 +7,56 @@ import '../widgets/primary_button.dart';
 import '../widgets/custom_text_field.dart';
 import 'sms_verification_screen.dart';
 
+// Логотип Все Корты
+class AllCourtsLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint();
+    
+    // Зеленый фон с закругленными углами
+    paint.color = AppColors.primary;
+    final backgroundRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Radius.circular(size.width * 0.2),
+    );
+    canvas.drawRRect(backgroundRect, paint);
+    
+    // Белые линии корта
+    paint.color = Colors.white;
+    paint.style = PaintingStyle.stroke;
+    paint.strokeWidth = 3;
+    
+    // Внешний прямоугольник корта
+    final courtRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        size.width * 0.167,
+        size.height * 0.167,
+        size.width * 0.666,
+        size.height * 0.666,
+      ),
+      Radius.circular(size.width * 0.067),
+    );
+    canvas.drawRRect(courtRect, paint);
+    
+    // Горизонтальная линия
+    canvas.drawLine(
+      Offset(size.width * 0.167, size.height * 0.5),
+      Offset(size.width * 0.833, size.height * 0.5),
+      paint,
+    );
+    
+    // Вертикальная линия
+    canvas.drawLine(
+      Offset(size.width * 0.5, size.height * 0.167),
+      Offset(size.width * 0.5, size.height * 0.833),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -128,19 +178,8 @@ class _LoginScreenState extends State<LoginScreen> {
               Container(
                 width: 80,
                 height: 80,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Center(
-                  child: Text(
-                    'ВК',
-                    style: TextStyle(
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
+                child: CustomPaint(
+                  painter: AllCourtsLogoPainter(),
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),

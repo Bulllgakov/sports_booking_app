@@ -15,6 +15,8 @@ export const sendSMSCode = functions.region(region).https.onCall(async (data, _c
   }
 
   try {
+    // Нормализуем номер телефона (убираем + и другие символы, оставляем только цифры)
+    const normalizedPhone = phoneNumber.replace(/\D/g, "");
     // Генерируем 4-значный код
     const code = Math.floor(1000 + Math.random() * 9000).toString();
 
@@ -22,8 +24,8 @@ export const sendSMSCode = functions.region(region).https.onCall(async (data, _c
     const isTestMode = functions.config().sms?.test_mode === "true";
     const finalCode = isTestMode ? "1234" : code;
 
-    // Сохраняем код в Firestore
-    await admin.firestore().collection("phoneVerificationCodes").doc(phoneNumber).set({
+    // Сохраняем код в Firestore по нормализованному номеру
+    await admin.firestore().collection("phoneVerificationCodes").doc(normalizedPhone).set({
       code: finalCode,
       phoneNumber,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -65,7 +67,9 @@ export const verifySMSCode = functions.region(region).https.onCall(async (data, 
   }
 
   try {
-    const docRef = admin.firestore().collection("phoneVerificationCodes").doc(phoneNumber);
+    // Нормализуем номер телефона так же, как при отправке
+    const normalizedPhone = phoneNumber.replace(/\D/g, "");
+    const docRef = admin.firestore().collection("phoneVerificationCodes").doc(normalizedPhone);
     const doc = await docRef.get();
 
     if (!doc.exists) {
@@ -120,13 +124,13 @@ export const verifySMSCode = functions.region(region).https.onCall(async (data, 
     // Помечаем код как использованный
     await docRef.update({used: true});
 
-    // Создаем или обновляем пользователя
-    const userRef = admin.firestore().collection("users").doc(phoneNumber);
+    // Создаем или обновляем пользователя с нормализованным номером как ID
+    const userRef = admin.firestore().collection("users").doc(normalizedPhone);
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
       await userRef.set({
-        phoneNumber,
+        phoneNumber: phoneNumber, // Сохраняем оригинальный формат с +
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         lastLogin: admin.firestore.FieldValue.serverTimestamp(),
       });
@@ -136,9 +140,9 @@ export const verifySMSCode = functions.region(region).https.onCall(async (data, 
       });
     }
 
-    // Генерируем custom token для авторизации
-    const customToken = await admin.auth().createCustomToken(phoneNumber, {
-      phoneNumber,
+    // Генерируем custom token для авторизации с нормализованным номером
+    const customToken = await admin.auth().createCustomToken(normalizedPhone, {
+      phoneNumber: phoneNumber, // В claims сохраняем оригинальный формат
     });
 
     return {
