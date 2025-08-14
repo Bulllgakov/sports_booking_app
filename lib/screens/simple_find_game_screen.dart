@@ -5,6 +5,7 @@ import '../core/theme/colors.dart';
 import '../core/theme/text_styles.dart';
 import '../core/theme/spacing.dart';
 import '../providers/open_games_provider.dart';
+import '../providers/location_provider.dart';
 import '../services/firestore_service.dart';
 import 'simple_booking_form_screen.dart';
 
@@ -31,6 +32,18 @@ class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
   void initState() {
     super.initState();
     _loadOpenGames();
+    // Инициализируем местоположение если еще не инициализировано
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final locationProvider = context.read<LocationProvider>();
+      if (locationProvider.currentPosition == null && !locationProvider.isLoading) {
+        locationProvider.initializeLocation().then((_) {
+          // Перезагружаем игры после получения геолокации
+          if (locationProvider.currentPosition != null) {
+            _loadOpenGames();
+          }
+        });
+      }
+    });
   }
   
   Future<void> _loadOpenGames() async {
@@ -76,12 +89,28 @@ class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
           if (courtData['type'] != sportType) return null;
         }
         
+        // Рассчитываем расстояние если есть геолокация
+        final locationProvider = context.read<LocationProvider>();
+        double? distance;
+        String distanceText = '';
+        
+        if (locationProvider.currentPosition != null && venueData['location'] != null) {
+          final GeoPoint venueLocation = venueData['location'];
+          distance = locationProvider.calculateDistanceToVenue(
+            venueLocation.latitude,
+            venueLocation.longitude,
+          );
+          distanceText = locationProvider.formatDistance(distance);
+        }
+        
         return {
           'id': game.id,
           'bookingId': game.bookingId,
           'venue': venueData['name'] ?? 'Неизвестный клуб',
+          'venueLocation': venueData['location'],
           'time': _formatDateTime(bookingData['date'], bookingData['time']),
-          'distance': '2.5 км', // TODO: Рассчитать реальное расстояние
+          'distance': distance,
+          'distanceText': distanceText,
           'price': bookingData['price'] ?? 0,
           'pricePerPlayer': game.pricePerPlayer.toInt(),
           'organizer': 'Организатор', // TODO: Получить имя организатора
@@ -93,13 +122,49 @@ class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
           'avatarColor': AppColors.primary,
           'avatarText': 'ОИ',
           'sportType': courtData['type'],
+          'bookingDate': bookingData['date'],
         };
       }).toList();
       
       // Ждем завершения всех промисов и фильтруем null значения
       final resolvedGames = await Future.wait(games);
+      var filteredGames = resolvedGames.where((game) => game != null).cast<Map<String, dynamic>>().toList();
+      
+      // Сортируем игры
+      final locationProvider = context.read<LocationProvider>();
+      if (locationProvider.currentPosition != null) {
+        // Сортируем по расстоянию если есть геолокация
+        filteredGames.sort((a, b) {
+          final distanceA = a['distance'] as double?;
+          final distanceB = b['distance'] as double?;
+          
+          if (distanceA == null && distanceB == null) {
+            // Если у обоих нет расстояния, сортируем по дате
+            final dateA = a['bookingDate'] as Timestamp?;
+            final dateB = b['bookingDate'] as Timestamp?;
+            if (dateA != null && dateB != null) {
+              return dateA.compareTo(dateB);
+            }
+            return 0;
+          }
+          if (distanceA == null) return 1;
+          if (distanceB == null) return -1;
+          return distanceA.compareTo(distanceB);
+        });
+      } else {
+        // Если нет геолокации, сортируем по дате и времени
+        filteredGames.sort((a, b) {
+          final dateA = a['bookingDate'] as Timestamp?;
+          final dateB = b['bookingDate'] as Timestamp?;
+          if (dateA != null && dateB != null) {
+            return dateA.compareTo(dateB);
+          }
+          return 0;
+        });
+      }
+      
       setState(() {
-        _games = resolvedGames.where((game) => game != null).cast<Map<String, dynamic>>().toList();
+        _games = filteredGames;
         _isLoading = false;
       });
     } catch (e) {
@@ -194,6 +259,51 @@ class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
                   ),
                 ],
               ),
+            ),
+            
+            // Location permission banner
+            Consumer<LocationProvider>(
+              builder: (context, locationProvider, _) {
+                if (!locationProvider.hasLocationPermission && !locationProvider.isLoading) {
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withOpacity(0.1),
+                      border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.location_off,
+                          size: AppSpacing.iconSizeSm,
+                          color: AppColors.warning,
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            'Включите геолокацию для показа ближайших игр',
+                            style: AppTextStyles.tiny.copyWith(
+                              color: AppColors.dark,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => locationProvider.openAppSettings(),
+                          child: Text(
+                            'Включить',
+                            style: AppTextStyles.tinyBold.copyWith(
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
             ),
             
             // Info banner
@@ -402,7 +512,9 @@ class _SimpleFindGameScreenState extends State<SimpleFindGameScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${game['time']} • ${game['distance']}',
+                    game['distanceText'].isNotEmpty 
+                        ? '${game['time']} • ${game['distanceText']}' 
+                        : game['time'],
                     style: AppTextStyles.tiny.copyWith(color: AppColors.gray),
                   ),
                 ],

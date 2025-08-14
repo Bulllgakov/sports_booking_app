@@ -175,11 +175,13 @@ class _LoginScreenState extends State<LoginScreen> {
               const Spacer(),
               
               // Logo/Title
-              Container(
-                width: 80,
-                height: 80,
-                child: CustomPaint(
-                  painter: AllCourtsLogoPainter(),
+              Center(
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  child: CustomPaint(
+                    painter: AllCourtsLogoPainter(),
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
