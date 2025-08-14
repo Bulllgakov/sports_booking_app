@@ -13,6 +13,7 @@ class BookingModel {
   final DateTime endTime;
   final String? time; // Для совместимости со старым форматом
   final String? startTimeStr; // Строковое представление времени начала
+  final String? endTimeStr; // Строковое представление времени окончания
   final GameType gameType;
   final BookingStatus status;
   final double totalPrice;
@@ -32,6 +33,7 @@ class BookingModel {
     required this.endTime,
     this.time,
     this.startTimeStr,
+    this.endTimeStr,
     required this.gameType,
     required this.status,
     required this.totalPrice,
@@ -83,6 +85,7 @@ class BookingModel {
       endTime: endTimeDate,
       time: data['time'],
       startTimeStr: data['startTime'] is String ? data['startTime'] : null,
+      endTimeStr: data['endTime'] is String ? data['endTime'] : null,
       gameType: GameType.values.firstWhere(
         (e) => e.toString().split('.').last == data['gameType'],
         orElse: () => GameType.single,

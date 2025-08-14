@@ -22,6 +22,8 @@ import { Alert } from '@mui/material'
 import BookingsList from '../../components/BookingsList'
 import BookingDetailsModal from '../../components/BookingDetailsModal'
 import CreateBookingModal from '../../components/CreateBookingModal'
+import { normalizeDate } from '../../utils/dateTime'
+import { normalizeDateInClubTZ, getWeekStartInClubTZ, getWeekEndInClubTZ } from '../../utils/clubDateTime'
 
 interface PaymentHistory {
   timestamp: Date
@@ -45,7 +47,7 @@ interface Booking {
   endTime: string
   status: 'confirmed' | 'pending' | 'cancelled'
   amount: number
-  paymentMethod: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card'
+  paymentMethod: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card' | 'vtb_card'
   paymentStatus?: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled'
   paymentHistory?: PaymentHistory[]
   createdBy?: {
@@ -71,7 +73,7 @@ interface Venue {
 }
 
 export default function BookingsManagement() {
-  const { admin } = useAuth()
+  const { admin, club } = useAuth()
   const { isSuperAdmin, canManageBookings, hasPermission } = usePermission()
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null)
   const [venues, setVenues] = useState<Venue[]>([])
@@ -214,16 +216,23 @@ export default function BookingsManagement() {
 
     try {
       setLoading(true)
-      const startOfWeek = new Date(selectedDate)
-      startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay() + 1)
-      startOfWeek.setHours(0, 0, 0, 0)
       
-      const endOfWeek = new Date(startOfWeek)
-      endOfWeek.setDate(startOfWeek.getDate() + 6)
-      endOfWeek.setHours(23, 59, 59, 999)
+      // Получаем информацию о площадке для часового пояса
+      let clubTimezone = club?.timezone || 'Europe/Moscow'
+      if (isSuperAdmin && venueId) {
+        const venueDoc = await getDoc(doc(db, 'venues', venueId))
+        if (venueDoc.exists()) {
+          const venueData = venueDoc.data()
+          clubTimezone = venueData.timezone || 'Europe/Moscow'
+        }
+      }
+      
+      // Используем часовой пояс клуба для определения границ недели
+      const startOfWeek = getWeekStartInClubTZ(selectedDate, clubTimezone)
+      const endOfWeek = getWeekEndInClubTZ(selectedDate, clubTimezone)
 
-      console.log('Setting up real-time listener for venue:', venueId)
-      console.log('Date range:', startOfWeek, 'to', endOfWeek)
+      // console.log('Setting up real-time listener for venue:', venueId)
+      // console.log('Date range:', startOfWeek, 'to', endOfWeek)
       
       // Создаем real-time listener
       const q = query(
@@ -233,40 +242,19 @@ export default function BookingsManagement() {
       
       const unsubscribe = onSnapshot(q, (snapshot) => {
         try {
-          console.log('Real-time update: Found bookings:', snapshot.size)
+          // console.log('Real-time update: Found bookings:', snapshot.size)
         
         const bookingsData = snapshot.docs.map(doc => {
           const data = doc.data()
           
-          // Безопасная обработка даты
-          let bookingDate: Date
-          try {
-            if (data.date?.toDate) {
-              bookingDate = data.date.toDate()
-            } else if (data.date) {
-              bookingDate = new Date(data.date)
-            } else {
-              console.warn(`Booking ${doc.id} has invalid date:`, data.date)
-              bookingDate = new Date() // Fallback to current date
-            }
-          } catch (err) {
-            console.error(`Error processing date for booking ${doc.id}:`, err)
-            bookingDate = new Date()
-          }
+          // Используем утилиту для безопасного преобразования даты с учетом часового пояса клуба
+          const bookingDate = normalizeDateInClubTZ(data.date, clubTimezone)
+          // Для createdAt используем fallback на дату бронирования, если нет даты создания
+          const createdAt = data.createdAt ? normalizeDateInClubTZ(data.createdAt, clubTimezone) : bookingDate
 
-          // Безопасная обработка createdAt
-          let createdAt: Date
-          try {
-            if (data.createdAt?.toDate) {
-              createdAt = data.createdAt.toDate()
-            } else if (data.createdAt) {
-              createdAt = new Date(data.createdAt)
-            } else {
-              createdAt = new Date()
-            }
-          } catch (err) {
-            console.error(`Error processing createdAt for booking ${doc.id}:`, err)
-            createdAt = new Date()
+          // Логируем для диагностики
+          if (!data.createdAt) {
+            console.log('Booking without createdAt:', doc.id, 'using date as fallback:', bookingDate)
           }
 
           return {
@@ -287,7 +275,7 @@ export default function BookingsManagement() {
           }
         }) as Booking[]
         
-        console.log('All bookings data:', bookingsData)
+        // console.log('All bookings data:', bookingsData)
         
         // Фильтруем бронирования для недели
         const weekBookings = bookingsData.filter(booking => {
@@ -325,13 +313,19 @@ export default function BookingsManagement() {
             const status = booking.status || 'pending'
             const paymentStatus = booking.paymentStatus || 'awaiting_payment'
             
-            const occupiesCourt = (
-              status === 'confirmed' || 
-              paymentStatus === 'paid' || 
-              paymentStatus === 'awaiting_payment'
-            ) && status !== 'cancelled' && paymentStatus !== 'cancelled' && paymentStatus !== 'refunded'
+            const occupiesCourt = 
+              status !== 'cancelled' && 
+              paymentStatus !== 'cancelled' && 
+              paymentStatus !== 'refunded' &&
+              paymentStatus !== 'error' &&
+              (
+                status === 'confirmed' || 
+                status === 'pending' ||
+                paymentStatus === 'paid' || 
+                paymentStatus === 'awaiting_payment'
+              )
             
-            console.log('Booking:', booking.id, 'Status:', status, 'PaymentStatus:', paymentStatus, 'Occupies court:', occupiesCourt)
+            // console.log('Booking:', booking.id, 'Status:', status, 'PaymentStatus:', paymentStatus, 'Occupies court:', occupiesCourt)
             
             return occupiesCourt
           } catch (err) {
@@ -352,19 +346,62 @@ export default function BookingsManagement() {
           }
         })
         
-        const sortedAllBookings = bookingsData.sort((a, b) => {
-          try {
-            const dateA = new Date(a.date || new Date())
-            const dateB = new Date(b.date || new Date())
-            return dateB.getTime() - dateA.getTime()
-          } catch (err) {
-            console.error('Error sorting all bookings:', err)
-            return 0
+        // Сортируем все бронирования по дате создания (новые первыми)
+        const sortedAllBookings = [...bookingsData].sort((a, b) => {
+          // Нормализуем даты создания
+          let dateA: Date
+          let dateB: Date
+          
+          // Для a
+          if (a.createdAt instanceof Date) {
+            dateA = a.createdAt
+          } else if (a.createdAt?.toDate) {
+            dateA = a.createdAt.toDate()
+          } else if (a.createdAt?.seconds) {
+            dateA = new Date(a.createdAt.seconds * 1000)
+          } else if (typeof a.createdAt === 'string') {
+            dateA = new Date(a.createdAt)
+          } else {
+            // Fallback на дату бронирования
+            if (a.date instanceof Date) {
+              dateA = a.date
+            } else if (a.date?.toDate) {
+              dateA = a.date.toDate()
+            } else if (a.date?.seconds) {
+              dateA = new Date(a.date.seconds * 1000)
+            } else {
+              dateA = new Date(0) // Очень старая дата
+            }
           }
+          
+          // Для b
+          if (b.createdAt instanceof Date) {
+            dateB = b.createdAt
+          } else if (b.createdAt?.toDate) {
+            dateB = b.createdAt.toDate()
+          } else if (b.createdAt?.seconds) {
+            dateB = new Date(b.createdAt.seconds * 1000)
+          } else if (typeof b.createdAt === 'string') {
+            dateB = new Date(b.createdAt)
+          } else {
+            // Fallback на дату бронирования
+            if (b.date instanceof Date) {
+              dateB = b.date
+            } else if (b.date?.toDate) {
+              dateB = b.date.toDate()
+            } else if (b.date?.seconds) {
+              dateB = new Date(b.date.seconds * 1000)
+            } else {
+              dateB = new Date(0) // Очень старая дата
+            }
+          }
+          
+          // Сортируем по убыванию (новые первыми)
+          return dateB.getTime() - dateA.getTime()
         })
         
-        console.log('Calendar bookings (occupying courts):', sortedCalendarBookings)
-        console.log('All bookings:', sortedAllBookings)
+        // console.log('Calendar bookings (occupying courts):', sortedCalendarBookings)
+        // console.log('All bookings:', sortedAllBookings)
         
           setBookings(sortedCalendarBookings) // Для календаря
           setAllBookings(sortedAllBookings) // Для списка
@@ -454,13 +491,15 @@ export default function BookingsManagement() {
   const getWeekDates = () => {
     if (!selectedDate) return []
     
+    // Получаем часовой пояс клуба
+    const clubTimezone = club?.timezone || 'Europe/Moscow'
+    
     const dates = []
-    const startOfWeek = new Date(selectedDate)
-    startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay() + 1)
+    const startOfWeek = getWeekStartInClubTZ(selectedDate, clubTimezone)
     
     for (let i = 0; i < 7; i++) {
       const date = new Date(startOfWeek)
-      date.setDate(startOfWeek.getDate() + i)
+      date.setUTCDate(startOfWeek.getUTCDate() + i)
       dates.push(date)
     }
     return dates
@@ -477,14 +516,43 @@ export default function BookingsManagement() {
           ? booking.date 
           : (booking.date?.toDate ? booking.date.toDate() : new Date(booking.date))
           
-        // Проверяем оба поля - startTime и time для совместимости
-        const bookingTime = booking.startTime || booking.time
+        // Проверяем, что бронирование на нужную дату и корт
+        if (!bookingDate || !date || 
+            bookingDate.toDateString() !== date.toDateString() ||
+            booking.courtId !== courtId) {
+          return false
+        }
         
-        return bookingDate && 
-               date && 
-               bookingDate.toDateString() === date.toDateString() &&
-               bookingTime === time &&
-               booking.courtId === courtId
+        // Проверяем, попадает ли текущий слот времени в диапазон бронирования
+        const bookingStartTime = booking.startTime || booking.time
+        const bookingEndTime = booking.endTime
+        
+        if (!bookingStartTime) return false
+        
+        // Конвертируем время в минуты для удобства сравнения
+        const [slotHour, slotMinute] = time.split(':').map(Number)
+        const slotTimeMinutes = slotHour * 60 + slotMinute
+        
+        const [startHour, startMinute] = bookingStartTime.split(':').map(Number)
+        const startTimeMinutes = startHour * 60 + startMinute
+        
+        // Если есть endTime, используем его
+        if (bookingEndTime) {
+          const [endHour, endMinute] = bookingEndTime.split(':').map(Number)
+          const endTimeMinutes = endHour * 60 + endMinute
+          
+          // Проверяем, попадает ли слот в диапазон [startTime, endTime)
+          return slotTimeMinutes >= startTimeMinutes && slotTimeMinutes < endTimeMinutes
+        } else if (booking.duration) {
+          // Если нет endTime, но есть duration, вычисляем endTime
+          const endTimeMinutes = startTimeMinutes + (booking.duration * 60)
+          
+          // Проверяем, попадает ли слот в диапазон
+          return slotTimeMinutes >= startTimeMinutes && slotTimeMinutes < endTimeMinutes
+        } else {
+          // Если нет ни endTime, ни duration, проверяем только точное совпадение
+          return bookingStartTime === time
+        }
       })
     } catch (error) {
       console.error('Error in getBookingsForSlot:', error, { date, time, courtId })
@@ -541,6 +609,57 @@ export default function BookingsManagement() {
     return slots
   }
 
+  // Получаем режим работы для конкретного дня
+  const getWorkingHoursForDate = (date: Date, venue: any) => {
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+    const dayName = dayNames[date.getDay()]
+    
+    // Убираем дефолтные значения - если режим работы не задан, возвращаем null
+    let startHour: number | null = null
+    let endHour: number | null = null
+    
+    if (venue?.workingHours) {
+      const dayHours = venue.workingHours[dayName]
+      
+      if (dayHours) {
+        if (typeof dayHours === 'string' && dayHours.includes('-')) {
+          // Формат строки: "08:00-22:00"
+          const [openTime, closeTime] = dayHours.split('-').map(t => t.trim())
+          if (openTime && closeTime) {
+            startHour = parseInt(openTime.split(':')[0])
+            endHour = parseInt(closeTime.split(':')[0])
+          }
+        } else if (dayHours.open && dayHours.close) {
+          // Формат объекта: { open: '08:00', close: '22:00' }
+          const [openHour] = dayHours.open.split(':').map(Number)
+          const [closeHour] = dayHours.close.split(':').map(Number)
+          startHour = openHour
+          endHour = closeHour
+        }
+      } else {
+        // Fallback на старый формат weekend/weekday
+        const isWeekend = date.getDay() === 0 || date.getDay() === 6
+        const workingHoursStr = venue.workingHours[isWeekend ? 'weekend' : 'weekday']
+        
+        if (workingHoursStr && typeof workingHoursStr === 'string' && workingHoursStr.includes('-')) {
+          const [openTime, closeTime] = workingHoursStr.split('-').map(t => t.trim())
+          if (openTime && closeTime) {
+            startHour = parseInt(openTime.split(':')[0])
+            endHour = parseInt(closeTime.split(':')[0])
+          }
+        }
+      }
+    }
+    
+    // Если режим работы определен, возвращаем его, иначе используем дефолтные значения для совместимости
+    if (startHour !== null && endHour !== null) {
+      return { startHour, endHour }
+    } else {
+      // Дефолтные значения только если режим работы вообще не настроен
+      return { startHour: 8, endHour: 22 }
+    }
+  }
+  
   // Динамически создаем слоты времени на основе режима работы клуба
   const generateTimeSlots = () => {
     const slots = []
@@ -548,28 +667,20 @@ export default function BookingsManagement() {
     // Получаем текущий клуб
     const currentVenue = venues.find(v => v.id === (selectedVenueId || admin?.venueId))
     
-    // Определяем, будний это день или выходной для выбранной даты
-    const isWeekend = formData.date ? 
-      (new Date(formData.date).getDay() === 0 || new Date(formData.date).getDay() === 6) :
-      false
+    // Находим самое раннее время открытия и самое позднее время закрытия за всю неделю
+    // НО отображаем полный диапазон для визуализации с блокировкой нерабочих часов
+    let minStartHour = 24
+    let maxEndHour = 0
     
-    // Получаем режим работы
-    const workingHoursStr = currentVenue?.workingHours?.[isWeekend ? 'weekend' : 'weekday'] || 
-                           (isWeekend ? '08:00-22:00' : '07:00-23:00')
+    const weekDates = getWeekDates()
+    weekDates.forEach(date => {
+      const { startHour, endHour } = getWorkingHoursForDate(date, currentVenue)
+      minStartHour = Math.min(minStartHour, startHour)
+      maxEndHour = Math.max(maxEndHour, endHour)
+    })
     
-    // Парсим время работы
-    let startHour = 7
-    let endHour = 23
-    
-    if (workingHoursStr && workingHoursStr.includes('-')) {
-      const [openTime, closeTime] = workingHoursStr.split('-').map(t => t.trim())
-      if (openTime && closeTime) {
-        startHour = parseInt(openTime.split(':')[0])
-        endHour = parseInt(closeTime.split(':')[0])
-      }
-    }
-    
-    for (let hour = startHour; hour < endHour; hour++) {
+    // Генерируем слоты от самого раннего до самого позднего времени
+    for (let hour = minStartHour; hour < maxEndHour; hour++) {
       slots.push(`${hour.toString().padStart(2, '0')}:00`)
     }
     return slots
@@ -788,17 +899,17 @@ export default function BookingsManagement() {
                         ? getBookingsForSlot(date, time, court.id)[0]
                         : null
                       
-                      // Debug log for awaiting_payment bookings
-                      if (bookingForCourt?.paymentStatus === 'awaiting_payment') {
-                        console.log('Rendering awaiting_payment booking:', {
-                          id: bookingForCourt.id,
-                          courtId: court?.id,
-                          courtName: court?.name,
-                          paymentStatus: bookingForCourt.paymentStatus,
-                          clientName: bookingForCourt.clientName,
-                          hasAllRequiredFields: !!(bookingForCourt && court && date && time)
-                        })
-                      }
+                      // Debug log for awaiting_payment bookings - commented out
+                      // if (bookingForCourt?.paymentStatus === 'awaiting_payment') {
+                      //   console.log('Rendering awaiting_payment booking:', {
+                      //     id: bookingForCourt.id,
+                      //     courtId: court?.id,
+                      //     courtName: court?.name,
+                      //     paymentStatus: bookingForCourt.paymentStatus,
+                      //     clientName: bookingForCourt.clientName,
+                      //     hasAllRequiredFields: !!(bookingForCourt && court && date && time)
+                      //   })
+                      // }
                       
                       const isSelected = selectedSlotDate && selectedSlotTime && date &&
                         date.toDateString() === selectedSlotDate.toDateString() && 
@@ -810,6 +921,12 @@ export default function BookingsManagement() {
                         time === hoveredSlot.time &&
                         hoveredSlot.courtId === court.id
                       
+                      // Проверяем, находится ли слот в рабочих часах
+                      const currentVenue = venues.find(v => v.id === (selectedVenueId || admin?.venueId))
+                      const { startHour, endHour } = getWorkingHoursForDate(date, currentVenue)
+                      const slotHour = parseInt(time.split(':')[0])
+                      const isOutsideWorkingHours = slotHour < startHour || slotHour >= endHour
+                      
                       return (
                         <div
                           key={court.id}
@@ -817,14 +934,33 @@ export default function BookingsManagement() {
                           style={{
                             flex: 1,
                             position: 'relative',
-                            cursor: 'pointer',
+                            cursor: isOutsideWorkingHours && !bookingForCourt ? 'not-allowed' : 'pointer',
                             minHeight: '40px',
-                            background: bookingForCourt
+                            background: isOutsideWorkingHours && !bookingForCourt
+                              ? 'repeating-linear-gradient(45deg, #f3f4f6, #f3f4f6 10px, #e5e7eb 10px, #e5e7eb 20px)'
+                              : bookingForCourt
                               ? (() => {
-                                  const courtColor = court.color || '#00A86B'
-                                  const r = parseInt(courtColor.slice(1, 3), 16)
-                                  const g = parseInt(courtColor.slice(3, 5), 16)
-                                  const b = parseInt(courtColor.slice(5, 7), 16)
+                                  // Определяем цвет по статусу оплаты
+                                  const paymentStatus = bookingForCourt.paymentStatus || 'awaiting_payment'
+                                  let statusColor = '#9CA3AF' // светло-серый для неизвестных статусов
+                                  
+                                  if (paymentStatus === 'awaiting_payment') {
+                                    statusColor = '#F59E0B' // оранжевый
+                                  } else if (paymentStatus === 'paid' || paymentStatus === 'online_payment') {
+                                    statusColor = '#10B981' // зеленый
+                                  } else if (paymentStatus === 'cancelled' || paymentStatus === 'refunded') {
+                                    statusColor = '#EF4444' // красный
+                                  } else if (paymentStatus === 'error') {
+                                    statusColor = '#DC2626' // темно-красный
+                                  } else if (paymentStatus === 'not_required') {
+                                    statusColor = '#6B7280' // серый
+                                  } else if (paymentStatus === 'expired') {
+                                    statusColor = '#374151' // темно-серый
+                                  }
+                                  
+                                  const r = parseInt(statusColor.slice(1, 3), 16)
+                                  const g = parseInt(statusColor.slice(3, 5), 16)
+                                  const b = parseInt(statusColor.slice(5, 7), 16)
                                   return `rgba(${r}, ${g}, ${b}, 0.15)`
                                 })()
                               : isSelected
@@ -840,7 +976,7 @@ export default function BookingsManagement() {
                             justifyContent: 'center'
                           }}
                           onMouseEnter={() => {
-                            if (!bookingForCourt) {
+                            if (!bookingForCourt && !isOutsideWorkingHours) {
                               setHoveredSlot({date, time, courtId: court.id})
                             }
                           }}
@@ -853,7 +989,18 @@ export default function BookingsManagement() {
                               setSelectedBooking(bookingForCourt)
                               setShowDetailsModal(true)
                             } else {
-                              // Если слот пустой, открываем форму создания с предвыбранным кортом
+                              // Проверяем, что время находится в рабочих часах для этого дня
+                              const currentVenue = venues.find(v => v.id === (selectedVenueId || admin?.venueId))
+                              const { startHour, endHour } = getWorkingHoursForDate(date, currentVenue)
+                              const slotHour = parseInt(time.split(':')[0])
+                              
+                              if (slotHour < startHour || slotHour >= endHour) {
+                                // Время вне рабочих часов
+                                alert(`Клуб не работает в это время. Режим работы: ${startHour}:00 - ${endHour}:00`)
+                                return
+                              }
+                              
+                              // Если слот пустой и в рабочее время, открываем форму создания с предвыбранным кортом
                               setSelectedSlotDate(date)
                               setSelectedSlotTime(time)
                               setFormData(prev => ({ ...prev, courtId: court.id }))
@@ -961,8 +1108,13 @@ export default function BookingsManagement() {
           setSelectedSlotTime(null)
           setFormData(prev => ({ ...prev, courtId: '' }))
         }}
-        onSuccess={() => {
+        onSuccess={(createdBooking) => {
           fetchBookings(selectedVenueId || admin?.venueId || '')
+          // Открываем попап деталей созданного бронирования
+          if (createdBooking) {
+            setSelectedBooking(createdBooking)
+            setShowDetailsModal(true)
+          }
         }}
         venueId={selectedVenueId || admin?.venueId || ''}
         preSelectedDate={selectedSlotDate || undefined}

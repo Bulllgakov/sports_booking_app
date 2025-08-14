@@ -168,8 +168,9 @@ export const initBookingPayment = functions
 
       // Обновляем статус платежа в бронировании
       await bookingDoc.ref.update({
-        paymentStatus: "pending",
+        paymentStatus: "awaiting_payment",
         paymentId: paymentResponse.paymentId,
+        paymentUrl: paymentResponse.paymentUrl, // Сохраняем ссылку на оплату
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 

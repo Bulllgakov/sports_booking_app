@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum PlayerLevel { beginner, intermediate, advanced, professional }
+enum PlayerLevel { beginner, amateur, intermediate, advanced, professional }
 
 class UserModel {
   final String uid;
@@ -90,6 +90,8 @@ class UserModel {
     switch (playerLevel) {
       case PlayerLevel.beginner:
         return 'Начинающий';
+      case PlayerLevel.amateur:
+        return 'Любитель';
       case PlayerLevel.intermediate:
         return 'Средний';
       case PlayerLevel.advanced:

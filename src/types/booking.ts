@@ -16,7 +16,7 @@ export interface Booking {
   customerPhone: string
   status: 'pending' | 'confirmed' | 'cancelled'
   paymentStatus: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled'
-  paymentMethod?: 'cash' | 'card_on_site' | 'transfer' | 'online'
+  paymentMethod?: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card' | 'vtb_card'
   paymentHistory?: PaymentHistory[]
   createdBy?: {
     userId: string

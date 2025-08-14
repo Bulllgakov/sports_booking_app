@@ -4,6 +4,7 @@ import { format, parse, addMinutes } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { addDoc, collection, doc, getDoc } from 'firebase/firestore'
 import { db } from '../../services/firebase'
+import { calculateCourtPrice } from '../../utils/pricing'
 import '../../styles/flutter-theme.css'
 
 interface GameTypeOption {
@@ -23,6 +24,10 @@ interface Court {
   id: string
   name: string
   pricePerHour: number
+  priceWeekday?: number
+  priceWeekend?: number
+  pricing?: any
+  holidayPricing?: any[]
 }
 
 export default function GameTypeSelectionPage() {
@@ -59,7 +64,7 @@ export default function GameTypeSelectionPage() {
   }
   const [formData, setFormData] = useState({
     name: '',
-    phone: '',
+    phone: '+7',
     email: '',
     comment: ''
   })
@@ -98,9 +103,17 @@ export default function GameTypeSelectionPage() {
 
   const handleGameTypeSelect = (gameType: GameTypeOption) => {
     if (gameType.available) {
-      // Calculate price based on court and duration
-      const pricePerHour = court?.pricePerHour || 0
-      const price = Math.round((pricePerHour / 60) * parseInt(durationParam || '60'))
+      // Calculate price based on court and duration using pricing utility
+      const bookingDate = dateParam ? parse(dateParam, 'yyyy-MM-dd', new Date()) : new Date()
+      const price = court ? Math.round(calculateCourtPrice(
+        bookingDate,
+        timeParam || '09:00',
+        parseInt(durationParam || '60'),
+        court.pricing,
+        court.holidayPricing,
+        court.priceWeekday,
+        court.priceWeekend || court.pricePerHour
+      )) : 0
       
       // Navigate to payment page with all parameters
       const params = new URLSearchParams({
@@ -150,9 +163,17 @@ export default function GameTypeSelectionPage() {
   const handleSubmit = async () => {
     if (!validateForm()) return
     
-    // Calculate price based on court and duration
-    const pricePerHour = court?.pricePerHour || 0
-    const price = Math.round((pricePerHour / 60) * parseInt(durationParam!))
+    // Calculate price based on court and duration using pricing utility
+    const bookingDate = dateParam ? parse(dateParam, 'yyyy-MM-dd', new Date()) : new Date()
+    const price = court ? Math.round(calculateCourtPrice(
+      bookingDate,
+      timeParam || '09:00',
+      parseInt(durationParam || '60'),
+      court.pricing,
+      court.holidayPricing,
+      court.priceWeekday,
+      court.priceWeekend || court.pricePerHour
+    )) : 0
     
     // Navigate to payment page with all necessary data
     const params = new URLSearchParams({

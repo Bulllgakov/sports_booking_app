@@ -484,6 +484,7 @@ class _MyBookingsScreenV2State extends State<MyBookingsScreenV2> {
   Color _getStatusColor(String? status, String? paymentStatus) {
     if (status == 'cancelled') return AppColors.error;
     if (paymentStatus == 'refunded') return const Color(0xFF8B5CF6);
+    if (paymentStatus == 'expired') return const Color(0xFF6B7280);
     if (paymentStatus == 'paid') return AppColors.success;
     if (paymentStatus == 'awaiting_payment') return AppColors.warning;
     return AppColors.gray;
@@ -492,6 +493,7 @@ class _MyBookingsScreenV2State extends State<MyBookingsScreenV2> {
   String _getStatusText(String? status, String? paymentStatus) {
     if (status == 'cancelled') return 'Отменено';
     if (paymentStatus == 'refunded') return 'Возврат';
+    if (paymentStatus == 'expired') return 'Время истекло';
     if (paymentStatus == 'paid') return 'Оплачено';
     if (paymentStatus == 'awaiting_payment') return 'Ожидает оплаты';
     return 'Подтверждено';

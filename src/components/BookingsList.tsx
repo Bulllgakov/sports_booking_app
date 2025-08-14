@@ -17,6 +17,7 @@ import PaymentTimeLimit from './PaymentTimeLimit'
 import BookingDetailsModal from './BookingDetailsModal'
 import RefundModal from './RefundModal'
 import { Delete, FilterList, Info } from '@mui/icons-material'
+import { getPaymentMethodName } from '../utils/paymentMethods'
 
 interface PaymentHistory {
   timestamp: Date
@@ -40,7 +41,7 @@ interface Booking {
   endTime: string
   status: 'confirmed' | 'pending' | 'cancelled'
   amount: number
-  paymentMethod: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card'
+  paymentMethod: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card' | 'vtb_card'
   paymentStatus?: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled' | 'refunded'
   paymentId?: string
   paymentHistory?: PaymentHistory[]
@@ -61,7 +62,7 @@ interface BookingsListProps {
 
 export default function BookingsList({ venueId, bookings: propsBookings, onRefresh }: BookingsListProps) {
   const { admin } = useAuth()
-  const { hasPermission } = usePermission()
+  const { hasPermission, isSuperAdmin } = usePermission()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState<string>('all')
@@ -71,10 +72,20 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showRefundModal, setShowRefundModal] = useState(false)
   const [refundBooking, setRefundBooking] = useState<Booking | null>(null)
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc') // desc = новые первыми
 
   useEffect(() => {
     // Если бронирования переданы через props, используем их
     if (propsBookings) {
+      // Логируем первые 5 бронирований для отладки
+      console.log('BookingsList received bookings (first 5):', propsBookings.slice(0, 5).map(b => ({
+        id: b.id,
+        name: b.customerName || b.clientName,
+        createdAt: b.createdAt,
+        createdAtType: typeof b.createdAt,
+        hasToDate: b.createdAt?.toDate ? true : false,
+        hasSeconds: b.createdAt?.seconds ? true : false
+      })))
       setBookings(propsBookings)
       setLoading(false)
     } else {
@@ -111,21 +122,49 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
       const bookingsData = snapshot.docs.map(doc => {
         const data = doc.data()
         console.log('BookingsList: Raw booking:', data)
+        
+        // Преобразуем даты правильно
+        let createdAt: Date
+        if (data.createdAt?.toDate) {
+          createdAt = data.createdAt.toDate()
+        } else if (data.createdAt instanceof Date) {
+          createdAt = data.createdAt
+        } else if (typeof data.createdAt === 'string') {
+          createdAt = new Date(data.createdAt)
+        } else if (data.createdAt?.seconds) {
+          // Firestore Timestamp объект
+          createdAt = new Date(data.createdAt.seconds * 1000)
+        } else {
+          // Если нет даты создания, используем текущую дату как fallback
+          createdAt = new Date()
+          console.warn('No createdAt for booking:', doc.id)
+        }
+        
+        // Преобразуем дату бронирования
+        let bookingDate: Date
+        if (data.date?.toDate) {
+          bookingDate = data.date.toDate()
+        } else if (data.date instanceof Date) {
+          bookingDate = data.date
+        } else if (typeof data.date === 'string') {
+          bookingDate = new Date(data.date)
+        } else if (data.date?.seconds) {
+          bookingDate = new Date(data.date.seconds * 1000)
+        } else {
+          bookingDate = new Date()
+        }
+        
         return {
           id: doc.id,
           ...data,
-          date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
+          date: bookingDate,
+          createdAt: createdAt
         }
       }) as Booking[]
       
-      // Сортируем по дате на клиенте
-      const sortedBookings = bookingsData.sort((a, b) => {
-        return new Date(b.date).getTime() - new Date(a.date).getTime()
-      })
-      
-      console.log('BookingsList: Processed and sorted bookings:', sortedBookings)
-      setBookings(sortedBookings)
+      // НЕ сортируем здесь, сортировка будет в filteredBookings
+      console.log('BookingsList: Processed bookings:', bookingsData)
+      setBookings(bookingsData)
     } catch (error) {
       console.error('Error fetching bookings:', error)
     } finally {
@@ -133,8 +172,30 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
     }
   }
 
-  const handleDelete = async (bookingId: string) => {
-    if (!confirm('Вы уверены, что хотите удалить это бронирование?')) return
+  // Проверка, можно ли удалить бронирование
+  const canDeleteBooking = (booking: Booking): boolean => {
+    // Только суперадмин может удалять
+    if (!isSuperAdmin) return false
+    
+    // Можно удалить если:
+    // 1. Бронирование отменено И (нет оплаты ИЛИ оплата возвращена)
+    // 2. ИЛИ статус оплаты = error (ошибка оплаты)
+    const isCancelled = booking.status === 'cancelled'
+    const hasNoPayment = !booking.paymentStatus || booking.paymentStatus === 'awaiting_payment' || booking.paymentStatus === 'cancelled'
+    const isRefunded = booking.paymentStatus === 'refunded'
+    const hasError = booking.paymentStatus === 'error'
+    
+    return (isCancelled && (hasNoPayment || isRefunded)) || hasError
+  }
+
+  const handleDelete = async (bookingId: string, booking: Booking) => {
+    // Проверяем права и условия
+    if (!canDeleteBooking(booking)) {
+      alert('Удалить можно только отмененное бронирование без оплаты/с возвратом средств, или бронирование с ошибкой оплаты')
+      return
+    }
+    
+    if (!confirm('Вы уверены, что хотите удалить это бронирование?\n\nЭто действие необратимо!')) return
 
     try {
       await deleteDoc(doc(db, 'bookings', bookingId))
@@ -151,13 +212,74 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
     }
   }
 
-  const filteredBookings = bookings.filter(booking => {
+  // Фильтруем бронирования
+  const filteredByStatus = bookings.filter(booking => {
     if (filterStatus !== 'all' && booking.status !== filterStatus) return false
     if (filterPaymentStatus !== 'all') {
       const paymentStatus = booking.paymentStatus || 'awaiting_payment'
       if (paymentStatus !== filterPaymentStatus) return false
     }
     return true
+  })
+
+  // Сортируем отфильтрованные бронирования
+  const filteredBookings = [...filteredByStatus].sort((a, b) => {
+    // Нормализуем даты для сортировки
+    let dateA: Date
+    let dateB: Date
+    
+    // Для a
+    if (a.createdAt instanceof Date) {
+      dateA = a.createdAt
+    } else if (a.createdAt?.toDate) {
+      dateA = a.createdAt.toDate()
+    } else if (a.createdAt?.seconds) {
+      dateA = new Date(a.createdAt.seconds * 1000)
+    } else if (typeof a.createdAt === 'string') {
+      dateA = new Date(a.createdAt)
+    } else {
+      // Fallback на дату бронирования
+      if (a.date instanceof Date) {
+        dateA = a.date
+      } else if (a.date?.toDate) {
+        dateA = a.date.toDate()
+      } else if (a.date?.seconds) {
+        dateA = new Date(a.date.seconds * 1000)
+      } else {
+        dateA = new Date(0)
+      }
+    }
+    
+    // Для b
+    if (b.createdAt instanceof Date) {
+      dateB = b.createdAt
+    } else if (b.createdAt?.toDate) {
+      dateB = b.createdAt.toDate()
+    } else if (b.createdAt?.seconds) {
+      dateB = new Date(b.createdAt.seconds * 1000)
+    } else if (typeof b.createdAt === 'string') {
+      dateB = new Date(b.createdAt)
+    } else {
+      // Fallback на дату бронирования
+      if (b.date instanceof Date) {
+        dateB = b.date
+      } else if (b.date?.toDate) {
+        dateB = b.date.toDate()
+      } else if (b.date?.seconds) {
+        dateB = new Date(b.date.seconds * 1000)
+      } else {
+        dateB = new Date(0)
+      }
+    }
+    
+    // Сортируем в зависимости от sortOrder
+    if (sortOrder === 'desc') {
+      // Новые первыми
+      return dateB.getTime() - dateA.getTime()
+    } else {
+      // Старые первыми
+      return dateA.getTime() - dateB.getTime()
+    }
   })
 
   const formatDate = (date: Date) => {
@@ -180,14 +302,6 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
     }).format(amount)
   }
 
-  const paymentMethodLabels = {
-    cash: 'Наличные',
-    card_on_site: 'Карта на месте',
-    transfer: 'Перевод на р.счет клуба (юр.лицо)',
-    online: 'Онлайн',
-    sberbank_card: 'На карту Сбербанка',
-    tbank_card: 'На карту Т-Банка'
-  }
 
   if (loading) {
     return <div>Загрузка...</div>
@@ -259,6 +373,17 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
         <table>
           <thead>
             <tr>
+              <th 
+                onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                style={{ cursor: 'pointer', userSelect: 'none' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  Дата создания
+                  <span style={{ color: 'var(--primary)' }}>
+                    {sortOrder === 'desc' ? '↓' : '↑'}
+                  </span>
+                </div>
+              </th>
               <th>Дата и время</th>
               <th>Корт</th>
               <th>Клиент</th>
@@ -271,13 +396,50 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
           <tbody>
             {filteredBookings.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '48px' }}>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '48px' }}>
                   Нет бронирований
                 </td>
               </tr>
             ) : (
               filteredBookings.map(booking => (
                 <tr key={booking.id}>
+                  <td>
+                    {(() => {
+                      // Нормализуем дату создания для отображения
+                      let createdDate: Date | null = null
+                      
+                      if (booking.createdAt instanceof Date) {
+                        createdDate = booking.createdAt
+                      } else if (booking.createdAt?.toDate) {
+                        createdDate = booking.createdAt.toDate()
+                      } else if (booking.createdAt?.seconds) {
+                        createdDate = new Date(booking.createdAt.seconds * 1000)
+                      } else if (typeof booking.createdAt === 'string') {
+                        createdDate = new Date(booking.createdAt)
+                      }
+                      
+                      if (createdDate && !isNaN(createdDate.getTime())) {
+                        return (
+                          <>
+                            <div>{formatDate(createdDate)}</div>
+                            <div style={{ fontSize: '14px', color: 'var(--gray)' }}>
+                              {createdDate.toLocaleTimeString('ru-RU', { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </div>
+                          </>
+                        )
+                      } else {
+                        return (
+                          <>
+                            <div>Неизвестно</div>
+                            <div style={{ fontSize: '14px', color: 'var(--gray)' }}>—</div>
+                          </>
+                        )
+                      }
+                    })()}
+                  </td>
                   <td>
                     <div>{formatDate(booking.date)}</div>
                     <div style={{ fontSize: '14px', color: 'var(--gray)' }}>
@@ -292,7 +454,7 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
                     </div>
                   </td>
                   <td style={{ fontWeight: '600' }}>{formatAmount(booking.amount)}</td>
-                  <td>{paymentMethodLabels[booking.paymentMethod] || booking.paymentMethod}</td>
+                  <td>{getPaymentMethodName(booking.paymentMethod)}</td>
                   <td>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <PaymentStatusManager
@@ -326,11 +488,11 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
                       >
                         <Info />
                       </button>
-                      {hasPermission(['manage_bookings', 'manage_all_bookings']) && (
+                      {canDeleteBooking(booking) && (
                         <button
                           className="btn btn-danger btn-icon"
-                          onClick={() => handleDelete(booking.id)}
-                          title="Удалить бронирование"
+                          onClick={() => handleDelete(booking.id, booking)}
+                          title="Удалить бронирование (отмененные без оплаты или с ошибкой)"
                         >
                           <Delete />
                         </button>

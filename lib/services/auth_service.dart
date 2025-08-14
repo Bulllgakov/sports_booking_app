@@ -146,4 +146,12 @@ class AuthService extends ChangeNotifier {
       await _loadUserModel(currentUser!.uid);
     }
   }
+  
+  // Check auth status and load user data
+  Future<void> checkAuthStatus() async {
+    if (currentUser != null) {
+      await _loadUserModel(currentUser!.uid);
+    }
+    notifyListeners();
+  }
 }

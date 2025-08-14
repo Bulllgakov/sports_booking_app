@@ -26,6 +26,7 @@ export default function ClubManagement() {
     latitude: '',
     longitude: '',
     description: '',
+    timezone: 'Europe/Moscow', // Добавляем часовой пояс по умолчанию
     amenities: {
       showers: false,
       parking: false,
@@ -59,7 +60,7 @@ export default function ClubManagement() {
       90: true,
       120: true
     },
-    bookingSlotInterval: 30 as 30 | 60
+    bookingSlotInterval: 60 as 30 | 60
   })
   const [photos, setPhotos] = useState<string[]>([])
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -83,6 +84,7 @@ export default function ClubManagement() {
         latitude: club.location?._lat?.toString() || club.location?.latitude?.toString() || '',
         longitude: club.location?._long?.toString() || club.location?.longitude?.toString() || '',
         description: club.description || '',
+        timezone: club.timezone || 'Europe/Moscow',
         amenities: {
           showers: Array.isArray(club.amenities) && club.amenities.includes('showers') || false,
           parking: Array.isArray(club.amenities) && club.amenities.includes('parking') || false,
@@ -116,7 +118,7 @@ export default function ClubManagement() {
           90: true,
           120: true
         },
-        bookingSlotInterval: club.bookingSlotInterval || 30
+        bookingSlotInterval: club.bookingSlotInterval || 60
       })
       setPhotos(club.photos || [])
     }
@@ -146,6 +148,7 @@ export default function ClubManagement() {
           latitude: venueData.location?._lat?.toString() || venueData.location?.latitude?.toString() || '',
           longitude: venueData.location?._long?.toString() || venueData.location?.longitude?.toString() || '',
           description: venueData.description || '',
+          timezone: venueData.timezone || 'Europe/Moscow',
           amenities: {
             showers: Array.isArray(venueData.amenities) && venueData.amenities.includes('showers') || false,
             parking: Array.isArray(venueData.amenities) && venueData.amenities.includes('parking') || false,
@@ -179,7 +182,7 @@ export default function ClubManagement() {
             90: true,
             120: true
           },
-          bookingSlotInterval: venueData.bookingSlotInterval || 30
+          bookingSlotInterval: venueData.bookingSlotInterval || 60
         })
         setPhotos(venueData.photos || [])
       }
@@ -391,6 +394,7 @@ export default function ClubManagement() {
         address: formData.address,
         city: formData.city,
         description: formData.description,
+        timezone: formData.timezone,
         amenities: amenitiesList,
         workingHours: formData.workingHours,
         bookingDurations: formData.bookingDurations,
@@ -819,6 +823,32 @@ export default function ClubManagement() {
           </div>
           
           <div className="form-group">
+            <label className="form-label">Часовой пояс</label>
+            <select
+              className="form-select"
+              name="timezone"
+              value={formData.timezone}
+              onChange={handleInputChange}
+              required
+            >
+              <option value="Europe/Kaliningrad">Калининград (UTC+2)</option>
+              <option value="Europe/Moscow">Москва (UTC+3)</option>
+              <option value="Europe/Samara">Самара (UTC+4)</option>
+              <option value="Asia/Yekaterinburg">Екатеринбург (UTC+5)</option>
+              <option value="Asia/Omsk">Омск (UTC+6)</option>
+              <option value="Asia/Krasnoyarsk">Красноярск (UTC+7)</option>
+              <option value="Asia/Irkutsk">Иркутск (UTC+8)</option>
+              <option value="Asia/Yakutsk">Якутск (UTC+9)</option>
+              <option value="Asia/Vladivostok">Владивосток (UTC+10)</option>
+              <option value="Asia/Magadan">Магадан (UTC+11)</option>
+              <option value="Asia/Kamchatka">Камчатка (UTC+12)</option>
+            </select>
+            <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
+              Выберите часовой пояс, в котором работает ваш клуб. Это важно для корректного отображения времени в уведомлениях.
+            </div>
+          </div>
+          
+          <div className="form-group">
             <label className="form-label">Удобства</label>
             <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '12px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -962,7 +992,7 @@ export default function ClubManagement() {
                     bookingSlotInterval: 30
                   }))}
                 /> 
-                Каждые 30 минут (стандарт)
+                Каждые 30 минут
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                 <input 
@@ -975,7 +1005,7 @@ export default function ClubManagement() {
                     bookingSlotInterval: 60
                   }))}
                 /> 
-                Только с 00 минут (каждый час)
+                Только с 00 минут (стандарт)
               </label>
             </div>
             <p className="form-hint" style={{ marginTop: '8px' }}>
@@ -1032,7 +1062,7 @@ export default function ClubManagement() {
                     90: true,
                     120: true
                   },
-                  bookingSlotInterval: currentClub.bookingSlotInterval || 30
+                  bookingSlotInterval: currentClub.bookingSlotInterval || 60
                 })
               }
             }}>

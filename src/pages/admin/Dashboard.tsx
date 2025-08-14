@@ -16,20 +16,36 @@ import { usePermission } from '../../hooks/usePermission'
 import { doc, getDoc, collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { QRCodeSVG } from 'qrcode.react'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 import '../../styles/admin.css'
 
-// Статистическая карточка
-const StatCard = ({ title, value, icon, change, isPositive }: any) => (
-  <div className="stat-card">
+// Статистическая карточка с поддержкой описания
+const StatCard = ({ title, value, icon, change, isPositive, description }: any) => (
+  <div className="stat-card" style={{ position: 'relative' }}>
     <div className="stat-header">
-      <span className="stat-label">{title}</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <span className="stat-label">{title}</span>
+        {description && (
+          <span style={{ 
+            fontSize: '11px', 
+            color: 'var(--light-gray)',
+            lineHeight: '1.3',
+            maxWidth: '200px'
+          }}>
+            {description}
+          </span>
+        )}
+      </div>
       <div className="stat-icon">{icon}</div>
     </div>
     <div className="stat-value">{value}</div>
-    <div className={`stat-change ${!isPositive ? 'negative' : ''}`}>
-      {isPositive ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />}
-      {change}
-    </div>
+    {change !== null && change !== undefined && (
+      <div className={`stat-change ${!isPositive ? 'negative' : ''}`}>
+        {isPositive ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />}
+        {change}
+      </div>
+    )}
   </div>
 )
 
@@ -42,16 +58,19 @@ interface Booking {
   startTime: string
   endTime: string
   status: 'confirmed' | 'pending' | 'cancelled'
+  paymentStatus?: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled' | 'not_required'
   amount: number
 }
 
 interface Stats {
   todayBookings: number
   todayRevenue: number
+  todayIncome: number // Новое поле для поступлений
   utilization: number
   activeCustomers: number
   bookingsChange: number
   revenueChange: number
+  incomeChange: number // Изменение поступлений
   utilizationChange: number
 }
 
@@ -70,15 +89,18 @@ export default function Dashboard() {
   const [stats, setStats] = useState<Stats>({
     todayBookings: 0,
     todayRevenue: 0,
+    todayIncome: 0,
     utilization: 0,
     activeCustomers: 0,
     bookingsChange: 0,
     revenueChange: 0,
+    incomeChange: 0,
     utilizationChange: 0
   })
   const [loading, setLoading] = useState(true)
   const [venues, setVenues] = useState<Venue[]>([])
   const [selectedVenueFilter, setSelectedVenueFilter] = useState<string>('all')
+  const [currentVenueName, setCurrentVenueName] = useState<string>('')
 
   useEffect(() => {
     const loadData = async () => {
@@ -94,6 +116,18 @@ export default function Dashboard() {
       } else if (admin?.venueId) {
         // Для обычного админа загружаем данные его клуба
         setVenueId(admin.venueId)
+        // Загружаем информацию о клубе для обычного админа
+        try {
+          const venueDoc = await getDoc(doc(db, 'venues', admin.venueId))
+          if (venueDoc.exists()) {
+            const venueData = venueDoc.data()
+            setCurrentVenueName(venueData.name || '')
+            // Добавляем клуб в массив venues для единообразия
+            setVenues([{ id: admin.venueId, name: venueData.name || '' }])
+          }
+        } catch (error) {
+          console.error('Error loading venue data:', error)
+        }
         await loadDashboardData(admin.venueId)
       }
       setLoading(false)
@@ -157,8 +191,14 @@ export default function Dashboard() {
                data.status === 'confirmed'
       })
       
+      // Подсчитываем только оплаченные бронирования для дохода
+      const paidTodayBookings = todayBookingsDocs.filter(doc => {
+        const paymentStatus = doc.data().paymentStatus
+        return paymentStatus === 'paid' || paymentStatus === 'online_payment'
+      })
+      
       const todayBookings = todayBookingsDocs.length
-      const todayRevenue = todayBookingsDocs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0)
+      const todayRevenue = paidTodayBookings.reduce((sum, doc) => sum + (doc.data().amount || 0), 0)
       
       // Используем уже загруженные бронирования для последних
       const recentBookingsDocs = allBookingsSnapshot.docs
@@ -202,6 +242,7 @@ export default function Dashboard() {
           startTime: data.startTime || data.time || '',
           endTime: data.endTime || '',
           status: data.status || 'pending',
+          paymentStatus: data.paymentStatus,
           amount: data.amount || 0
         })
       }
@@ -235,13 +276,41 @@ export default function Dashboard() {
       
       const uniqueCustomers = new Set(last30DaysBookings.map(doc => doc.data().clientPhone || doc.data().customerPhone))
       
+      // Подсчет поступлений за сегодня (платежи, совершенные сегодня)
+      const todayIncome = allBookingsSnapshot.docs.reduce((sum, doc) => {
+        const data = doc.data()
+        const paymentHistory = data.paymentHistory || []
+        
+        // Проверяем историю платежей на наличие оплаты сегодня
+        const paidToday = paymentHistory.some((entry: any) => {
+          if (entry.action === 'paid' || entry.action === 'payment_completed') {
+            const paymentDate = entry.timestamp?.toDate?.() || new Date(entry.timestamp)
+            return paymentDate >= startOfToday && paymentDate <= endOfToday
+          }
+          return false
+        })
+        
+        // Если в истории нет записи об оплате, проверяем основные поля
+        // (для совместимости со старыми записями)
+        if (!paidToday && (data.paymentStatus === 'paid' || data.paymentStatus === 'online_payment')) {
+          const createdAt = data.createdAt?.toDate?.() || new Date(data.createdAt)
+          if (createdAt >= startOfToday && createdAt <= endOfToday) {
+            return sum + (data.amount || 0)
+          }
+        }
+        
+        return paidToday ? sum + (data.amount || 0) : sum
+      }, 0)
+
       setStats({
         todayBookings,
         todayRevenue,
+        todayIncome,
         utilization,
         activeCustomers: uniqueCustomers.size,
         bookingsChange: 15, // В реальном приложении нужно сравнивать с вчерашним днем
         revenueChange: 10,
+        incomeChange: 8,
         utilizationChange: -3
       })
       
@@ -299,6 +368,7 @@ export default function Dashboard() {
           startTime: data.startTime || data.time || '',
           endTime: data.endTime || '',
           status: data.status || 'pending',
+          paymentStatus: data.paymentStatus,
           amount: data.amount || 0
         })
       }
@@ -325,8 +395,14 @@ export default function Dashboard() {
                data.status === 'confirmed'
       })
       
+      // Подсчитываем только оплаченные бронирования для дохода
+      const paidTodayBookings = todayBookingsDocs.filter(doc => {
+        const paymentStatus = doc.data().paymentStatus
+        return paymentStatus === 'paid' || paymentStatus === 'online_payment'
+      })
+      
       const todayBookings = todayBookingsDocs.length
-      const todayRevenue = todayBookingsDocs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0)
+      const todayRevenue = paidTodayBookings.reduce((sum, doc) => sum + (doc.data().amount || 0), 0)
       
       // Загружаем количество кортов для расчета загрузки
       const courtsQuery = query(
@@ -353,13 +429,41 @@ export default function Dashboard() {
       
       const uniqueCustomers = new Set(last30DaysBookings.map(doc => doc.data().clientPhone || doc.data().customerPhone))
       
+      // Подсчет поступлений за сегодня (платежи, совершенные сегодня)
+      const todayIncome = allBookingsSnapshot.docs.reduce((sum, doc) => {
+        const data = doc.data()
+        const paymentHistory = data.paymentHistory || []
+        
+        // Проверяем историю платежей на наличие оплаты сегодня
+        const paidToday = paymentHistory.some((entry: any) => {
+          if (entry.action === 'paid' || entry.action === 'payment_completed') {
+            const paymentDate = entry.timestamp?.toDate?.() || new Date(entry.timestamp)
+            return paymentDate >= startOfToday && paymentDate <= endOfToday
+          }
+          return false
+        })
+        
+        // Если в истории нет записи об оплате, проверяем основные поля
+        // (для совместимости со старыми записями)
+        if (!paidToday && (data.paymentStatus === 'paid' || data.paymentStatus === 'online_payment')) {
+          const createdAt = data.createdAt?.toDate?.() || new Date(data.createdAt)
+          if (createdAt >= startOfToday && createdAt <= endOfToday) {
+            return sum + (data.amount || 0)
+          }
+        }
+        
+        return paidToday ? sum + (data.amount || 0) : sum
+      }, 0)
+
       setStats({
         todayBookings,
         todayRevenue,
+        todayIncome,
         utilization,
         activeCustomers: uniqueCustomers.size,
         bookingsChange: 12, // В реальном приложении нужно сравнивать с вчерашним днем
         revenueChange: 8,
+        incomeChange: 5,
         utilizationChange: -5
       })
       
@@ -369,8 +473,10 @@ export default function Dashboard() {
   }
 
   const getBookingUrl = () => {
-    if (!venueId) return ''
-    return `https://allcourt.ru/club/${venueId}`
+    // Для суперадмина используем выбранный клуб
+    const currentVenueId = isSuperAdmin ? selectedVenueFilter : venueId
+    if (!currentVenueId || currentVenueId === 'all') return ''
+    return `https://allcourt.ru/club/${currentVenueId}`
   }
 
   const handleCopyLink = () => {
@@ -433,11 +539,18 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Блок с QR кодом и ссылкой для бронирования - только для обычных админов */}
-      {!isSuperAdmin && venueId && (
+      {/* Блок с QR кодом и ссылкой для бронирования */}
+      {((venueId && !isSuperAdmin) || (isSuperAdmin && selectedVenueFilter !== 'all')) && (
         <div className="section-card" style={{ marginBottom: '24px' }}>
           <div className="section-header">
-            <h2 className="section-title">Ссылка для бронирования</h2>
+            <h2 className="section-title">
+              Ссылка для бронирования
+              {isSuperAdmin && selectedVenueFilter !== 'all' && (
+                <span style={{ fontSize: '16px', color: 'var(--gray)', marginLeft: '8px' }}>
+                  ({venues.find(v => v.id === selectedVenueFilter)?.name})
+                </span>
+              )}
+            </h2>
           </div>
           <div style={{ display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
             <div 
@@ -531,6 +644,15 @@ export default function Dashboard() {
           icon={<CalendarMonth />}
           change={`${stats.bookingsChange > 0 ? '+' : ''}${stats.bookingsChange}% от вчера`}
           isPositive={stats.bookingsChange > 0}
+          description="Количество игр на сегодня"
+        />
+        <StatCard
+          title="Поступления за сегодня"
+          value={`${stats.todayIncome.toLocaleString('ru-RU')}₽`}
+          icon={<AttachMoney />}
+          change={`${stats.incomeChange > 0 ? '+' : ''}${stats.incomeChange}% от вчера`}
+          isPositive={stats.incomeChange > 0}
+          description="Все платежи, пришедшие сегодня (независимо от даты игры)"
         />
         <StatCard
           title="Доход за сегодня"
@@ -538,6 +660,7 @@ export default function Dashboard() {
           icon={<AttachMoney />}
           change={`${stats.revenueChange > 0 ? '+' : ''}${stats.revenueChange}% от вчера`}
           isPositive={stats.revenueChange > 0}
+          description="Деньги от игр, состоявшихся сегодня (со статусом оплачен)"
         />
         <StatCard
           title="Загрузка кортов"
@@ -545,6 +668,7 @@ export default function Dashboard() {
           icon={<TrendingUp />}
           change={`${stats.utilizationChange > 0 ? '+' : ''}${stats.utilizationChange}% от вчера`}
           isPositive={stats.utilizationChange > 0}
+          description="Процент занятых слотов от максимума"
         />
         <StatCard
           title="Активных клиентов"
@@ -552,6 +676,7 @@ export default function Dashboard() {
           icon={<People />}
           change="за последние 30 дней"
           isPositive={true}
+          description="Уникальные клиенты за месяц"
         />
       </div>
 
@@ -592,10 +717,23 @@ export default function Dashboard() {
                     </td>
                     <td>
                       {booking.status === 'confirmed' && (
-                        <span style={{ color: 'var(--success)' }}>✅ Подтверждено</span>
+                        <>
+                          {(booking.paymentStatus === 'paid' || booking.paymentStatus === 'online_payment') && (
+                            <span style={{ color: 'var(--success)' }}>✅ Оплачено</span>
+                          )}
+                          {booking.paymentStatus === 'awaiting_payment' && (
+                            <span style={{ color: 'var(--warning)' }}>⏳ Ожидает оплаты</span>
+                          )}
+                          {booking.paymentStatus === 'not_required' && (
+                            <span style={{ color: 'var(--success)' }}>✅ Подтверждено</span>
+                          )}
+                          {!booking.paymentStatus && (
+                            <span style={{ color: 'var(--success)' }}>✅ Подтверждено</span>
+                          )}
+                        </>
                       )}
                       {booking.status === 'pending' && (
-                        <span style={{ color: 'var(--warning)' }}>⏳ Ожидает оплаты</span>
+                        <span style={{ color: 'var(--warning)' }}>⏳ Ожидает подтверждения</span>
                       )}
                       {booking.status === 'cancelled' && (
                         <span style={{ color: 'var(--danger)' }}>❌ Отменено</span>
@@ -660,6 +798,7 @@ export default function Dashboard() {
             </div>
             <div className="modal-body">
               <QRCodeSVG 
+                id="modal-qr-code"
                 value={getBookingUrl()} 
                 size={256}
                 level="H"
@@ -672,18 +811,84 @@ export default function Dashboard() {
               <div style={{ marginTop: '24px' }}>
                 <button 
                   className="btn btn-primary"
-                  onClick={() => {
-                    const canvas = document.querySelector('svg');
-                    if (canvas) {
-                      const svgData = new XMLSerializer().serializeToString(canvas);
-                      const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
-                      const svgUrl = URL.createObjectURL(svgBlob);
-                      const downloadLink = document.createElement('a');
-                      downloadLink.href = svgUrl;
-                      downloadLink.download = `qr-code-booking-${venueId}.svg`;
-                      document.body.appendChild(downloadLink);
-                      downloadLink.click();
-                      document.body.removeChild(downloadLink);
+                  onClick={async () => {
+                    try {
+                      // Находим SVG элемент QR кода
+                      const qrCodeSvg = document.getElementById('modal-qr-code');
+                      if (!qrCodeSvg) {
+                        console.error('QR code SVG element not found');
+                        alert('Не удалось найти QR код. Попробуйте еще раз.');
+                        return;
+                      }
+
+                      // Создаем временный контейнер для большого QR кода
+                      const tempContainer = document.createElement('div');
+                      tempContainer.style.position = 'absolute';
+                      tempContainer.style.left = '-9999px';
+                      tempContainer.style.top = '-9999px';
+                      tempContainer.style.backgroundColor = 'white';
+                      tempContainer.style.width = '1600px';
+                      tempContainer.style.height = '1600px';
+                      tempContainer.style.display = 'flex';
+                      tempContainer.style.alignItems = 'center';
+                      tempContainer.style.justifyContent = 'center';
+                      document.body.appendChild(tempContainer);
+
+                      // Создаем большой QR код для PDF
+                      const bigQRContainer = document.createElement('div');
+                      bigQRContainer.style.width = '1600px';
+                      bigQRContainer.style.height = '1600px';
+                      bigQRContainer.innerHTML = `
+                        <svg width="1600" height="1600" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
+                          ${qrCodeSvg.innerHTML}
+                        </svg>
+                      `;
+                      tempContainer.appendChild(bigQRContainer);
+
+                      // Создаем canvas из SVG с высоким разрешением
+                      const canvas = await html2canvas(tempContainer, {
+                        backgroundColor: 'white',
+                        scale: 1,
+                        width: 1600,
+                        height: 1600
+                      });
+
+                      // Создаем PDF документ A4
+                      const pdf = new jsPDF({
+                        orientation: 'portrait',
+                        unit: 'mm',
+                        format: 'a4'
+                      });
+
+                      // A4 размеры: 210mm x 297mm
+                      const pageWidth = 210;
+                      const pageHeight = 297;
+                      
+                      // QR код занимает 2/3 ширины страницы (увеличиваем до 180mm для лучшей видимости)
+                      const qrSize = 180; // Увеличиваем размер QR кода
+                      
+                      // Центрируем QR код на странице
+                      const x = (pageWidth - qrSize) / 2; // Центрируем по горизонтали
+                      const y = (pageHeight - qrSize) / 2; // Центрируем по вертикали
+
+                      // Добавляем QR код на страницу
+                      const imgData = canvas.toDataURL('image/png');
+                      pdf.addImage(imgData, 'PNG', x, y, qrSize, qrSize);
+
+                      // Имя файла
+                      const clubName = isSuperAdmin 
+                        ? venues.find(v => v.id === selectedVenueFilter)?.name 
+                        : currentVenueName;
+                      const fileName = `qr-code-${clubName || 'booking'}-${new Date().getTime()}.pdf`;
+                      
+                      // Скачиваем PDF
+                      pdf.save(fileName);
+
+                      // Удаляем временный контейнер
+                      document.body.removeChild(tempContainer);
+                    } catch (error) {
+                      console.error('Error downloading QR code:', error);
+                      alert('Ошибка при скачивании QR кода. Попробуйте еще раз.');
                     }
                   }}
                 >

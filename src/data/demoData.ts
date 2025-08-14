@@ -10,16 +10,18 @@ export const DEMO_ADMIN = {
 
 export const DEMO_CLUB = {
   id: 'demo-venue',
-  name: 'SmartPadel Demo Club',
+  name: 'Padel Club Moscow',
   address: 'ул. Профсоюзная, 69, Москва',
   phone: '+7 (495) 123-45-67',
-  email: 'info@smartpadel-demo.ru',
-  description: 'Современный клуб падела с 8 кортами. Это демо-версия для ознакомления с функционалом системы.',
+  email: 'info@padel-moscow.ru',
+  description: 'Современный спортивный клуб с 4 кортами (3 падел, 1 теннис). Это демо-версия для ознакомления с функционалом системы.',
   logoUrl: '',
   amenities: ['Парковка', 'Душевые', 'Кафе', 'Прокат инвентаря', 'Магазин'],
   organizationType: 'ООО',
   inn: '7712345678',
   bankAccount: '40702810123450000001',
+  timezone: 'Europe/Moscow',
+  city: 'Москва',
   workingHours: {
     monday: '07:00-23:00',
     tuesday: '07:00-23:00',
@@ -111,24 +113,6 @@ export const DEMO_COURTS = [
       weekend: 2500
     },
     amenities: ['Освещение'],
-    isActive: true
-  },
-  {
-    id: 'court-5',
-    venueId: 'demo-venue',
-    name: 'Бадминтон Зал 1',
-    type: 'badminton',
-    surface: 'Спортивный паркет',
-    indoor: true,
-    lighting: true,
-    pricePerHour: {
-      default: 800,
-      morning: 600,
-      evening: 1000,
-      weekend: 1200
-    },
-    amenities: ['Кондиционер', 'Раздевалки'],
-    description: 'Зал с 4 бадминтонными кортами',
     isActive: true
   }
 ]

@@ -29,6 +29,12 @@ interface DayPricing {
   intervals?: PriceInterval[]
 }
 
+interface HolidayPricing {
+  date: string // дата в формате MM-DD (например: "03-08" для 8 марта)
+  price: number
+  name?: string // название праздника для удобства
+}
+
 interface Court {
   id: string
   name: string
@@ -45,6 +51,7 @@ interface Court {
     saturday?: DayPricing
     sunday?: DayPricing
   }
+  holidayPricing?: HolidayPricing[]
   status: 'active' | 'inactive' | 'maintenance'
   color?: string
   venueId: string
@@ -92,6 +99,7 @@ export default function CourtsManagement() {
       saturday: { basePrice: 2400, intervals: [] },
       sunday: { basePrice: 2400, intervals: [] },
     },
+    holidayPricing: [] as HolidayPricing[],
     status: 'active' as Court['status'],
     color: '#00A86B',
   })
@@ -182,16 +190,52 @@ export default function CourtsManagement() {
     if (!venueId) return
 
     try {
+      // Создаем безопасную версию данных для отправки
+      const safeFormData = {
+        ...formData,
+        holidayPricing: Array.isArray(formData.holidayPricing) ? formData.holidayPricing : [],
+        pricing: {
+          monday: {
+            basePrice: formData.pricing.monday?.basePrice || 1900,
+            intervals: Array.isArray(formData.pricing.monday?.intervals) ? formData.pricing.monday.intervals : []
+          },
+          tuesday: {
+            basePrice: formData.pricing.tuesday?.basePrice || 1900,
+            intervals: Array.isArray(formData.pricing.tuesday?.intervals) ? formData.pricing.tuesday.intervals : []
+          },
+          wednesday: {
+            basePrice: formData.pricing.wednesday?.basePrice || 1900,
+            intervals: Array.isArray(formData.pricing.wednesday?.intervals) ? formData.pricing.wednesday.intervals : []
+          },
+          thursday: {
+            basePrice: formData.pricing.thursday?.basePrice || 1900,
+            intervals: Array.isArray(formData.pricing.thursday?.intervals) ? formData.pricing.thursday.intervals : []
+          },
+          friday: {
+            basePrice: formData.pricing.friday?.basePrice || 1900,
+            intervals: Array.isArray(formData.pricing.friday?.intervals) ? formData.pricing.friday.intervals : []
+          },
+          saturday: {
+            basePrice: formData.pricing.saturday?.basePrice || 2400,
+            intervals: Array.isArray(formData.pricing.saturday?.intervals) ? formData.pricing.saturday.intervals : []
+          },
+          sunday: {
+            basePrice: formData.pricing.sunday?.basePrice || 2400,
+            intervals: Array.isArray(formData.pricing.sunday?.intervals) ? formData.pricing.sunday.intervals : []
+          }
+        }
+      }
+
       if (editingCourt) {
         // Обновление существующего корта
         await updateDoc(doc(db, 'venues', venueId, 'courts', editingCourt.id), {
-          ...formData,
+          ...safeFormData,
           updatedAt: new Date()
         })
       } else {
         // Создание нового корта
         await addDoc(collection(db, 'venues', venueId, 'courts'), {
-          ...formData,
+          ...safeFormData,
           createdAt: new Date()
         })
       }
@@ -212,9 +256,11 @@ export default function CourtsManagement() {
           saturday: { basePrice: 2400, intervals: [] },
           sunday: { basePrice: 2400, intervals: [] },
         },
+        holidayPricing: [],
         status: 'active',
         color: nextColor,
       })
+      
       fetchCourts(venueId)
       
       // Показать сообщение об успехе
@@ -227,19 +273,48 @@ export default function CourtsManagement() {
 
   const handleEdit = (court: Court) => {
     setEditingCourt(court)
+    // Подготавливаем pricing с гарантированными intervals
+    const defaultPricing = {
+      monday: { basePrice: 1900, intervals: [] },
+      tuesday: { basePrice: 1900, intervals: [] },
+      wednesday: { basePrice: 1900, intervals: [] },
+      thursday: { basePrice: 1900, intervals: [] },
+      friday: { basePrice: 1900, intervals: [] },
+      saturday: { basePrice: 2400, intervals: [] },
+      sunday: { basePrice: 2400, intervals: [] },
+    }
+    
+    // Безопасно создаем pricing объект
+    const safePricing = {
+      monday: court.pricing?.monday ? 
+        { basePrice: court.pricing.monday.basePrice || 1900, intervals: court.pricing.monday.intervals || [] } : 
+        defaultPricing.monday,
+      tuesday: court.pricing?.tuesday ? 
+        { basePrice: court.pricing.tuesday.basePrice || 1900, intervals: court.pricing.tuesday.intervals || [] } : 
+        defaultPricing.tuesday,
+      wednesday: court.pricing?.wednesday ? 
+        { basePrice: court.pricing.wednesday.basePrice || 1900, intervals: court.pricing.wednesday.intervals || [] } : 
+        defaultPricing.wednesday,
+      thursday: court.pricing?.thursday ? 
+        { basePrice: court.pricing.thursday.basePrice || 1900, intervals: court.pricing.thursday.intervals || [] } : 
+        defaultPricing.thursday,
+      friday: court.pricing?.friday ? 
+        { basePrice: court.pricing.friday.basePrice || 1900, intervals: court.pricing.friday.intervals || [] } : 
+        defaultPricing.friday,
+      saturday: court.pricing?.saturday ? 
+        { basePrice: court.pricing.saturday.basePrice || 2400, intervals: court.pricing.saturday.intervals || [] } : 
+        defaultPricing.saturday,
+      sunday: court.pricing?.sunday ? 
+        { basePrice: court.pricing.sunday.basePrice || 2400, intervals: court.pricing.sunday.intervals || [] } : 
+        defaultPricing.sunday,
+    }
+    
     setFormData({
       name: court.name,
       type: court.type,
       courtType: court.courtType,
-      pricing: court.pricing || {
-        monday: { basePrice: 1900, intervals: [] },
-        tuesday: { basePrice: 1900, intervals: [] },
-        wednesday: { basePrice: 1900, intervals: [] },
-        thursday: { basePrice: 1900, intervals: [] },
-        friday: { basePrice: 1900, intervals: [] },
-        saturday: { basePrice: 2400, intervals: [] },
-        sunday: { basePrice: 2400, intervals: [] },
-      },
+      pricing: safePricing,
+      holidayPricing: court.holidayPricing || [],
       status: court.status,
       color: court.color || '#00A86B',
     })
@@ -364,15 +439,22 @@ export default function CourtsManagement() {
                 <div>Тип: {court.courtType === 'indoor' ? 'Крытый' : 'Открытый'}</div>
                 <div>
                   {court.pricing ? (
-                    <>Цены: от {Math.min(
-                      ...Object.values(court.pricing)
-                        .filter(p => p)
-                        .map(p => p!.basePrice)
-                    )}₽ до {Math.max(
-                      ...Object.values(court.pricing)
-                        .filter(p => p)
-                        .map(p => p!.basePrice)
-                    )}₽</>
+                    (() => {
+                      try {
+                        const prices = Object.values(court.pricing)
+                          .filter(p => p && p.basePrice)
+                          .map(p => p.basePrice)
+                        
+                        if (prices.length === 0) {
+                          return <>Цены не установлены</>
+                        }
+                        
+                        return <>Цены: от {Math.min(...prices)}₽ до {Math.max(...prices)}₽</>
+                      } catch (e) {
+                        console.error('Error displaying court prices:', e, court)
+                        return <>Ошибка отображения цен</>
+                      }
+                    })()
                   ) : (
                     <>Будни: {court.priceWeekday || 1900}₽ | Вых: {court.priceWeekend || 2400}₽</>
                   )}
@@ -431,6 +513,7 @@ export default function CourtsManagement() {
                     saturday: { basePrice: 2400, intervals: [] },
                     sunday: { basePrice: 2400, intervals: [] },
                   },
+                  holidayPricing: [],
                   status: 'active',
                   color: nextColor,
                 })
@@ -527,7 +610,11 @@ export default function CourtsManagement() {
                           <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '8px' }}>
                             Интервалы с особыми ценами:
                           </div>
-                          {formData.pricing[day.key as keyof typeof formData.pricing].intervals?.map((interval, idx) => (
+                          {(() => {
+                            const dayPricing = formData.pricing[day.key as keyof typeof formData.pricing]
+                            const intervals = dayPricing?.intervals || []
+                            
+                            return intervals.map((interval, idx) => (
                             <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                               <input
                                 type="time"
@@ -535,7 +622,7 @@ export default function CourtsManagement() {
                                 style={{ width: '140px' }}
                                 value={interval.from}
                                 onChange={(e) => {
-                                  const newIntervals = [...formData.pricing[day.key as keyof typeof formData.pricing].intervals!]
+                                  const newIntervals = [...(formData.pricing[day.key as keyof typeof formData.pricing].intervals || [])]
                                   newIntervals[idx].from = e.target.value
                                   setFormData(prev => ({
                                     ...prev,
@@ -557,7 +644,7 @@ export default function CourtsManagement() {
                                 style={{ width: '140px' }}
                                 value={interval.to}
                                 onChange={(e) => {
-                                  const newIntervals = [...formData.pricing[day.key as keyof typeof formData.pricing].intervals!]
+                                  const newIntervals = [...(formData.pricing[day.key as keyof typeof formData.pricing].intervals || [])]
                                   newIntervals[idx].to = e.target.value
                                   setFormData(prev => ({
                                     ...prev,
@@ -578,7 +665,7 @@ export default function CourtsManagement() {
                                 style={{ width: '120px' }}
                                 value={interval.price}
                                 onChange={(e) => {
-                                  const newIntervals = [...formData.pricing[day.key as keyof typeof formData.pricing].intervals!]
+                                  const newIntervals = [...(formData.pricing[day.key as keyof typeof formData.pricing].intervals || [])]
                                   newIntervals[idx].price = Number(e.target.value)
                                   setFormData(prev => ({
                                     ...prev,
@@ -600,7 +687,7 @@ export default function CourtsManagement() {
                                 className="btn btn-secondary"
                                 style={{ padding: '4px 8px' }}
                                 onClick={() => {
-                                  const newIntervals = formData.pricing[day.key as keyof typeof formData.pricing].intervals!.filter((_, i) => i !== idx)
+                                  const newIntervals = (formData.pricing[day.key as keyof typeof formData.pricing].intervals || []).filter((_, i) => i !== idx)
                                   setFormData(prev => ({
                                     ...prev,
                                     pricing: {
@@ -616,7 +703,8 @@ export default function CourtsManagement() {
                                 Удалить
                               </button>
                             </div>
-                          ))}
+                          ))
+                          })()}
                           <button
                             type="button"
                             className="btn btn-link"
@@ -644,6 +732,107 @@ export default function CourtsManagement() {
                       </div>
                     ))}
                   </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Праздничные дни</label>
+                <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px' }}>
+                  В праздничные дни действует фиксированная цена, независимо от дня недели и временных интервалов
+                </div>
+                <div>
+                  {(() => {
+                    const holidays = formData.holidayPricing || []
+                    
+                    return holidays.map((holiday, idx) => (
+                    <div key={idx} style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '12px', 
+                      marginBottom: '12px',
+                      padding: '12px',
+                      background: '#f8f9fa',
+                      borderRadius: '8px'
+                    }}>
+                      <input
+                        type="text"
+                        className="form-input"
+                        style={{ width: '100px' }}
+                        placeholder="ММ-ДД"
+                        value={holiday.date}
+                        onChange={(e) => {
+                          const newHolidays = [...(formData.holidayPricing || [])]
+                          newHolidays[idx].date = e.target.value
+                          setFormData(prev => ({
+                            ...prev,
+                            holidayPricing: newHolidays
+                          }))
+                        }}
+                      />
+                      <input
+                        type="text"
+                        className="form-input"
+                        style={{ flex: 1 }}
+                        placeholder="Название праздника (необязательно)"
+                        value={holiday.name || ''}
+                        onChange={(e) => {
+                          const newHolidays = [...(formData.holidayPricing || [])]
+                          newHolidays[idx].name = e.target.value
+                          setFormData(prev => ({
+                            ...prev,
+                            holidayPricing: newHolidays
+                          }))
+                        }}
+                      />
+                      <input
+                        type="number"
+                        className="form-input"
+                        style={{ width: '120px' }}
+                        placeholder="Цена"
+                        value={holiday.price}
+                        onChange={(e) => {
+                          const newHolidays = [...(formData.holidayPricing || [])]
+                          newHolidays[idx].price = Number(e.target.value)
+                          setFormData(prev => ({
+                            ...prev,
+                            holidayPricing: newHolidays
+                          }))
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '4px 8px' }}
+                        onClick={() => {
+                          const newHolidays = (formData.holidayPricing || []).filter((_, i) => i !== idx)
+                          setFormData(prev => ({
+                            ...prev,
+                            holidayPricing: newHolidays
+                          }))
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))
+                  })()}
+                  <button
+                    type="button"
+                    className="btn btn-link"
+                    style={{ padding: '4px 8px', fontSize: '14px' }}
+                    onClick={() => {
+                      const newHolidays = [
+                        ...(formData.holidayPricing || []),
+                        { date: '', price: 3000, name: '' }
+                      ]
+                      setFormData(prev => ({
+                        ...prev,
+                        holidayPricing: newHolidays
+                      }))
+                    }}
+                  >
+                    + Добавить праздничный день
+                  </button>
+                </div>
               </div>
               
               <div className="form-group">

@@ -15,7 +15,7 @@ interface Booking {
   endTime: string
   status: 'confirmed' | 'pending' | 'cancelled'
   amount: number
-  paymentMethod: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card'
+  paymentMethod: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card' | 'vtb_card'
   paymentStatus?: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled'
 }
 

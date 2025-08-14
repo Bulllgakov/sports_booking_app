@@ -5,6 +5,12 @@ import { db } from '../services/firebase'
 import PaymentStatusManager from './PaymentStatusManager'
 import PaymentHistory from './PaymentHistory'
 import RefundModal from './RefundModal'
+import PaymentTimeLimit from './PaymentTimeLimit'
+import { normalizeDate, calculateEndTime, formatDuration } from '../utils/dateTime'
+import { normalizeDateInClubTZ } from '../utils/clubDateTime'
+import type { BookingData, firestoreToBooking } from '../types/bookingTypes'
+import { getPaymentMethodName } from '../utils/paymentMethods'
+import { useAuth } from '../contexts/AuthContext'
 
 interface PaymentHistory {
   timestamp: any
@@ -14,30 +20,18 @@ interface PaymentHistory {
   note?: string
 }
 
-interface Booking {
-  id: string
-  courtId: string
-  courtName: string
-  clientName: string
-  clientPhone: string
-  customerName?: string
-  customerPhone?: string
-  date: Date
-  time?: string
-  startTime: string
-  endTime: string
-  status: 'confirmed' | 'pending' | 'cancelled'
-  amount: number
-  paymentMethod: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card'
-  paymentStatus?: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled'
+// Используем стандартизованный тип из bookingTypes, расширяя его необходимыми полями
+interface Booking extends Omit<BookingData, 'paymentHistory'> {
+  clientName: string  // Для обратной совместимости
+  clientPhone: string // Для обратной совместимости
+  time?: string       // Для обратной совместимости
+  endTime: string     // Вычисляется из startTime + duration
   paymentHistory?: PaymentHistory[]
-  createdBy?: {
-    userId: string
-    userName: string
-    userRole?: string
+  paymentSmsInfo?: {
+    sentAt: any
+    sentTo: string
+    paymentUrl: string
   }
-  venueId: string
-  createdAt: Date
 }
 
 interface BookingDetailsModalProps {
@@ -53,8 +47,12 @@ export default function BookingDetailsModal({
   onClose,
   onUpdate 
 }: BookingDetailsModalProps) {
+  const { club } = useAuth()
   const [currentBooking, setCurrentBooking] = useState<Booking | null>(booking)
   const [showRefundModal, setShowRefundModal] = useState(false)
+  
+  // Получаем часовой пояс клуба
+  const clubTimezone = club?.timezone || 'Europe/Moscow'
 
   useEffect(() => {
     if (booking && isOpen) {
@@ -65,11 +63,27 @@ export default function BookingDetailsModal({
       const unsubscribe = onSnapshot(doc(db, 'bookings', booking.id), (doc) => {
         if (doc.exists()) {
           const data = doc.data()
+          // Используем утилиту для безопасного преобразования даты с учетом часового пояса клуба
+          const bookingDate = normalizeDateInClubTZ(data.date, clubTimezone)
+          const createdAt = normalizeDateInClubTZ(data.createdAt, clubTimezone)
+          
+          // Вычисляем endTime из startTime и duration
+          const endTime = data.duration ? 
+            calculateEndTime(data.startTime || data.time || '00:00', data.duration) : 
+            data.endTime || ''
+          
           const updatedBooking = {
             id: doc.id,
             ...data,
-            date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
-            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || Date.now()),
+            date: bookingDate,
+            createdAt: createdAt,
+            startTime: data.startTime || data.time || '00:00',
+            endTime: endTime,
+            // Для обратной совместимости
+            clientName: data.customerName || data.clientName,
+            clientPhone: data.customerPhone || data.clientPhone,
+            customerName: data.customerName || data.clientName,
+            customerPhone: data.customerPhone || data.clientPhone,
             paymentStatus: data.paymentStatus || 'awaiting_payment',
             paymentHistory: data.paymentHistory || []
           } as Booking
@@ -88,11 +102,27 @@ export default function BookingDetailsModal({
       const bookingDoc = await getDoc(doc(db, 'bookings', bookingId))
       if (bookingDoc.exists()) {
         const data = bookingDoc.data()
+        // Используем утилиту для безопасного преобразования даты с учетом часового пояса клуба
+        const bookingDate = normalizeDateInClubTZ(data.date, clubTimezone)
+        const createdAt = normalizeDateInClubTZ(data.createdAt, clubTimezone)
+        
+        // Вычисляем endTime из startTime и duration
+        const endTime = data.duration ? 
+          calculateEndTime(data.startTime || data.time || '00:00', data.duration) : 
+          data.endTime || ''
+        
         const freshBooking = {
           id: bookingDoc.id,
           ...data,
-          date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || Date.now()),
+          date: bookingDate,
+          createdAt: createdAt,
+          startTime: data.startTime || data.time || '00:00',
+          endTime: endTime,
+          // Для обратной совместимости
+          clientName: data.customerName || data.clientName,
+          clientPhone: data.customerPhone || data.clientPhone,
+          customerName: data.customerName || data.clientName,
+          customerPhone: data.customerPhone || data.clientPhone,
           paymentStatus: data.paymentStatus || 'awaiting_payment',
           paymentHistory: data.paymentHistory || []
         } as Booking
@@ -125,14 +155,6 @@ export default function BookingDetailsModal({
     }).format(amount)
   }
 
-  const paymentMethodLabels = {
-    cash: 'Наличные',
-    card_on_site: 'Карта на месте',  
-    transfer: 'Перевод на р.счет клуба (юр.лицо)',
-    online: 'Онлайн',
-    sberbank_card: 'На карту Сбербанка',
-    tbank_card: 'На карту Т-Банка'
-  }
 
   const statusLabels = {
     confirmed: 'Подтверждено',
@@ -270,7 +292,7 @@ export default function BookingDetailsModal({
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--gray)' }}>Способ оплаты:</span>
                   <span style={{ fontWeight: '600' }}>
-                    {paymentMethodLabels[currentBooking.paymentMethod]}
+                    {getPaymentMethodName(currentBooking.paymentMethod)}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -291,6 +313,87 @@ export default function BookingDetailsModal({
                     }}
                   />
                 </div>
+                {/* Таймер до автоматической отмены */}
+                {currentBooking.paymentStatus === 'awaiting_payment' && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: 'var(--gray)' }}>До отмены:</span>
+                    <PaymentTimeLimit
+                      createdAt={currentBooking.createdAt}
+                      paymentMethod={currentBooking.paymentMethod}
+                      paymentStatus={currentBooking.paymentStatus}
+                    />
+                  </div>
+                )}
+                {/* Ссылка на оплату */}
+                {currentBooking.paymentMethod === 'online' && 
+                 currentBooking.paymentStatus === 'awaiting_payment' && 
+                 (currentBooking.paymentUrl || currentBooking.paymentSmsInfo?.paymentUrl) && (
+                  <div style={{ 
+                    marginTop: '12px',
+                    padding: '12px',
+                    background: 'rgba(245, 158, 11, 0.1)',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(245, 158, 11, 0.3)'
+                  }}>
+                    <div style={{ 
+                      fontSize: '14px', 
+                      fontWeight: '600', 
+                      color: 'var(--warning)',
+                      marginBottom: '8px'
+                    }}>
+                      Ссылка на оплату
+                    </div>
+                    <div style={{ 
+                      fontSize: '12px', 
+                      color: 'var(--gray)',
+                      marginBottom: '8px'
+                    }}>
+                      {currentBooking.paymentSmsInfo ? 
+                        `SMS отправлено на ${currentBooking.paymentSmsInfo.sentTo}` : 
+                        'Клиент может оплатить по этой ссылке'}
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px',
+                      background: 'white',
+                      borderRadius: '6px',
+                      border: '1px solid var(--extra-light-gray)'
+                    }}>
+                      <input
+                        type="text"
+                        value={currentBooking.paymentUrl || currentBooking.paymentSmsInfo?.paymentUrl || ''}
+                        readOnly
+                        style={{
+                          flex: 1,
+                          border: 'none',
+                          outline: 'none',
+                          fontSize: '12px',
+                          background: 'transparent'
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          const url = currentBooking.paymentUrl || currentBooking.paymentSmsInfo?.paymentUrl || ''
+                          navigator.clipboard.writeText(url)
+                          alert('Ссылка скопирована!')
+                        }}
+                        style={{
+                          padding: '4px 12px',
+                          background: 'var(--primary)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Копировать
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

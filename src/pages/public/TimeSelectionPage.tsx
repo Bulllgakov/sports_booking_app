@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { format, parse, addMinutes, isAfter, isBefore, startOfToday, isToday, addDays } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
+import { doc, getDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore'
 import { db } from '../../services/firebase'
+import { calculateCourtPrice } from '../../utils/pricing'
 import '../../styles/flutter-theme.css'
 
 interface Court {
@@ -11,6 +12,10 @@ interface Court {
   name: string
   type: 'padel' | 'tennis' | 'badminton'
   pricePerHour: number
+  priceWeekday?: number
+  priceWeekend?: number
+  pricing?: any
+  holidayPricing?: any[]
   venueId: string
 }
 
@@ -18,11 +23,12 @@ interface Venue {
   id: string
   name: string
   workingHours?: {
-    [key: string]: { open: string; close: string }
+    [key: string]: string | { open: string; close: string }
   }
   bookingDurations?: {
     [key: number]: boolean
   }
+  bookingSlotInterval?: number // 30 или 60 минут
 }
 
 interface Booking {
@@ -32,6 +38,7 @@ interface Booking {
   startTime: string
   endTime: string
   status: 'confirmed' | 'pending' | 'cancelled'
+  paymentStatus?: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled' | 'refunded' | 'error' | 'expired' | 'not_required'
 }
 
 interface TimeSlot {
@@ -149,19 +156,48 @@ export default function TimeSelectionPage() {
       const currentDate = dateOptions[selectedDateIndex]?.date || selectedDate
       const dateString = format(currentDate, 'yyyy-MM-dd')
       
+      // Используем Timestamp для запроса (все даты теперь в формате Timestamp)
+      const startOfDay = new Date(currentDate)
+      startOfDay.setHours(0, 0, 0, 0)
+      const endOfDay = new Date(currentDate)
+      endOfDay.setHours(23, 59, 59, 999)
+      
       const bookingsQuery = query(
         collection(db, 'bookings'),
         where('courtId', '==', courtId),
-        where('date', '==', dateString),
-        where('status', 'in', ['confirmed', 'pending'])
+        where('date', '>=', Timestamp.fromDate(startOfDay)),
+        where('date', '<=', Timestamp.fromDate(endOfDay))
       )
       const bookingsSnapshot = await getDocs(bookingsQuery)
-      const bookingsData = bookingsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Booking[]
       
-      setBookings(bookingsData)
+      // Фильтруем бронирования согласно логике из админки
+      const bookingsData = bookingsSnapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Booking[]
+      
+      // Применяем ту же логику, что и в админке для определения занятости корта
+      const occupiedBookings = bookingsData.filter(booking => {
+        const status = booking.status || 'pending'
+        const paymentStatus = booking.paymentStatus || 'awaiting_payment'
+        
+        return (
+          status !== 'cancelled' && 
+          paymentStatus !== 'cancelled' && 
+          paymentStatus !== 'refunded' &&
+          paymentStatus !== 'error' &&
+          (
+            status === 'confirmed' || 
+            status === 'pending' ||
+            paymentStatus === 'paid' || 
+            paymentStatus === 'online_payment' ||
+            paymentStatus === 'awaiting_payment'
+          )
+        )
+      })
+      
+      setBookings(occupiedBookings)
       setLoading(false)
     } catch (err) {
       console.error('Error loading data:', err)
@@ -176,16 +212,43 @@ export default function TimeSelectionPage() {
     const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
     const currentDate = dateOptions[selectedDateIndex]?.date || selectedDate
     const dayOfWeek = days[currentDate.getDay()]
-    const hours = venue.workingHours[dayOfWeek]
+    const dayHours = venue.workingHours[dayOfWeek]
     
-    if (!hours) return
+    if (!dayHours) return
+
+    let openTimeStr = '08:00'
+    let closeTimeStr = '22:00'
+    
+    if (typeof dayHours === 'string' && dayHours.includes('-')) {
+      // Формат строки: "08:00-22:00"
+      const [open, close] = dayHours.split('-').map(t => t.trim())
+      openTimeStr = open || '08:00'
+      closeTimeStr = close || '22:00'
+    } else if (dayHours.open && dayHours.close) {
+      // Формат объекта: { open: '08:00', close: '22:00' }
+      openTimeStr = dayHours.open
+      closeTimeStr = dayHours.close
+    }
 
     const slots: TimeSlot[] = []
-    const openTime = parse(hours.open, 'HH:mm', currentDate)
-    const closeTime = parse(hours.close, 'HH:mm', currentDate)
+    const openTime = parse(openTimeStr, 'HH:mm', currentDate)
+    const closeTime = parse(closeTimeStr, 'HH:mm', currentDate)
+    
+    // Используем интервал слотов из настроек venue (по умолчанию 60 минут)
+    const slotInterval = venue.bookingSlotInterval || 60
     
     let currentTime = openTime
     const now = new Date()
+    
+    // Если интервал 60 минут, начинаем с ближайшего целого часа
+    if (slotInterval === 60 && currentTime.getMinutes() !== 0) {
+      const minutes = currentTime.getMinutes()
+      if (minutes < 30) {
+        currentTime = new Date(currentTime.setMinutes(0))
+      } else {
+        currentTime = addMinutes(new Date(currentTime.setMinutes(0)), 60)
+      }
+    }
 
     while (isBefore(currentTime, closeTime)) {
       const timeString = format(currentTime, 'HH:mm')
@@ -217,22 +280,25 @@ export default function TimeSelectionPage() {
         }
       }
       
-      // Dynamic pricing based on time
-      let price = court.pricePerHour
-      const hour = currentTime.getHours()
-      if (hour >= 18 && hour < 21) {
-        price = Math.round(price * 1.2) // 20% more expensive in evening
-      } else if (hour >= 21 || hour < 7) {
-        price = Math.round(price * 0.8) // 20% cheaper late night/early morning
-      }
+      // Calculate price using the pricing utility
+      const bookingDate = selectedDate || new Date()
+      const price = calculateCourtPrice(
+        bookingDate,
+        timeString,
+        duration, // duration already in minutes
+        court.pricing,
+        court.holidayPricing,
+        court.priceWeekday,
+        court.priceWeekend || court.pricePerHour
+      )
       
       slots.push({
         time: timeString,
         available: isAvailable,
-        price: Math.round((price * duration) / 60)
+        price: Math.round(price)
       })
       
-      currentTime = addMinutes(currentTime, 30) // 30 minute intervals
+      currentTime = addMinutes(currentTime, slotInterval) // Используем интервал из настроек
     }
     
     setTimeSlots(slots)

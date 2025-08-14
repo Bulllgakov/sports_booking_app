@@ -797,6 +797,7 @@ export const createClubHttp = functions.region(region).https.onRequest(async (re
 // Экспорт функций для биллинга
 export {initSubscriptionPayment} from "./billing/initPayment";
 export {initBookingPayment} from "./billing/initBookingPayment";
+export {sendBookingPaymentSMS} from "./billing/sendBookingPaymentSMS";
 export {processBookingRefund} from "./billing/processRefund";
 export {testPaymentConnection} from "./billing/testPaymentConnection";
 export {tbankWebhook} from "./billing/webhooks";
@@ -805,6 +806,12 @@ export {processRecurringPayment, monthlyBilling} from "./billing/recurringPaymen
 
 // Booking functions
 export {cancelExpiredBookings, cancelExpiredBookingsManual} from "./booking/cancelExpiredBookings";
+export {validateBookingRequest} from "./booking/validateBookingRequest";
+export {
+  scheduleBookingCancellation,
+  cancelSpecificBooking,
+  cancelScheduledCancellation,
+} from "./booking/scheduleBookingCancellation";
 
 // Экспорт функций для уведомлений о бронировании
 export {sendBookingNotifications, resendBookingNotification} from "./booking/notifications";
@@ -844,3 +851,23 @@ export const processEmailQueueManual = functions
 // Admin functions
 export {fixRefundStatus} from "./admin/fixRefundStatus";
 export {manualRefundUpdate} from "./admin/manualRefundUpdate";
+
+// Auth functions
+export {sendSMSCode, verifySMSCode} from "./auth/sendSMSCode";
+
+// SMS Settings functions
+export {getSMSSettings, updateSMSSettings, testSMSSending, getSMSStats} from "./admin/smsSettings";
+export {initializeSMSSettings} from "./admin/initializeSMSSettings";
+export {getSMSTemplates, updateSMSTemplates} from "./admin/smsTemplates";
+// SMS Auth functions - TEMPORARILY COMMENTED DUE TO DEPLOYMENT ISSUES
+// export {sendAuthSMSCode, verifyAuthSMSCode, cleanupExpiredAuthCodes} from "./auth/smsAuth";
+// SMS Reminders - TEMPORARILY COMMENTED DUE TO DEPLOYMENT ISSUES
+// export {sendBookingReminders, sendBookingReminderManual} from "./booking/smsReminders";
+
+// Migration functions
+export {fixOldBookings, checkOldBookings} from "./migrations/fixOldBookings";
+export {forceFixCreatedAt} from "./migrations/forceFixCreatedAt";
+export {fixBookingStatuses} from "./migrations/fixBookingStatuses";
+export {unifyDateFormats} from "./migrations/unifyDateFormats";
+// Booking update with SMS - TEMPORARILY COMMENTED DUE TO DEPLOYMENT ISSUES
+// export {updateBooking} from "./booking/updateBooking";

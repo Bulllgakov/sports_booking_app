@@ -27,7 +27,10 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  CircularProgress
+  CircularProgress,
+  Checkbox,
+  FormGroup,
+  FormLabel
 } from '@mui/material'
 import {
   Settings,
@@ -96,6 +99,14 @@ export default function PaymentSettings() {
   const [testDialogOpen, setTestDialogOpen] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
   const [activeStep, setActiveStep] = useState(0)
+  const [enabledPaymentMethods, setEnabledPaymentMethods] = useState<Record<string, boolean>>({
+    cash: true,
+    card_on_site: true,
+    transfer: true,
+    sberbank_card: true,
+    tbank_card: true,
+    vtb_card: true
+  })
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -137,6 +148,21 @@ export default function PaymentSettings() {
           setCredentials(data.paymentCredentials)
         }
         
+        // Загружаем настройки видимости способов оплаты
+        if (data.enabledPaymentMethods) {
+          setEnabledPaymentMethods(data.enabledPaymentMethods)
+        } else {
+          // По умолчанию все включены
+          setEnabledPaymentMethods({
+            cash: true,
+            card_on_site: true,
+            transfer: true,
+            sberbank_card: true,
+            tbank_card: true,
+            vtb_card: true
+          })
+        }
+        
         // Определяем активный шаг
         if (data.paymentProvider && data.paymentCredentials) {
           setActiveStep(2)
@@ -175,6 +201,7 @@ export default function PaymentSettings() {
         paymentTestMode: finalTestMode,
         paymentProvider: selectedProvider,
         paymentCredentials: credentials,
+        enabledPaymentMethods,
         paymentUpdatedAt: new Date()
       }
       
@@ -397,6 +424,11 @@ export default function PaymentSettings() {
                           onChange={(e) => handleCredentialChange(field.name, e.target.value)}
                           required={field.required}
                           placeholder={field.placeholder}
+                          helperText={
+                            field.name === 'secretKey' && selectedProvider === 'yookassa'
+                              ? 'Используйте OAuth токен (live_xxx или test_xxx). Для возвратов токен должен иметь права refunds:write'
+                              : field.placeholder
+                          }
                         />
                       )}
                     </Box>
@@ -451,6 +483,26 @@ export default function PaymentSettings() {
                     : testMode && ' Не забудьте отключить тестовый режим для приема реальных платежей.'}
                 </Alert>
                 
+                {/* Кнопка для редактирования настроек */}
+                <Box sx={{ mt: 2, mb: 2 }}>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    onClick={() => {
+                      setActiveStep(1)
+                      setPaymentEnabled(false)
+                    }}
+                  >
+                    Изменить настройки платежей
+                  </Button>
+                  
+                  {selectedProvider === 'yookassa' && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                      Если возвраты не работают, создайте новый OAuth токен с правами на возвраты в личном кабинете YooKassa
+                    </Typography>
+                  )}
+                </Box>
+                
                 {selectedProvider === 'yookassa' && (
                   <Alert severity="warning" icon={<Info />} sx={{ mt: 2 }}>
                     <Typography variant="subtitle2" gutterBottom>
@@ -473,6 +525,146 @@ export default function PaymentSettings() {
           </StepContent>
         </Step>
       </Stepper>
+
+      {/* Управление способами оплаты */}
+      <Card sx={{ mt: 4 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Доступные способы оплаты в админ-панели
+          </Typography>
+          <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
+            Выберите, какие способы оплаты будут доступны администраторам при создании бронирований. 
+            Онлайн оплата всегда доступна и не может быть отключена.
+          </Typography>
+          
+          <FormGroup>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={enabledPaymentMethods.cash}
+                  onChange={(e) => setEnabledPaymentMethods(prev => ({ ...prev, cash: e.target.checked }))}
+                />
+              }
+              label={
+                <Box>
+                  <Typography>Оплата в клубе наличными</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    ✓ Без ограничения по времени
+                  </Typography>
+                </Box>
+              }
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={enabledPaymentMethods.card_on_site}
+                  onChange={(e) => setEnabledPaymentMethods(prev => ({ ...prev, card_on_site: e.target.checked }))}
+                />
+              }
+              label={
+                <Box>
+                  <Typography>Оплата в клубе картой</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    ✓ Без ограничения по времени
+                  </Typography>
+                </Box>
+              }
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={enabledPaymentMethods.transfer}
+                  onChange={(e) => setEnabledPaymentMethods(prev => ({ ...prev, transfer: e.target.checked }))}
+                />
+              }
+              label={
+                <Box>
+                  <Typography>Перевод на р.счет клуба (юр.лицо)</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    ✓ Без ограничения по времени
+                  </Typography>
+                </Box>
+              }
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={enabledPaymentMethods.sberbank_card}
+                  onChange={(e) => setEnabledPaymentMethods(prev => ({ ...prev, sberbank_card: e.target.checked }))}
+                />
+              }
+              label={
+                <Box>
+                  <Typography>На карту Сбербанка</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    ⏱️ 30 минут на подтверждение оплаты
+                  </Typography>
+                </Box>
+              }
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={enabledPaymentMethods.tbank_card}
+                  onChange={(e) => setEnabledPaymentMethods(prev => ({ ...prev, tbank_card: e.target.checked }))}
+                />
+              }
+              label={
+                <Box>
+                  <Typography>На карту Т-Банка</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    ⏱️ 30 минут на подтверждение оплаты
+                  </Typography>
+                </Box>
+              }
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={enabledPaymentMethods.vtb_card}
+                  onChange={(e) => setEnabledPaymentMethods(prev => ({ ...prev, vtb_card: e.target.checked }))}
+                />
+              }
+              label={
+                <Box>
+                  <Typography>На карту ВТБ</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    ⏱️ 30 минут на подтверждение оплаты
+                  </Typography>
+                </Box>
+              }
+            />
+          </FormGroup>
+          
+          <Box sx={{ mt: 3 }}>
+            <Button
+              variant="contained"
+              onClick={async () => {
+                const venueId = isSuperAdmin ? selectedVenueId : admin?.venueId
+                if (!venueId) return
+                
+                try {
+                  setSaving(true)
+                  await updateDoc(doc(db, 'venues', venueId), {
+                    enabledPaymentMethods,
+                    paymentMethodsUpdatedAt: new Date()
+                  })
+                  alert('Настройки способов оплаты сохранены')
+                } catch (error) {
+                  console.error('Error saving payment methods:', error)
+                  alert('Ошибка при сохранении настроек')
+                } finally {
+                  setSaving(false)
+                }
+              }}
+              disabled={saving}
+              startIcon={saving ? <CircularProgress size={20} /> : <Save />}
+            >
+              {saving ? 'Сохранение...' : 'Сохранить настройки способов оплаты'}
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
 
       {/* Преимущества */}
       <Card sx={{ mt: 4 }}>

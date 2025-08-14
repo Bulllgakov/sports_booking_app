@@ -42,6 +42,34 @@ class PriceInterval {
   }
 }
 
+class HolidayPricing {
+  final String date; // дата в формате MM-DD (например: "03-08" для 8 марта)
+  final double price;
+  final String? name; // название праздника для удобства
+  
+  HolidayPricing({
+    required this.date,
+    required this.price,
+    this.name,
+  });
+  
+  factory HolidayPricing.fromMap(Map<String, dynamic> data) {
+    return HolidayPricing(
+      date: data['date'] ?? '',
+      price: (data['price'] ?? 0).toDouble(),
+      name: data['name'],
+    );
+  }
+  
+  Map<String, dynamic> toMap() {
+    return {
+      'date': date,
+      'price': price,
+      'name': name,
+    };
+  }
+}
+
 class DayPricing {
   final double basePrice;
   final List<PriceInterval> intervals;
@@ -77,6 +105,7 @@ class CourtModel {
   final double? priceWeekday;
   final double? priceWeekend;
   final Map<String, DayPricing>? pricing;
+  final List<HolidayPricing>? holidayPricing;
   
   // Computed property for backward compatibility
   double get pricePerHour => priceWeekday ?? 1900;
@@ -92,6 +121,7 @@ class CourtModel {
     this.priceWeekday,
     this.priceWeekend,
     this.pricing,
+    this.holidayPricing,
     required this.status,
     this.createdAt,
   });
@@ -109,6 +139,10 @@ class CourtModel {
         (data['pricing'] as Map<String, dynamic>).map(
           (key, value) => MapEntry(key, DayPricing.fromMap(value as Map<String, dynamic>))
         ) : null,
+      holidayPricing: data['holidayPricing'] != null ?
+        (data['holidayPricing'] as List<dynamic>).map(
+          (item) => HolidayPricing.fromMap(item as Map<String, dynamic>)
+        ).toList() : null,
       status: data['status'] ?? 'active',
       createdAt: data['createdAt']?.toDate(),
     );
@@ -136,10 +170,17 @@ class CourtModel {
 
   // Метод для получения диапазона цен
   PriceRange getPriceRange() {
+    final allPrices = <double>[];
+    
+    // Добавляем цены праздничных дней
+    if (holidayPricing != null) {
+      for (final holiday in holidayPricing!) {
+        allPrices.add(holiday.price);
+      }
+    }
+    
+    // Собираем все цены из всех дней
     if (pricing != null && pricing!.isNotEmpty) {
-      final allPrices = <double>[];
-      
-      // Собираем все цены из всех дней
       for (final dayPricing in pricing!.values) {
         allPrices.add(dayPricing.basePrice);
         
@@ -148,54 +189,96 @@ class CourtModel {
           allPrices.add(interval.price);
         }
       }
-      
-      if (allPrices.isNotEmpty) {
-        final minPrice = allPrices.reduce((a, b) => a < b ? a : b);
-        final maxPrice = allPrices.reduce((a, b) => a > b ? a : b);
-        
-        return PriceRange(
-          min: minPrice,
-          max: maxPrice,
-          display: minPrice == maxPrice ? '${minPrice.toInt()}₽' : 'от ${minPrice.toInt()}₽',
-        );
-      }
     }
     
-    // Fallback на старую систему
-    final price = priceWeekday ?? priceWeekend ?? 1900;
+    // Добавляем legacy цены
+    if (priceWeekday != null) allPrices.add(priceWeekday!);
+    if (priceWeekend != null) allPrices.add(priceWeekend!);
+    
+    if (allPrices.isNotEmpty) {
+      final minPrice = allPrices.reduce((a, b) => a < b ? a : b);
+      final maxPrice = allPrices.reduce((a, b) => a > b ? a : b);
+      
+      return PriceRange(
+        min: minPrice,
+        max: maxPrice,
+        display: minPrice == maxPrice ? '${minPrice.toInt()}₽' : 'от ${minPrice.toInt()}₽',
+      );
+    }
+    
+    // Fallback на дефолтные цены
     return PriceRange(
-      min: price,
-      max: price,
-      display: '${price.toInt()}₽',
+      min: 1900,
+      max: 2400,
+      display: 'от 1900₽',
     );
   }
 
   double calculatePrice(int durationMinutes, DateTime dateTime) {
-    double hours = durationMinutes / 60;
-    final weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    final dayName = weekdays[dateTime.weekday % 7];
+    // Разбиваем бронирование на часовые слоты и суммируем их цены
+    double totalPrice = 0;
+    int remainingMinutes = durationMinutes;
+    DateTime currentTime = dateTime;
     
-    // Проверяем новую систему цен
-    if (pricing != null && pricing!.containsKey(dayName)) {
-      final dayPricing = pricing![dayName]!;
-      double hourlyPrice = dayPricing.basePrice;
+    while (remainingMinutes > 0) {
+      // Определяем продолжительность текущего слота (не более часа и не более оставшихся минут)
+      final minutesUntilNextHour = 60 - currentTime.minute;
+      final slotDuration = remainingMinutes < minutesUntilNextHour ? remainingMinutes : minutesUntilNextHour;
+      final slotHours = slotDuration / 60;
       
-      // Проверяем интервалы
-      final currentHour = dateTime.hour;
-      for (final interval in dayPricing.intervals) {
-        final fromHour = int.parse(interval.from.split(':')[0]);
-        final toHour = int.parse(interval.to.split(':')[0]);
-        if (currentHour >= fromHour && currentHour < toHour) {
-          hourlyPrice = interval.price;
-          break;
+      // Вычисляем цену для текущего слота
+      double slotPrice = 0;
+      
+      // Сначала проверяем праздничные дни - они имеют наивысший приоритет
+      if (holidayPricing != null) {
+        final month = currentTime.month.toString().padLeft(2, '0');
+        final day = currentTime.day.toString().padLeft(2, '0');
+        final dateStr = '$month-$day';
+        
+        for (final holiday in holidayPricing!) {
+          if (holiday.date == dateStr) {
+            slotPrice = holiday.price * slotHours;
+            break;
+          }
         }
       }
-      return hourlyPrice * hours;
+      
+      // Если не праздник, проверяем обычные цены
+      if (slotPrice == 0) {
+        final weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        final dayName = weekdays[currentTime.weekday % 7];
+        
+        // Проверяем новую систему цен
+        if (pricing != null && pricing!.containsKey(dayName)) {
+          final dayPricing = pricing![dayName]!;
+          double hourlyPrice = dayPricing.basePrice;
+          
+          // Проверяем интервалы
+          final currentHour = currentTime.hour;
+          for (final interval in dayPricing.intervals) {
+            final fromHour = int.parse(interval.from.split(':')[0]);
+            final toHour = int.parse(interval.to.split(':')[0]);
+            if (currentHour >= fromHour && currentHour < toHour) {
+              hourlyPrice = interval.price;
+              break;
+            }
+          }
+          slotPrice = hourlyPrice * slotHours;
+        } else {
+          // Fallback на старую систему
+          final isWeekend = currentTime.weekday == DateTime.saturday || currentTime.weekday == DateTime.sunday;
+          slotPrice = (isWeekend ? (priceWeekend ?? 2400) : (priceWeekday ?? 1900)) * slotHours;
+        }
+      }
+      
+      totalPrice += slotPrice;
+      
+      // Переходим к следующему слоту
+      remainingMinutes -= slotDuration;
+      currentTime = currentTime.add(Duration(minutes: slotDuration));
     }
     
-    // Fallback на старую систему
-    final isWeekend = dateTime.weekday == DateTime.saturday || dateTime.weekday == DateTime.sunday;
-    return isWeekend ? (priceWeekend ?? 2400) * hours : (priceWeekday ?? 1900) * hours;
+    return totalPrice;
   }
   
   String get sportLabel {

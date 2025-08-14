@@ -5,6 +5,7 @@ import { db } from '../services/firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../services/firebase'
+import { getPaymentMethodName } from '../utils/paymentMethods'
 
 interface RefundModalProps {
   isOpen: boolean
@@ -25,14 +26,6 @@ interface RefundModalProps {
   onSuccess: () => void
 }
 
-const paymentMethodLabels = {
-  cash: 'Наличные',
-  card_on_site: 'Карта на месте',
-  transfer: 'Перевод на р.счет клуба (юр.лицо)',
-  online: 'Онлайн оплата',
-  sberbank_card: 'На карту Сбербанка',
-  tbank_card: 'На карту Т-Банка'
-}
 
 export default function RefundModal({ isOpen, onClose, booking, onSuccess }: RefundModalProps) {
   const { admin } = useAuth()
@@ -46,6 +39,21 @@ export default function RefundModal({ isOpen, onClose, booking, onSuccess }: Ref
     
     if (!refundReason.trim()) {
       alert('Пожалуйста, укажите причину возврата')
+      return
+    }
+
+    // Проверяем, что день бронирования еще не прошел
+    const bookingDate = new Date(booking.date)
+    const endOfBookingDay = new Date(
+      bookingDate.getFullYear(),
+      bookingDate.getMonth(),
+      bookingDate.getDate(),
+      23, 59, 59, 999
+    )
+    const now = new Date()
+    
+    if (now > endOfBookingDay) {
+      alert(`Возврат невозможен после окончания дня бронирования (${bookingDate.toLocaleDateString('ru-RU')}). Возврат был доступен до конца этого дня.`)
       return
     }
 
@@ -143,7 +151,43 @@ export default function RefundModal({ isOpen, onClose, booking, onSuccess }: Ref
         </div>
 
         <div className="modal-body">
-          {/* Предупреждение */}
+          {/* Проверяем, если сегодня день бронирования - показываем предупреждение */}
+          {(() => {
+            const bookingDate = new Date(booking.date)
+            const today = new Date()
+            const isBookingDay = 
+              bookingDate.getFullYear() === today.getFullYear() &&
+              bookingDate.getMonth() === today.getMonth() &&
+              bookingDate.getDate() === today.getDate()
+            
+            if (isBookingDay) {
+              return (
+                <div style={{
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid var(--danger)',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  marginBottom: '24px',
+                  display: 'flex',
+                  gap: '12px'
+                }}>
+                  <Warning style={{ color: 'var(--danger)', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontWeight: '600', marginBottom: '8px', color: 'var(--danger)' }}>
+                      Внимание! Последний день для возврата
+                    </div>
+                    <div style={{ fontSize: '14px' }}>
+                      Сегодня последний день, когда возможен возврат по этому бронированию. 
+                      После 23:59 возврат будет недоступен.
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+            return null
+          })()}
+
+          {/* Предупреждение о способе возврата */}
           <div style={{
             background: 'rgba(245, 158, 11, 0.1)',
             border: '1px solid var(--warning)',
@@ -167,7 +211,7 @@ export default function RefundModal({ isOpen, onClose, booking, onSuccess }: Ref
                   </div>
                 ) : (
                   <div style={{ marginTop: '8px' }}>
-                    Способ оплаты: <strong>{paymentMethodLabels[booking.paymentMethod as keyof typeof paymentMethodLabels]}</strong>
+                    Способ оплаты: <strong>{getPaymentMethodName(booking.paymentMethod)}</strong>
                     <br />
                     После подтверждения возврата бронирование будет отменено немедленно.
                   </div>

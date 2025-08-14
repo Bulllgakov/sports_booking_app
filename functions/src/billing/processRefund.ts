@@ -59,6 +59,32 @@ export const processBookingRefund = functions
         );
       }
 
+      // Проверяем, что день бронирования еще не прошел
+      const bookingDate = booking.date.toDate ? booking.date.toDate() : new Date(booking.date);
+
+      // Устанавливаем конец дня бронирования (23:59:59)
+      const endOfBookingDay = new Date(
+        bookingDate.getFullYear(),
+        bookingDate.getMonth(),
+        bookingDate.getDate(),
+        23,
+        59,
+        59,
+        999
+      );
+
+      const now = new Date();
+
+      // Если текущее время больше конца дня бронирования - возврат невозможен
+      if (now > endOfBookingDay) {
+        const bookingDateStr = bookingDate.toLocaleDateString("ru-RU");
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Возврат невозможен после окончания дня бронирования " +
+          `(${bookingDateStr}). Возврат был доступен до конца этого дня.`
+        );
+      }
+
       // Проверяем способ оплаты
       if (booking.paymentMethod !== "online") {
         throw new functions.https.HttpsError(

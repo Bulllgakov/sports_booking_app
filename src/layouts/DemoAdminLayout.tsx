@@ -13,6 +13,12 @@ import {
   AccountCircle,
   ExitToApp,
   TrendingUp,
+  AttachMoney,
+  CreditCard,
+  CardMembership,
+  Store,
+  SupervisorAccount,
+  Payment,
 } from '@mui/icons-material'
 import { useDemoAuth } from '../contexts/DemoAuthContext'
 import '../styles/admin.css'
@@ -32,9 +38,13 @@ export default function DemoAdminLayout() {
   const navItems: NavItem[] = [
     { path: '/dashboard', label: 'Главная', icon: <Dashboard /> },
     { path: '/calendar', label: 'Календарь', icon: <CalendarMonth /> },
+    { path: '/club', label: 'Управление клубом', icon: <Business /> },
+    { path: '/subscription', label: 'Подписка', icon: <CardMembership /> },
+    { path: '/payment-settings', label: 'Настройки оплаты', icon: <CreditCard /> },
     { path: '/courts', label: 'Корты', icon: <SportsTennis /> },
     { path: '/customers', label: 'Клиенты', icon: <People /> },
-    { path: '/analytics', label: 'Аналитика', icon: <TrendingUp /> },
+    { path: '/finance', label: 'Финансы', icon: <AttachMoney /> },
+    { path: '/marketing', label: 'Маркетинг', icon: <TrendingUp /> },
     { path: '/settings', label: 'Настройки', icon: <Settings /> },
   ]
 
@@ -59,7 +69,18 @@ export default function DemoAdminLayout() {
         
         <div className="logo-section">
           <div className="platform-logo">
-            <div className="logo-icon">ВК</div>
+            <div className="logo-icon" style={{
+              background: 'var(--primary)',
+              color: 'white',
+              width: '40px',
+              height: '40px',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 'bold',
+              fontSize: '18px'
+            }}>ВК</div>
             <div className="logo-text">Все Корты</div>
           </div>
           

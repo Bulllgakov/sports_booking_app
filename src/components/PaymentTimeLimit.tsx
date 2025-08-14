@@ -21,8 +21,10 @@ export default function PaymentTimeLimit({
       return
     }
 
-    // Для перевода на р.счет нет ограничения по времени
-    if (paymentMethod === 'transfer') {
+    // Для этих способов оплаты нет ограничения по времени
+    if (paymentMethod === 'transfer' || 
+        paymentMethod === 'cash' || 
+        paymentMethod === 'card_on_site') {
       return
     }
 
@@ -53,10 +55,12 @@ export default function PaymentTimeLimit({
     return () => clearInterval(interval)
   }, [createdAt, paymentMethod, paymentStatus])
 
-  // Не показываем для оплаченных, отмененных или переводов на р.счет
+  // Не показываем для оплаченных, отмененных или способов оплаты без ограничения по времени
   if (paymentStatus === 'paid' || 
       paymentStatus === 'cancelled' || 
-      paymentMethod === 'transfer') {
+      paymentMethod === 'transfer' ||
+      paymentMethod === 'cash' || 
+      paymentMethod === 'card_on_site') {
     return null
   }
 

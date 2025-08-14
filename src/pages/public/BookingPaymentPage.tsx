@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { format, parse } from 'date-fns'
+import { format, parse, addMinutes, isAfter, isBefore } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { doc, getDoc, addDoc, collection, updateDoc } from 'firebase/firestore'
+import { doc, getDoc, addDoc, collection, updateDoc, query, where, getDocs, Timestamp } from 'firebase/firestore'
 import { db, functions } from '../../services/firebase'
 import { httpsCallable } from 'firebase/functions'
 import '../../styles/flutter-theme.css'
@@ -171,13 +171,92 @@ export default function BookingPaymentPage() {
     setSubmitting(true)
     
     try {
+      // ВАЖНО: Проверяем доступность слота перед созданием бронирования
+      // Используем Timestamp для запроса (все даты теперь в формате Timestamp)
+      const queryDate = new Date(date + 'T00:00:00')
+      const startOfDay = new Date(queryDate)
+      startOfDay.setHours(0, 0, 0, 0)
+      const endOfDay = new Date(queryDate)
+      endOfDay.setHours(23, 59, 59, 999)
+      
+      const bookingsQuery = query(
+        collection(db, 'bookings'),
+        where('courtId', '==', courtId),
+        where('date', '>=', Timestamp.fromDate(startOfDay)),
+        where('date', '<=', Timestamp.fromDate(endOfDay))
+      )
+      const bookingsSnapshot = await getDocs(bookingsQuery)
+      
+      // Фильтруем существующие бронирования по той же логике, что и в календаре
+      const existingBookings = bookingsSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(booking => {
+          const status = booking.status || 'pending'
+          const paymentStatus = booking.paymentStatus || 'awaiting_payment'
+          
+          return (
+            status !== 'cancelled' && 
+            paymentStatus !== 'cancelled' && 
+            paymentStatus !== 'refunded' &&
+            paymentStatus !== 'error' &&
+            (
+              status === 'confirmed' || 
+              status === 'pending' ||
+              paymentStatus === 'paid' || 
+              paymentStatus === 'online_payment' ||
+              paymentStatus === 'awaiting_payment'
+            )
+          )
+        })
+      
+      // Проверяем пересечение времени с существующими бронированиями
+      const requestedStart = parse(time, 'HH:mm', new Date())
+      const requestedEnd = addMinutes(requestedStart, duration)
+      
+      for (const booking of existingBookings) {
+        const bookingStart = parse(booking.startTime, 'HH:mm', new Date())
+        const bookingEnd = parse(booking.endTime, 'HH:mm', new Date())
+        
+        // Проверяем пересечение временных интервалов
+        if (
+          (isAfter(requestedStart, bookingStart) && isBefore(requestedStart, bookingEnd)) ||
+          (isAfter(requestedEnd, bookingStart) && isBefore(requestedEnd, bookingEnd)) ||
+          (isBefore(requestedStart, bookingStart) && isAfter(requestedEnd, bookingEnd)) ||
+          (format(requestedStart, 'HH:mm') === booking.startTime)
+        ) {
+          setSubmitting(false)
+          alert('К сожалению, выбранное время уже занято. Пожалуйста, выберите другое время.')
+          // Перенаправляем обратно на выбор времени
+          navigate(`/club/${clubId}/court/${courtId}/time?date=${date}`)
+          return
+        }
+      }
+      
+      // Проверка лимитов перед созданием бронирования (только для публичных интерфейсов)
+      try {
+        const validateBooking = httpsCallable(functions, 'validateBookingRequest')
+        await validateBooking({
+          phoneNumber: phone,
+          venueId: clubId,
+          source: 'web' // Указываем что это веб-версия, не админка
+        })
+      } catch (error: any) {
+        setSubmitting(false)
+        alert(error.message || 'Не удалось создать бронирование. Попробуйте позже.')
+        return
+      }
+      
       // Create booking
+      // Конвертируем строковую дату в Timestamp для единообразия
+      const dateObj = new Date(date + 'T00:00:00')
+      const dateTimestamp = Timestamp.fromDate(dateObj)
+      
       const bookingData = {
         courtId,
         courtName: court.name,
         venueId: clubId,
         venueName: venue.name,
-        date,
+        date: dateTimestamp, // Используем Timestamp вместо строки
         startTime: time,
         endTime: calculateEndTime(time, duration),
         duration,
@@ -190,8 +269,16 @@ export default function BookingPaymentPage() {
         customerEmail: email || null,
         status: 'pending',
         paymentStatus: 'awaiting_payment',
-        createdAt: new Date(),
-        updatedAt: new Date()
+        paymentMethod: 'online', // Веб-страница всегда использует онлайн оплату
+        paymentHistory: [{
+          timestamp: Timestamp.now(),
+          action: 'created',
+          userId: 'web-booking',
+          userName: name || 'Клиент',
+          note: 'Бронирование создано через веб-сайт'
+        }],
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
       }
       
       const bookingRef = await addDoc(collection(db, 'bookings'), bookingData)
@@ -212,15 +299,24 @@ export default function BookingPaymentPage() {
           })
           
           const paymentData = paymentResult.data as any
+          console.log('Payment initialization result:', paymentData)
           
           if (paymentData.success && paymentData.paymentUrl) {
             // Update booking with payment info
+            console.log('Updating booking with payment info:', {
+              bookingId: bookingRef.id,
+              paymentId: paymentData.paymentId,
+              paymentUrl: paymentData.paymentUrl,
+              paymentProvider: venue.paymentProvider
+            })
+            
             await updateDoc(bookingRef, {
               paymentId: paymentData.paymentId,
               paymentUrl: paymentData.paymentUrl,
               paymentProvider: venue.paymentProvider
             })
             
+            console.log('Booking updated successfully, redirecting to payment page')
             // Redirect to payment page
             window.location.href = paymentData.paymentUrl
           } else {

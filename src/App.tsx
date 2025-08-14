@@ -23,6 +23,7 @@ import Marketing from './pages/admin/Marketing'
 import Settings from './pages/admin/Settings'
 import Debug from './pages/admin/Debug'
 import FixPermissions from './pages/admin/FixPermissions'
+import TrainersManagement from './pages/admin/TrainersManagement'
 import ErrorBoundary from './components/ErrorBoundary'
 // Public pages
 import ClubPage from './pages/public/ClubPage'
@@ -105,6 +106,7 @@ function App() {
                 </ProtectedRoute>
               }
             >
+              <Route index element={<Navigate to="/admin/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="venues" element={<VenuesManagement />} />
               <Route path="billing-settings" element={<BillingSettings />} />
@@ -113,6 +115,7 @@ function App() {
               <Route path="subscription" element={<SubscriptionManagement />} />
               <Route path="payment-settings" element={<PaymentSettings />} />
               <Route path="courts" element={<CourtsManagement />} />
+              <Route path="trainers" element={<TrainersManagement />} />
               <Route path="bookings" element={<BookingsManagement />} />
               <Route path="finance" element={<Finance />} />
               <Route path="customers" element={<CustomersManagement />} />

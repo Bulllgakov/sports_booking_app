@@ -135,12 +135,13 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
     final startOfDay = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
     final endOfDay = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, 23, 59, 59);
     
+    // Получаем ВСЕ бронирования для даты и корта, затем фильтруем на клиенте
+    // (так же как в веб-версии)
     _bookingsStream = FirebaseFirestore.instance
         .collection('bookings')
         .where('courtId', isEqualTo: widget.courtId)
         .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
         .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
-        .where('paymentStatus', whereIn: ['paid', 'awaiting_payment'])
         .snapshots();
   }
   
@@ -599,8 +600,27 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
                   builder: (context, snapshot) {
                     if (snapshot.hasData) {
                       // Обновляем список бронирований
+                      // Применяем ту же логику фильтрации, что и в веб-версии
                       _currentBookings = snapshot.data!.docs
                           .map((doc) => BookingModel.fromFirestore(doc))
+                          .where((booking) {
+                            final status = booking.status;
+                            final paymentStatus = booking.paymentStatus ?? 'awaiting_payment';
+                            
+                            return (
+                              status != 'cancelled' && 
+                              paymentStatus != 'cancelled' && 
+                              paymentStatus != 'refunded' &&
+                              paymentStatus != 'error' &&
+                              (
+                                status == 'confirmed' || 
+                                status == 'pending' ||
+                                paymentStatus == 'paid' || 
+                                paymentStatus == 'online_payment' ||
+                                paymentStatus == 'awaiting_payment'
+                              )
+                            );
+                          })
                           .toList();
                       
                       // Перестраиваем слоты с новыми данными

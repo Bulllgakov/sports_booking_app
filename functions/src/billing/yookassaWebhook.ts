@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import {YooKassaAPI} from "../utils/yookassa";
+import {BookingSMSService} from "../services/bookingSmsService";
 
 const region = "europe-west1";
 
@@ -198,12 +199,21 @@ async function handlePaymentSucceeded(notification: YooKassaNotification, bookin
       });
     }
 
-    // Обновляем статус бронирования
+    // Обновляем статус бронирования и добавляем запись в историю платежей
     await db.collection("bookings").doc(bookingId).update({
       paymentStatus: "paid",
       status: "confirmed",
       paymentCompletedAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      paymentHistory: admin.firestore.FieldValue.arrayUnion({
+        timestamp: admin.firestore.Timestamp.now(),
+        action: "paid",
+        userId: "yookassa-webhook",
+        userName: "ЮKassa",
+        note: `Платеж подтвержден. ID платежа: ${notification.object.id}`,
+        paymentAmount: notification.object.amount?.value || 0,
+        paymentMethod: notification.object.payment_method?.type || "unknown",
+      }),
     });
 
     // Если это открытая игра, обновляем количество занятых мест
@@ -225,6 +235,16 @@ async function handlePaymentSucceeded(notification: YooKassaNotification, bookin
     }
 
     console.log(`Payment succeeded for booking: ${bookingId}`);
+
+    // Отправляем SMS подтверждение
+    try {
+      const smsService = new BookingSMSService();
+      await smsService.sendBookingConfirmation(bookingId);
+      console.log(`SMS confirmation sent for booking: ${bookingId}`);
+    } catch (smsError) {
+      console.error("Error sending SMS confirmation:", smsError);
+      // Не прерываем процесс, если SMS не отправилось
+    }
   } catch (error) {
     console.error("Error handling payment succeeded:", error);
   }
@@ -261,6 +281,13 @@ async function handlePaymentCanceled(notification: YooKassaNotification, booking
       status: "cancelled",
       cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      paymentHistory: admin.firestore.FieldValue.arrayUnion({
+        timestamp: admin.firestore.Timestamp.now(),
+        action: "cancelled",
+        userId: "yookassa-webhook",
+        userName: "ЮKassa",
+        note: `Платеж отменен. ID платежа: ${notification.object.id}`,
+      }),
     });
 
     console.log(`Payment canceled, booking marked as cancelled: ${bookingId}`);
@@ -322,6 +349,16 @@ async function handleRefundSucceeded(notification: YooKassaNotification, booking
     });
 
     console.log(`Refund succeeded for booking: ${bookingId} - booking cancelled`);
+
+    // Отправляем SMS об отмене
+    try {
+      const smsService = new BookingSMSService();
+      await smsService.sendBookingCancellation(bookingId);
+      console.log(`SMS cancellation sent for booking: ${bookingId}`);
+    } catch (smsError) {
+      console.error("Error sending SMS cancellation:", smsError);
+      // Не прерываем процесс, если SMS не отправилось
+    }
   } catch (error) {
     console.error("Error handling refund succeeded:", error);
   }

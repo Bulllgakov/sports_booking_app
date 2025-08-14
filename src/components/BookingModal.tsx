@@ -4,6 +4,7 @@ import { ru } from 'date-fns/locale'
 import { collection, query, where, getDocs, Timestamp, addDoc, onSnapshot, deleteDoc, doc } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../services/firebase'
+import { calculateCourtPrice, getHourlyPrice } from '../utils/pricing'
 import '../styles/flutter-theme.css'
 import { 
   isValidEmail, 
@@ -45,7 +46,7 @@ interface BookingModalProps {
     bookingDurations?: {
       [key: number]: boolean
     }
-    bookingSlotInterval?: 30 | 60 // Интервал слотов: 30 минут (по умолчанию) или 60 минут (только с 00)
+    bookingSlotInterval?: 30 | 60 // Интервал слотов: 30 минут или 60 минут (по умолчанию, только с 00)
     paymentEnabled?: boolean
     paymentProvider?: string
     paymentTestMode?: boolean
@@ -68,7 +69,7 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
   const [loading, setLoading] = useState(false)
   const [customerName, setCustomerName] = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('+7')
   const [customerEmail, setCustomerEmail] = useState('')
   // Remove card fields - payment will be handled externally
   const [unsubscribe, setUnsubscribe] = useState<(() => void) | null>(null)
@@ -124,15 +125,7 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
       const endOfDay = new Date(selectedDate)
       endOfDay.setHours(23, 59, 59, 999)
 
-      // For real-time updates, we need to listen to both formats
-      const dateString = format(selectedDate, 'yyyy-MM-dd')
-      
-      // Create two queries for different date formats
-      const stringDateQuery = query(
-        collection(db, 'bookings'),
-        where('courtId', '==', court.id),
-        where('date', '==', dateString)
-      )
+      // For real-time updates - query only Timestamp format
       
       const timestampDateQuery = query(
         collection(db, 'bookings'),
@@ -141,16 +134,8 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
         where('date', '<=', Timestamp.fromDate(endOfDay))
       )
 
-      // Subscribe to both queries
-      const unsub1 = onSnapshot(stringDateQuery, (snapshot) => {
-        console.log('Real-time update: bookings changed (string date)', snapshot.docs.length, 'bookings')
-        snapshot.docs.forEach(doc => {
-          console.log('Booking:', doc.id, doc.data())
-        })
-        loadTimeSlots() // Перезагружаем слоты при изменениях
-      })
-      
-      const unsub2 = onSnapshot(timestampDateQuery, (snapshot) => {
+      // Subscribe to query
+      const unsub1 = onSnapshot(timestampDateQuery, (snapshot) => {
         console.log('Real-time update: bookings changed (timestamp date)', snapshot.docs.length, 'bookings')
         snapshot.docs.forEach(doc => {
           console.log('Booking:', doc.id, doc.data())
@@ -158,10 +143,9 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
         loadTimeSlots() // Перезагружаем слоты при изменениях
       })
       
-      // Return combined unsubscribe function
+      // Return unsubscribe function
       const unsub = () => {
         unsub1()
-        unsub2()
       }
 
       setUnsubscribe(() => unsub)
@@ -195,27 +179,14 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
       const endOfDay = new Date(currentDate)
       endOfDay.setHours(23, 59, 59, 999)
 
-      // First try to query with string date format (used by public pages)
-      const dateString = format(currentDate, 'yyyy-MM-dd')
-      // Сначала пробуем запрос с датой как строкой
-      let bookingsQuery = query(
+      // Query only for Timestamp format (all dates are now unified)
+      const bookingsQuery = query(
         collection(db, 'bookings'),
         where('courtId', '==', court.id),
-        where('date', '==', dateString)
+        where('date', '>=', Timestamp.fromDate(startOfDay)),
+        where('date', '<=', Timestamp.fromDate(endOfDay))
       )
-
-      let bookingsSnapshot = await getDocs(bookingsQuery)
-      
-      // If no results, try with Timestamp format (used by admin pages)
-      if (bookingsSnapshot.empty) {
-        bookingsQuery = query(
-          collection(db, 'bookings'),
-          where('courtId', '==', court.id),
-          where('date', '>=', Timestamp.fromDate(startOfDay)),
-          where('date', '<=', Timestamp.fromDate(endOfDay))
-        )
-        bookingsSnapshot = await getDocs(bookingsQuery)
-      }
+      const bookingsSnapshot = await getDocs(bookingsQuery)
       
       const bookings = bookingsSnapshot.docs
         .filter(doc => {
@@ -306,8 +277,8 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
       let currentTime = openHour * 60 + openMinute // в минутах
       const endTimeMinutes = closeHour * 60 + closeMinute
       
-      // Определяем интервал слотов (по умолчанию 30 минут)
-      const slotInterval = venue.bookingSlotInterval || 30
+      // Определяем интервал слотов (по умолчанию 60 минут)
+      const slotInterval = venue.bookingSlotInterval || 60
       
       // Если интервал 60 минут, начинаем с ближайшего целого часа
       if (slotInterval === 60 && currentTime % 60 !== 0) {
@@ -353,37 +324,16 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
           }
         }
 
-        // Определяем цену в зависимости от дня недели, времени и длительности
-        const dayIndex = currentDate.getDay()
-        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-        const dayName = days[dayIndex]
-        
-        let hourlyPrice = 0
-        
-        // Проверяем новую систему цен
-        if (court.pricing && court.pricing[dayName]) {
-          const dayPricing = court.pricing[dayName]
-          hourlyPrice = dayPricing.basePrice
-          
-          // Проверяем интервалы с особыми ценами
-          if (dayPricing.intervals && dayPricing.intervals.length > 0) {
-            const currentHour = hour
-            for (const interval of dayPricing.intervals) {
-              const [fromHour] = interval.from.split(':').map(Number)
-              const [toHour] = interval.to.split(':').map(Number)
-              if (currentHour >= fromHour && currentHour < toHour) {
-                hourlyPrice = interval.price
-                break
-              }
-            }
-          }
-        } else {
-          // Fallback на старую систему
-          const isWeekendDay = dayIndex === 0 || dayIndex === 6
-          hourlyPrice = court.pricePerHour || (isWeekendDay ? court.priceWeekend : court.priceWeekday) || 0
-        }
-        
-        const totalPrice = Math.round(hourlyPrice * currentDuration / 60)
+        // Рассчитываем цену с учетом праздничных дней
+        const totalPrice = calculateCourtPrice(
+          currentDate,
+          timeString,
+          currentDuration,
+          court.pricing,
+          court.holidayPricing,
+          court.priceWeekday,
+          court.priceWeekend
+        )
 
         slots.push({
           time: timeString,
@@ -421,26 +371,15 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
       const endOfDay = new Date(selectedDate)
       endOfDay.setHours(23, 59, 59, 999)
 
-      // First try string date format
-      const dateString = format(selectedDate, 'yyyy-MM-dd')
-      let bookingsQuery = query(
+      // Query only for Timestamp format (all dates are now unified)
+      const bookingsQuery = query(
         collection(db, 'bookings'),
         where('courtId', '==', court.id),
-        where('date', '==', dateString)
+        where('date', '>=', Timestamp.fromDate(startOfDay)),
+        where('date', '<=', Timestamp.fromDate(endOfDay))
       )
 
-      let bookingsSnapshot = await getDocs(bookingsQuery)
-      
-      // If no results, try Timestamp format
-      if (bookingsSnapshot.empty) {
-        bookingsQuery = query(
-          collection(db, 'bookings'),
-          where('courtId', '==', court.id),
-          where('date', '>=', Timestamp.fromDate(startOfDay)),
-          where('date', '<=', Timestamp.fromDate(endOfDay))
-        )
-        bookingsSnapshot = await getDocs(bookingsQuery)
-      }
+      const bookingsSnapshot = await getDocs(bookingsQuery)
       
       const bookings = bookingsSnapshot.docs
         .filter(doc => {
@@ -556,7 +495,7 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
         courtName: court.name,
         venueId: venue.id,
         venueName: venue.name,
-        date: format(selectedDate, 'yyyy-MM-dd'), // Используем строковый формат для совместимости
+        date: Timestamp.fromDate(selectedDate), // Используем Timestamp (все даты унифицированы)
         time: selectedTime, // Для обратной совместимости
         startTime: selectedTime,
         endTime: `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`,
@@ -683,15 +622,23 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
     }
 
     return (
-      <>
-        <h3 className="h3" style={{ marginBottom: 'var(--spacing-lg)' }}>
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: isMobile ? 'calc(100vh - var(--spacing-lg) * 2)' : 'auto',
+        position: 'relative'
+      }}>
+        <h3 className="h3" style={{ marginBottom: 'var(--spacing-lg)', flexShrink: 0 }}>
           Выберите дату и время
         </h3>
 
         <div style={{
           display: isMobile ? 'block' : 'grid',
           gridTemplateColumns: isMobile ? '1fr' : '300px 1fr',
-          gap: 'var(--spacing-xl)'
+          gap: 'var(--spacing-xl)',
+          flex: 1,
+          overflowY: 'auto',
+          paddingBottom: isMobile ? '140px' : '0'
         }}>
           {/* Левая колонка - Дата и длительность */}
           <div>
@@ -776,14 +723,16 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
                   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
                   const dayName = days[dayIndex]
                   
-                  let hourlyPrice = 0
-                  if (court.pricing && court.pricing[dayName]) {
-                    hourlyPrice = court.pricing[dayName].basePrice
-                  } else {
-                    const isWeekend = dayIndex === 0 || dayIndex === 6
-                    hourlyPrice = court.pricePerHour || (isWeekend ? court.priceWeekend : court.priceWeekday) || 0
-                  }
-                  const price = Math.round(hourlyPrice * duration / 60)
+                  // Рассчитываем цену с учетом праздничных дней (используем 12:00 как базовое время)
+                  const price = calculateCourtPrice(
+                    selectedDate,
+                    '12:00',
+                    duration,
+                    court.pricing,
+                    court.holidayPricing,
+                    court.priceWeekday,
+                    court.priceWeekend
+                  )
                   
                   return (
                     <button
@@ -960,52 +909,65 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
           </div>
         </div>
 
-        {/* Итоговая информация и кнопка продолжить */}
+        {/* Sticky Footer с информацией и кнопкой - как в мобильном приложении */}
         <div style={{ 
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          position: isMobile ? 'fixed' : 'static',
-          bottom: isMobile ? '0' : 'auto',
-          left: isMobile ? '0' : 'auto',
-          right: isMobile ? '0' : 'auto',
-          padding: isMobile ? 'var(--spacing-lg)' : '0',
-          marginTop: isMobile ? 'var(--spacing-xl)' : 'var(--spacing-lg)',
-          background: isMobile ? 'var(--white)' : 'transparent',
-          borderTop: isMobile ? '1px solid var(--extra-light-gray)' : 'none',
+          position: isMobile ? 'fixed' : 'sticky',
+          bottom: 0,
+          left: isMobile ? 0 : 'auto',
+          right: isMobile ? 0 : 'auto',
+          width: isMobile ? '100%' : 'auto',
+          marginLeft: isMobile ? 0 : 'calc(-1 * var(--spacing-xl))',
+          marginRight: isMobile ? 0 : 'calc(-1 * var(--spacing-xl))',
+          marginBottom: isMobile ? 0 : 'calc(-1 * var(--spacing-xl))',
+          marginTop: isMobile ? 0 : 'var(--spacing-xl)',
+          padding: 'var(--spacing-lg) var(--spacing-xl)',
+          background: 'var(--white)',
+          borderTop: '1px solid var(--extra-light-gray)',
+          boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.05)',
           zIndex: 10
         }}>
-          <div style={{ flex: 1 }}>
-            {selectedTime && (
-              <>
-                <div className="caption" style={{ color: 'var(--gray)', marginBottom: '4px' }}>
-                  {format(selectedDate, 'd MMMM', { locale: ru })}, {selectedTime}-{(() => {
+          {selectedTime && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 'var(--spacing-md)'
+            }}>
+              <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
+                <span className="body-bold">
+                  {format(selectedDate, 'd MMMM', { locale: ru })}
+                </span>
+                <span className="body-bold">
+                  {selectedTime}-{(() => {
                     const [hours, minutes] = selectedTime.split(':').map(Number)
                     const endTime = new Date()
                     endTime.setHours(hours, minutes, 0, 0)
                     endTime.setTime(endTime.getTime() + selectedDuration * 60 * 1000)
                     return `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`
                   })()}
-                </div>
-                <div className="h3" style={{ color: 'var(--primary)' }}>
-                  {timeSlots.find(s => s.time === selectedTime)?.price || 0} ₽
-                </div>
-              </>
-            )}
-          </div>
+                </span>
+              </div>
+              <div className="h3" style={{ color: 'var(--primary)' }}>
+                {timeSlots.find(s => s.time === selectedTime)?.price || 0} ₽
+              </div>
+            </div>
+          )}
+          
           <button
             className="flutter-button"
             onClick={() => handleTimeSelect(selectedTime)}
             disabled={!selectedDate || !selectedTime}
             style={{ 
-              width: isMobile ? '50%' : 'auto',
-              minWidth: '200px'
+              width: '100%',
+              padding: 'var(--spacing-lg)',
+              fontSize: '16px',
+              fontWeight: '600'
             }}
           >
-            Продолжить
+            Далее
           </button>
         </div>
-      </>
+      </div>
     )
   }
 
@@ -1100,14 +1062,16 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
                       const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
                       const dayName = days[dayIndex]
                       
-                      let hourlyPrice = 0
-                      if (court.pricing && court.pricing[dayName]) {
-                        hourlyPrice = court.pricing[dayName].basePrice
-                      } else {
-                        const isWeekend = dayIndex === 0 || dayIndex === 6
-                        hourlyPrice = court.pricePerHour || (isWeekend ? court.priceWeekend : court.priceWeekday) || 0
-                      }
-                      return Math.round(hourlyPrice * duration / 60)
+                      // Рассчитываем цену с учетом праздничных дней
+                      return calculateCourtPrice(
+                        selectedDate,
+                        '12:00',
+                        duration,
+                        court.pricing,
+                        court.holidayPricing,
+                        court.priceWeekday,
+                        court.priceWeekend
+                      )
                     })()}₽
                   </div>
                 )}

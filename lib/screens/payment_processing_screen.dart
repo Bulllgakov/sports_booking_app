@@ -88,16 +88,16 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
       final failUrl = 'https://allcourt.ru/payment-result?bookingId=$bookingId&status=failed';
       
       // Инициируем платеж
-      await paymentService.processBookingPayment(
-        bookingId: bookingId,
-        amount: widget.paymentData['pricePerPlayer'] > 0 
+      final paymentResult = await paymentService.processBookingPayment({
+        'bookingId': bookingId,
+        'amount': widget.paymentData['pricePerPlayer'] > 0 
             ? widget.paymentData['pricePerPlayer'].toDouble() 
             : widget.paymentData['price'].toDouble(),
-        description: description,
-        userId: widget.paymentData['userId'],
-        customerEmail: widget.paymentData['customerEmail'],
-        customerPhone: widget.paymentData['customerPhone'],
-      );
+        'description': description,
+        'userId': widget.paymentData['userId'],
+        'customerEmail': widget.paymentData['customerEmail'],
+        'customerPhone': widget.paymentData['customerPhone'],
+      });
       
       // Ждем результата платежа
       _waitForPaymentResult(bookingId);

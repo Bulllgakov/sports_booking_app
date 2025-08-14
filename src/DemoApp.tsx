@@ -14,6 +14,11 @@ import Customers from './pages/Customers'
 import Analytics from './pages/Analytics'
 import Settings from './pages/Settings'
 import VenueSettings from './pages/admin/VenueSettings'
+import DemoClubManagement from './pages/admin/DemoClubManagement'
+import DemoSubscriptionManagement from './pages/admin/DemoSubscriptionManagement'
+import DemoPaymentSettings from './pages/admin/DemoPaymentSettings'
+import DemoFinance from './pages/admin/DemoFinance'
+import DemoMarketing from './pages/admin/DemoMarketing'
 import { DEMO_NOTIFICATION } from './data/demoData'
 
 const theme = createTheme({
@@ -124,9 +129,13 @@ const DemoApp: React.FC = () => {
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="calendar" element={<DemoBookingCalendar />} />
+                <Route path="club" element={<DemoClubManagement />} />
+                <Route path="subscription" element={<DemoSubscriptionManagement />} />
+                <Route path="payment-settings" element={<DemoPaymentSettings />} />
                 <Route path="courts" element={<Courts />} />
                 <Route path="customers" element={<Customers />} />
-                <Route path="analytics" element={<Analytics />} />
+                <Route path="finance" element={<DemoFinance />} />
+                <Route path="marketing" element={<DemoMarketing />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="venue-settings" element={<VenueSettings />} />
               </Route>

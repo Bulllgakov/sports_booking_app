@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Проверка настроек SMS</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+</head>
+<body>
+    <h1>Проверка настроек SMS</h1>
+    <div id="auth-section">
+        <h2>Сначала войдите как администратор:</h2>
+        <input type="email" id="email" placeholder="Email администратора" value="toocvetok@gmail.com">
+        <input type="password" id="password" placeholder="Пароль">
+        <button onclick="login()">Войти</button>
+    </div>
+    <div id="settings-section" style="display: none;">
+        <h2>Настройки SMS:</h2>
+        <button onclick="checkSettings()">Проверить настройки</button>
+        <button onclick="initSettings()">Инициализировать настройки SMS</button>
+        <button onclick="logout()">Выйти</button>
+    </div>
+    <div id="result"></div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnp3SY9XEyF-le5q_Tcv-7Le2qqvtz0ZM",
+            authDomain: "sports-booking-app-1d7e5.firebaseapp.com",
+            databaseURL: "https://sports-booking-app-1d7e5-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "sports-booking-app-1d7e5",
+            storageBucket: "sports-booking-app-1d7e5.firebasestorage.app",
+            messagingSenderId: "648540980109",
+            appId: "1:648540980109:web:97fbe182c59bb2641ab3c4",
+            measurementId: "G-VL4MCP1PZP"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // Check auth state
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                document.getElementById('auth-section').style.display = 'none';
+                document.getElementById('settings-section').style.display = 'block';
+                document.getElementById('result').innerHTML = '<p style="color: green;">Авторизован как: ' + user.email + '</p>';
+            } else {
+                document.getElementById('auth-section').style.display = 'block';
+                document.getElementById('settings-section').style.display = 'none';
+            }
+        });
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                resultDiv.innerHTML = '<p style="color: green;">✅ Успешная авторизация!</p>';
+            } catch (error) {
+                resultDiv.innerHTML = '<p style="color: red;">❌ Ошибка авторизации: ' + error.message + '</p>';
+            }
+        }
+
+        async function logout() {
+            await auth.signOut();
+            document.getElementById('result').innerHTML = '<p>Вы вышли из системы</p>';
+        }
+
+        async function checkSettings() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                // Проверяем настройки SMS
+                const smsSettingsDoc = await db.collection('settings').doc('sms').get();
+                const smsTemplatesDoc = await db.collection('settings').doc('smsTemplates').get();
+                
+                resultDiv.innerHTML = '<h3>Настройки SMS:</h3>';
+                
+                if (smsSettingsDoc.exists) {
+                    const smsSettings = smsSettingsDoc.data();
+                    resultDiv.innerHTML += '<pre>SMS Settings:\n' + JSON.stringify(smsSettings, null, 2) + '</pre>';
+                    
+                    if (!smsSettings.smsruApiId) {
+                        resultDiv.innerHTML += '<p style="color: red;">⚠️ API ключ SMS.ru не настроен!</p>';
+                    }
+                    if (smsSettings.testMode) {
+                        resultDiv.innerHTML += '<p style="color: orange;">⚠️ SMS в тестовом режиме!</p>';
+                    }
+                } else {
+                    resultDiv.innerHTML += '<p style="color: red;">❌ Настройки SMS не найдены!</p>';
+                }
+                
+                if (smsTemplatesDoc.exists) {
+                    const templates = smsTemplatesDoc.data();
+                    resultDiv.innerHTML += '<pre>SMS Templates:\n' + JSON.stringify(templates, null, 2) + '</pre>';
+                } else {
+                    resultDiv.innerHTML += '<p style="color: red;">❌ Шаблоны SMS не найдены!</p>';
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = '<p style="color: red;">❌ Ошибка: ' + error.message + '</p>';
+                console.error('Error:', error);
+            }
+        }
+
+        async function initSettings() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                // Инициализируем настройки SMS
+                const smsSettings = {
+                    testMode: true,  // Включаем тестовый режим
+                    smsruApiId: "YOUR_SMS_RU_API_KEY",  // Замените на реальный ключ
+                    enabled: true
+                };
+                
+                await db.collection('settings').doc('sms').set(smsSettings, { merge: true });
+                
+                resultDiv.innerHTML = '<p style="color: green;">✅ Настройки SMS инициализированы в тестовом режиме!</p>';
+                resultDiv.innerHTML += '<p style="color: orange;">⚠️ Для отправки реальных SMS добавьте API ключ SMS.ru</p>';
+                resultDiv.innerHTML += '<pre>' + JSON.stringify(smsSettings, null, 2) + '</pre>';
+                
+            } catch (error) {
+                resultDiv.innerHTML = '<p style="color: red;">❌ Ошибка: ' + error.message + '</p>';
+                console.error('Error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

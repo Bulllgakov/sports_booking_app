@@ -1,5 +1,7 @@
 {
-  "projects": {},
+  "projects": {
+    "default": "sports-booking-app-1d7e5"
+  },
   "targets": {},
   "etags": {
     "sports-booking-app-1d7e5": {

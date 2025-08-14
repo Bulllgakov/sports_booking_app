@@ -129,6 +129,14 @@ service cloud.firestore {
       allow update, delete: if false; // Только Cloud Functions
     }
     
+    // Тренеры - управление админами клуба
+    match /trainers/{trainerId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+    
     // Запрет доступа к остальным коллекциям по умолчанию
     match /{document=**} {
       allow read, write: if false;

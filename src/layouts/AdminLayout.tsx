@@ -19,6 +19,7 @@ import {
   CreditCard,
   CardMembership,
   Payment,
+  School,
 } from '@mui/icons-material'
 import { useAuth } from '../contexts/AuthContext'
 import { usePermission } from '../hooks/usePermission'
@@ -48,6 +49,12 @@ export default function AdminLayout() {
       label: 'Календарь', 
       icon: <CalendarMonth />,
       permission: ['manage_bookings', 'manage_all_bookings', 'view_bookings']
+    },
+    { 
+      path: '/admin/trainers', 
+      label: 'Тренеры', 
+      icon: <School />,
+      permission: ['manage_club', 'manage_all_venues']
     },
     ...(isSuperAdmin ? [
       { path: '/admin/venues', label: 'Все клубы', icon: <Store /> },
@@ -138,27 +145,6 @@ export default function AdminLayout() {
             <AllCourtsLogo size={40} />
             <div className="logo-text">Все Корты</div>
           </div>
-          
-          {!isSuperAdmin && (
-            <div className="club-info">
-              <div className="club-logo">
-                {club?.logoUrl ? (
-                  <img src={club.logoUrl} alt={club.name} />
-                ) : (
-                  club?.name?.substring(0, 2).toUpperCase() || 'CL'
-                )}
-              </div>
-              <div className="club-name">{club?.name || 'Загрузка...'}</div>
-            </div>
-          )}
-          {isSuperAdmin && (
-            <div className="club-info">
-              <div className="club-logo" style={{ background: '#ef4444' }}>
-                SA
-              </div>
-              <div className="club-name">Суперадминистратор</div>
-            </div>
-          )}
         </div>
         
         <nav className="nav-menu">
@@ -191,14 +177,108 @@ export default function AdminLayout() {
               <Notifications fontSize="small" />
             </button>
             
-            <div className="user-menu">
-              <div className="user-info">
-                <span className="user-name">{admin?.name}</span>
-                <span className="user-role">{admin?.role}</span>
+            {/* Название клуба для обычных админов */}
+            {!isSuperAdmin && club && (
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px',
+                marginRight: '16px',
+                padding: '8px 16px',
+                background: 'var(--background)',
+                borderRadius: '8px',
+                border: '1px solid var(--extra-light-gray)'
+              }}>
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  background: 'var(--primary)',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  overflow: 'hidden'
+                }}>
+                  {club.logoUrl ? (
+                    <img src={club.logoUrl} alt={club.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    club.name?.substring(0, 2).toUpperCase() || 'CL'
+                  )}
+                </div>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start'
+                }}>
+                  <span style={{ 
+                    fontSize: '14px', 
+                    fontWeight: '600',
+                    color: 'var(--dark)',
+                    lineHeight: '1.2' 
+                  }}>
+                    {club.name}
+                  </span>
+                  <span style={{ 
+                    fontSize: '12px', 
+                    color: 'var(--gray)',
+                    lineHeight: '1.2' 
+                  }}>
+                    {admin?.role === 'admin' ? 'Администратор' : 'Менеджер'}
+                  </span>
+                </div>
               </div>
-              <button className="user-btn">
-                <AccountCircle fontSize="small" />
-              </button>
+            )}
+            
+            <div className="user-menu">
+              {/* Показываем информацию о пользователе только для обычных админов */}
+              {!isSuperAdmin && (
+                <div className="user-info">
+                  <span className="user-name">{admin?.name}</span>
+                  <span className="user-role">{admin?.role}</span>
+                </div>
+              )}
+              
+              {/* Для суперадмина показываем только иконку и кнопку выхода */}
+              {isSuperAdmin && (
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '12px',
+                  marginRight: '8px'
+                }}>
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    background: '#ef4444',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: '12px',
+                    fontWeight: '700'
+                  }}>
+                    SA
+                  </div>
+                  <span style={{ 
+                    fontSize: '14px', 
+                    fontWeight: '600',
+                    color: 'var(--dark)'
+                  }}>
+                    Суперадминистратор
+                  </span>
+                </div>
+              )}
+              
+              {!isSuperAdmin && (
+                <button className="user-btn">
+                  <AccountCircle fontSize="small" />
+                </button>
+              )}
+              
               <button className="logout-btn" onClick={logout} title="Выйти">
                 <ExitToApp fontSize="small" />
               </button>

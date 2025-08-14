@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Обновление SMS настроек</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #00A86B;
+        }
+        button {
+            background: #00A86B;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #008856;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Обновление SMS настроек</h1>
+        
+        <div id="status"></div>
+        
+        <button onclick="cleanupSettings()">Очистить SMSC настройки</button>
+        <button onclick="checkSettings()">Проверить текущие настройки</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, doc, getDoc, updateDoc, deleteField } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getAuth, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnp3SY9XEyF-le5q_Tcv-7Le2qqvtz0ZM",
+            authDomain: "sports-booking-app-1d7e5.firebaseapp.com",
+            projectId: "sports-booking-app-1d7e5",
+            storageBucket: "sports-booking-app-1d7e5.appspot.com",
+            messagingSenderId: "139236206848",
+            appId: "1:139236206848:web:b3c0a6a97f78f37ab4cf81"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        
+        window.showStatus = function(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = message;
+        };
+        
+        window.cleanupSettings = async function() {
+            try {
+                const email = prompt('Введите email суперадмина:');
+                const password = prompt('Введите пароль:');
+                
+                if (!email || !password) {
+                    showStatus('Отменено', 'error');
+                    return;
+                }
+                
+                showStatus('Авторизация...', 'info');
+                await signInWithEmailAndPassword(auth, email, password);
+                
+                showStatus('Обновление настроек...', 'info');
+                
+                const docRef = doc(db, 'settings', 'sms');
+                
+                // Удаляем поля SMSC и обновляем provider
+                await updateDoc(docRef, {
+                    provider: 'smsru',
+                    smscLogin: deleteField(),
+                    smscPassword: deleteField(),
+                    updatedAt: new Date()
+                });
+                
+                showStatus('Настройки успешно обновлены! SMSC.RU удален из системы.', 'success');
+                
+                // Показываем обновленные настройки
+                await checkSettings();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus(`Ошибка: ${error.message}`, 'error');
+            }
+        };
+        
+        window.checkSettings = async function() {
+            try {
+                showStatus('Проверка настроек...', 'info');
+                
+                const docRef = doc(db, 'settings', 'sms');
+                const docSnap = await getDoc(docRef);
+                
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    // Скрываем чувствительные данные
+                    if (data.smsruApiId) {
+                        data.smsruApiId = data.smsruApiId.substring(0, 4) + '****' + data.smsruApiId.substring(data.smsruApiId.length - 4);
+                    }
+                    showStatus(`
+                        <strong>Текущие настройки:</strong><br>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `, 'success');
+                } else {
+                    showStatus('Настройки SMS не найдены', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus(`Ошибка: ${error.message}`, 'error');
+            }
+        };
+    </script>
+</body>
+</html>

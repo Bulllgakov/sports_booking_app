@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:provider/provider.dart';
-import 'package:go_router/go_router.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/text_styles.dart';
 import '../core/theme/spacing.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/custom_text_field.dart';
-import '../services/auth_service.dart';
+import 'sms_verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,12 +15,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController(text: '+7');
   bool _isLoading = false;
   String? _errorMessage;
 
-  String _verificationId = '';
-  int? _resendToken;
 
   @override
   void dispose() {
@@ -64,52 +60,53 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final authService = context.read<AuthService>();
       final formattedPhone = _formatPhoneNumber(_phoneController.text);
-
-      await authService.verifyPhoneNumber(
-        phoneNumber: formattedPhone,
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          // Auto-verification completed
-          await authService.signInWithCredential(credential);
-          if (mounted) {
-            context.go('/profile-setup');
-          }
-        },
-        verificationFailed: (FirebaseAuthException e) {
-          setState(() {
-            _isLoading = false;
-            if (e.code == 'invalid-phone-number') {
-              _errorMessage = 'Неверный формат номера телефона';
-            } else if (e.code == 'too-many-requests') {
-              _errorMessage = 'Слишком много попыток. Попробуйте позже';
-            } else {
-              _errorMessage = 'Ошибка: ${e.message}';
-            }
-          });
-        },
-        codeSent: (String verificationId, int? resendToken) {
-          setState(() {
-            _isLoading = false;
-            _verificationId = verificationId;
-            _resendToken = resendToken;
-          });
+      
+      // Вызываем Cloud Function для отправки SMS через sms.ru
+      final functions = FirebaseFunctions.instanceFor(region: 'europe-west1');
+      final callable = functions.httpsCallable('sendSMSCode');
+      
+      final result = await callable.call({
+        'phoneNumber': formattedPhone,
+      });
+      
+      if (result.data['success'] == true) {
+        setState(() {
+          _isLoading = false;
+        });
+        
+        // Переходим на экран ввода кода
+        if (mounted) {
+          final verificationResult = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SMSVerificationScreen(
+                phoneNumber: formattedPhone,
+              ),
+            ),
+          );
           
-          // Navigate to verification screen
-          context.push('/verify-phone', extra: {
-            'verificationId': verificationId,
-            'phoneNumber': formattedPhone,
-            'resendToken': resendToken,
-          });
-        },
-        codeAutoRetrievalTimeout: (String verificationId) {
-          _verificationId = verificationId;
-        },
-      );
+          // Если авторизация успешна, закрываем экран логина
+          if (verificationResult == true && mounted) {
+            Navigator.pop(context, true);
+          }
+        }
+      } else {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Не удалось отправить SMS. Попробуйте позже.';
+        });
+      }
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Произошла ошибка: $e';
+        if (e.toString().contains('invalid-argument')) {
+          _errorMessage = 'Неверный формат номера телефона';
+        } else if (e.toString().contains('too-many-requests')) {
+          _errorMessage = 'Слишком много попыток. Попробуйте позже';
+        } else {
+          _errorMessage = 'Произошла ошибка при отправке SMS';
+        }
       });
     }
   }

@@ -6,8 +6,8 @@ import { CheckCircle, Cancel, AttachMoney, Timer } from '@mui/icons-material'
 
 interface PaymentStatusManagerProps {
   bookingId: string
-  currentStatus: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled' | 'refunded'
-  paymentMethod?: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card'
+  currentStatus: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled' | 'refunded' | 'expired' | 'error' | ''
+  paymentMethod?: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card' | 'vtb_card'
   onStatusUpdate?: () => void
   onRefund?: () => void
 }
@@ -17,7 +17,10 @@ const statusLabels = {
   paid: 'Оплачено',
   online_payment: 'Онлайн оплата',
   cancelled: 'Отменено',
-  refunded: 'Возврат'
+  refunded: 'Возврат',
+  expired: 'Время истекло',
+  error: 'Ошибка',
+  '': '-' // Пустой статус
 }
 
 const statusColors = {
@@ -25,7 +28,10 @@ const statusColors = {
   paid: '#10B981',
   online_payment: '#3B82F6',
   cancelled: '#EF4444',
-  refunded: '#8B5CF6'
+  refunded: '#8B5CF6',
+  expired: '#6B7280', // Темно-серый для истекшего времени
+  error: '#DC2626', // Красный для ошибки
+  '': '#9CA3AF' // Серый для пустого статуса
 }
 
 const statusIcons = {
@@ -33,7 +39,10 @@ const statusIcons = {
   paid: CheckCircle,
   online_payment: AttachMoney,
   cancelled: Cancel,
-  refunded: Cancel
+  refunded: Cancel,
+  expired: Timer, // Иконка таймера для истекшего времени
+  error: Cancel, // Иконка отмены для ошибки
+  '': Cancel // Иконка для пустого статуса
 }
 
 export default function PaymentStatusManager({ 
@@ -51,7 +60,7 @@ export default function PaymentStatusManager({
 
   // Синхронизируем локальный статус с внешним
   useEffect(() => {
-    console.log('PaymentStatusManager: currentStatus changed to', currentStatus)
+    // console.log('PaymentStatusManager: currentStatus changed to', currentStatus)
     setLocalStatus(currentStatus)
   }, [currentStatus])
 
@@ -59,12 +68,12 @@ export default function PaymentStatusManager({
   useEffect(() => {
     if (!bookingId) return
 
-    console.log('PaymentStatusManager: subscribing to booking changes')
+    // console.log('PaymentStatusManager: subscribing to booking changes')
     const unsubscribe = onSnapshot(doc(db, 'bookings', bookingId), (doc) => {
       if (doc.exists()) {
         const data = doc.data()
-        const newStatus = data.paymentStatus || 'awaiting_payment'
-        console.log('PaymentStatusManager: realtime update, status:', newStatus)
+        const newStatus = data.paymentStatus || ''
+        // console.log('PaymentStatusManager: realtime update, status:', newStatus)
         setLocalStatus(newStatus as typeof localStatus)
       }
     })
@@ -73,6 +82,7 @@ export default function PaymentStatusManager({
   }, [bookingId])
 
   // Запрещаем менять статус для онлайн оплаты (только через вебхук)
+  // Также не показываем кнопки для пустого статуса и отмененных
   const canChangeStatus = localStatus === 'awaiting_payment' && paymentMethod !== 'online'
 
   const handleStatusChange = async (status: 'paid' | 'cancelled') => {
@@ -115,9 +125,12 @@ export default function PaymentStatusManager({
         updateData.paymentHistory = [historyEntry]
       }
 
-      // Обновляем статус бронирования если оплата отменена
+      // Обновляем статус бронирования в зависимости от статуса оплаты
       if (status === 'cancelled') {
         updateData.status = 'cancelled'
+      } else if (status === 'paid') {
+        // При подтверждении оплаты меняем статус бронирования на confirmed
+        updateData.status = 'confirmed'
       }
 
       // Фильтруем undefined значения
@@ -162,16 +175,16 @@ export default function PaymentStatusManager({
   }
 
   // Защита от undefined статуса
-  const safeStatus = localStatus || 'awaiting_payment'
-  const StatusIcon = statusIcons[safeStatus] || statusIcons.awaiting_payment
+  const safeStatus = localStatus || ''
+  const StatusIcon = statusIcons[safeStatus] || statusIcons.cancelled
   
-  console.log('PaymentStatusManager render:', {
-    bookingId,
-    currentStatus,
-    localStatus,
-    safeStatus,
-    canChangeStatus
-  })
+  // console.log('PaymentStatusManager render:', {
+  //   bookingId,
+  //   currentStatus,
+  //   localStatus,
+  //   safeStatus,
+  //   canChangeStatus
+  // })
 
   return (
     <>

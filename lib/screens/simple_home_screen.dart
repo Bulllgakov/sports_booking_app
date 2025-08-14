@@ -6,8 +6,10 @@ import '../core/theme/spacing.dart';
 import '../providers/venues_provider.dart';
 import '../providers/location_provider.dart';
 import '../models/venue_model.dart';
+import '../services/auth_service.dart';
 import 'court_detail_screen.dart';
 import 'map_screen.dart';
+import 'login_screen.dart';
 
 class SimpleHomeScreen extends StatefulWidget {
   const SimpleHomeScreen({super.key});
@@ -85,9 +87,26 @@ class _SimpleHomeScreenState extends State<SimpleHomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Привет, Александр!',
-                  style: AppTextStyles.h1,
+                Consumer<AuthService>(
+                  builder: (context, authService, _) {
+                    String greeting;
+                    if (authService.isAuthenticated) {
+                      // Пользователь авторизован
+                      String userName = 'там';
+                      if (authService.currentUserModel != null && 
+                          authService.currentUserModel!.displayName.isNotEmpty) {
+                        userName = authService.currentUserModel!.displayName;
+                      }
+                      greeting = 'Привет, $userName!';
+                    } else {
+                      // Пользователь не авторизован
+                      greeting = 'Добро пожаловать!';
+                    }
+                    return Text(
+                      greeting,
+                      style: AppTextStyles.h1,
+                    );
+                  },
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Consumer<LocationProvider>(

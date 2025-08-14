@@ -46,9 +46,10 @@ export async function sendEmail(emailData: EmailData): Promise<string> {
 /**
  * Отправка уведомления о бронировании клиенту
  * @param {any} booking - Данные бронирования
+ * @param {string} timezone - Часовой пояс клуба
  * @return {Promise<void>}
  */
-export async function sendBookingConfirmationToCustomer(booking: any): Promise<void> {
+export async function sendBookingConfirmationToCustomer(booking: any, timezone?: string): Promise<void> {
   if (!booking.customerEmail) {
     console.log("No customer email provided, skipping email notification");
     return;
@@ -58,7 +59,7 @@ export async function sendBookingConfirmationToCustomer(booking: any): Promise<v
     to: booking.customerEmail,
     message: {
       subject: `Подтверждение бронирования - ${booking.courtName}`,
-      html: generateCustomerEmailHTML(booking),
+      html: generateCustomerEmailHTML(booking, timezone),
     },
   };
 
@@ -69,14 +70,19 @@ export async function sendBookingConfirmationToCustomer(booking: any): Promise<v
  * Отправка уведомления о бронировании администратору
  * @param {any} booking - Данные бронирования
  * @param {string} adminEmail - Email администратора
+ * @param {string} timezone - Часовой пояс клуба
  * @return {Promise<void>}
  */
-export async function sendBookingNotificationToAdmin(booking: any, adminEmail: string): Promise<void> {
+export async function sendBookingNotificationToAdmin(
+  booking: any,
+  adminEmail: string,
+  timezone?: string
+): Promise<void> {
   const emailData: EmailData = {
     to: adminEmail,
     message: {
-      subject: `Новое бронирование - ${booking.courtName} на ${formatDate(booking.date)}`,
-      html: generateAdminEmailHTML(booking),
+      subject: `Новое бронирование - ${booking.courtName} на ${formatDate(booking.date, timezone)}`,
+      html: generateAdminEmailHTML(booking, timezone),
     },
   };
 
@@ -88,7 +94,7 @@ export async function sendBookingNotificationToAdmin(booking: any, adminEmail: s
  * @param {any} booking - Данные бронирования
  * @return {string} HTML контент
  */
-function generateCustomerEmailHTML(booking: any): string {
+function generateCustomerEmailHTML(booking: any, timezone?: string): string {
   return `
 <!DOCTYPE html>
 <html>
@@ -177,7 +183,7 @@ function generateCustomerEmailHTML(booking: any): string {
         
         <div class="detail-row">
           <span class="label">Дата:</span>
-          <span class="value">${formatDate(booking.date)}</span>
+          <span class="value">${formatDate(booking.date, timezone)}</span>
         </div>
         
         <div class="detail-row">
@@ -230,7 +236,7 @@ function generateCustomerEmailHTML(booking: any): string {
  * @param {any} booking - Данные бронирования
  * @return {string} HTML контент
  */
-function generateAdminEmailHTML(booking: any): string {
+function generateAdminEmailHTML(booking: any, timezone?: string): string {
   return `
 <!DOCTYPE html>
 <html>
@@ -291,7 +297,7 @@ function generateAdminEmailHTML(booking: any): string {
       
       <div class="detail-row">
         <span class="label">Дата:</span>
-        <strong>${formatDate(booking.date)}</strong>
+        <strong>${formatDate(booking.date, timezone)}</strong>
       </div>
       
       <div class="detail-row">
@@ -337,13 +343,14 @@ function generateAdminEmailHTML(booking: any): string {
  * @param {string} dateString - Строка с датой
  * @return {string} Отформатированная дата
  */
-function formatDate(dateString: string): string {
+function formatDate(dateString: string, timezone?: string): string {
   const date = new Date(dateString);
   const options: Intl.DateTimeFormatOptions = {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: timezone || "Europe/Moscow",
   };
   return date.toLocaleDateString("ru-RU", options);
 }

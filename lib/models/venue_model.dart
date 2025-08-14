@@ -68,7 +68,7 @@ class VenueModel {
   final List<String> amenities;
   final Map<String, String> workingHours;
   final Map<int, bool> bookingDurations;
-  final int bookingSlotInterval; // 30 или 60 минут
+  final int bookingSlotInterval; // 30 или 60 минут (по умолчанию 60)
   final String description;
   final String? organizationType;
   final String? inn;
@@ -95,7 +95,7 @@ class VenueModel {
     required this.amenities,
     required this.workingHours,
     required this.bookingDurations,
-    this.bookingSlotInterval = 30,
+    this.bookingSlotInterval = 60,
     required this.description,
     this.organizationType,
     this.inn,
@@ -124,7 +124,7 @@ class VenueModel {
       amenities: List<String>.from(data['amenities'] ?? []),
       workingHours: _parseWorkingHours(data['workingHours']),
       bookingDurations: _parseBookingDurations(data['bookingDurations']),
-      bookingSlotInterval: data['bookingSlotInterval'] ?? 30,
+      bookingSlotInterval: data['bookingSlotInterval'] ?? 60,
       description: data['description']?.toString() ?? '',
       organizationType: data['organizationType']?.toString(),
       inn: data['inn']?.toString(),

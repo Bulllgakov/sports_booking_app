@@ -5,6 +5,7 @@ import '../core/theme/text_styles.dart';
 import '../core/theme/spacing.dart';
 import '../models/venue_model.dart';
 import '../models/court_model.dart';
+import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/booking_service.dart';
 import '../services/payment_service.dart';
@@ -25,6 +26,8 @@ class SimpleBookingFormScreen extends StatefulWidget {
   final VenueModel? venue;
   final CourtModel? court;
   final String? openGameId; // ID открытой игры для присоединения
+  final PlayerLevel? openGameLevel; // Уровень для открытой игры
+  final String? openGameDescription; // Описание для открытой игры
   
   const SimpleBookingFormScreen({
     super.key,
@@ -40,6 +43,8 @@ class SimpleBookingFormScreen extends StatefulWidget {
     this.venue,
     this.court,
     this.openGameId,
+    this.openGameLevel,
+    this.openGameDescription,
   });
 
   @override
@@ -55,16 +60,31 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
   @override
   void initState() {
     super.initState();
+    _phoneController.text = '+7';
     _loadUserData();
   }
 
   void _loadUserData() {
     try {
       final authService = context.read<AuthService>();
-      if (authService.isAuthenticated && authService.currentUserModel != null) {
-        final user = authService.currentUserModel!;
-        _nameController.text = user.displayName;
-        _phoneController.text = user.phoneNumber;
+      if (authService.isAuthenticated) {
+        // Заполняем телефон из Firebase Auth если есть
+        if (authService.currentUser?.phoneNumber != null && 
+            authService.currentUser!.phoneNumber!.isNotEmpty) {
+          _phoneController.text = authService.currentUser!.phoneNumber!;
+        }
+        
+        // Заполняем имя из UserModel если есть
+        if (authService.currentUserModel != null) {
+          final user = authService.currentUserModel!;
+          if (user.displayName.isNotEmpty) {
+            _nameController.text = user.displayName;
+          }
+          // Если в UserModel есть телефон, используем его (приоритет)
+          if (user.phoneNumber.isNotEmpty) {
+            _phoneController.text = user.phoneNumber;
+          }
+        }
       }
     } catch (e) {
       // Provider not found, skip loading user data
@@ -108,6 +128,7 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
       return;
     }
 
+    // Получаем AuthService для передачи userId
     AuthService? authService;
     try {
       authService = context.read<AuthService>();
@@ -115,39 +136,8 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
       // Provider not found
     }
     
-    // Check authentication
-    if (authService != null && !authService.isAuthenticated) {
-      final shouldLogin = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Требуется авторизация'),
-          content: const Text('Для бронирования корта необходимо войти в приложение'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Отмена'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Войти'),
-            ),
-          ],
-        ),
-      );
-      
-      if (shouldLogin == true && mounted) {
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const LoginScreen(),
-          ),
-        );
-        
-        if (!mounted || (authService != null && !authService.isAuthenticated)) return;
-      } else {
-        return;
-      }
-    }
+    // На этом этапе пользователь уже должен быть авторизован,
+    // так как проверка происходит в SimpleGameTypeScreen
     
     setState(() {
       _isLoading = true;
@@ -193,6 +183,23 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
           ),
         );
         return;
+      }
+      
+      // Сохраняем имя пользователя в профиль, если оно было введено и отсутствует
+      if (authService != null && 
+          authService.isAuthenticated && 
+          authService.currentUserModel != null &&
+          authService.currentUserModel!.displayName.isEmpty &&
+          _nameController.text.trim().isNotEmpty) {
+        try {
+          final updatedUser = authService.currentUserModel!.copyWith(
+            displayName: _nameController.text.trim(),
+          );
+          await authService.updateUserProfile(updatedUser);
+        } catch (e) {
+          // Не критично, продолжаем бронирование
+          debugPrint('Failed to update user profile: $e');
+        }
       }
       
       // Платежи включены - переходим к оплате без создания бронирования
@@ -600,6 +607,8 @@ class _SimpleBookingFormScreenState extends State<SimpleBookingFormScreen> {
           playersCount: widget.playersCount,
           userId: authService?.currentUser?.uid ?? '',
           customerEmail: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
+          openGameLevel: widget.openGameLevel?.toString().split('.').last,
+          openGameDescription: widget.openGameDescription,
         );
       }
       

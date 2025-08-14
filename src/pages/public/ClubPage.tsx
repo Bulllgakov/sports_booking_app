@@ -20,7 +20,13 @@ interface Venue {
   photos?: string[]
   amenities?: string[]
   workingHours?: {
-    [key: string]: { open: string; close: string }
+    monday?: string
+    tuesday?: string
+    wednesday?: string
+    thursday?: string
+    friday?: string
+    saturday?: string
+    sunday?: string
   }
   rating?: number
   reviewsCount?: number
@@ -127,9 +133,42 @@ export default function ClubPage() {
       console.log(`ClubPage loaded in ${loadTime.toFixed(0)}ms`)
     })
     
-    // Подписываемся на обновления кортов для real-time обновления цен
     if (clubId) {
-      const unsubscribe = onSnapshot(
+      const unsubscribers: (() => void)[] = []
+      
+      // Подписываемся на обновления данных клуба
+      const venueUnsubscribe = onSnapshot(
+        doc(db, 'venues', clubId),
+        (docSnapshot) => {
+          if (docSnapshot.exists()) {
+            const venueData = {
+              id: docSnapshot.id,
+              ...docSnapshot.data()
+            } as Venue
+            
+            if (docSnapshot.data().status !== 'active') {
+              setError('Клуб временно недоступен')
+              setLoading(false)
+              return
+            }
+            
+            console.log('Venue data updated:', venueData)
+            setVenue(venueData)
+          } else {
+            setError('Клуб не найден')
+            setLoading(false)
+          }
+        },
+        (error) => {
+          console.error('Error listening to venue updates:', error)
+          setError('Ошибка при загрузке данных клуба')
+          setLoading(false)
+        }
+      )
+      unsubscribers.push(venueUnsubscribe)
+      
+      // Подписываемся на обновления кортов для real-time обновления цен
+      const courtsUnsubscribe = onSnapshot(
         query(
           collection(db, 'venues', clubId, 'courts'),
           where('status', '==', 'active')
@@ -145,8 +184,11 @@ export default function ClubPage() {
           console.error('Error listening to courts updates:', error)
         }
       )
+      unsubscribers.push(courtsUnsubscribe)
       
-      return () => unsubscribe()
+      return () => {
+        unsubscribers.forEach(unsubscribe => unsubscribe())
+      }
     }
   }, [clubId])
 
@@ -229,6 +271,17 @@ export default function ClubPage() {
     setSelectedCourt(court)
   }
 
+  // Дни недели для отображения
+  const weekDays = [
+    { key: 'monday', label: 'Понедельник', short: 'Пн' },
+    { key: 'tuesday', label: 'Вторник', short: 'Вт' },
+    { key: 'wednesday', label: 'Среда', short: 'Ср' },
+    { key: 'thursday', label: 'Четверг', short: 'Чт' },
+    { key: 'friday', label: 'Пятница', short: 'Пт' },
+    { key: 'saturday', label: 'Суббота', short: 'Сб' },
+    { key: 'sunday', label: 'Воскресенье', short: 'Вс' }
+  ]
+
   // Функция для получения диапазона цен корта
   const getCourtPriceRange = (court: Court): { min: number; max: number; display: string } => {
     if (court.pricing) {
@@ -278,6 +331,7 @@ export default function ClubPage() {
       setShowBookingModal(true)
     }
   }
+
 
   const openPhotoModal = (index: number) => {
     setSelectedPhotoIndex(index)
@@ -381,6 +435,7 @@ export default function ClubPage() {
   if (!venue) return null
 
   const isDesktop = window.innerWidth > 768
+  const isMobile = !isDesktop
   const isClubActive = venue.status === 'active'
 
   return (
@@ -425,6 +480,164 @@ export default function ClubPage() {
         </div>
       )}
 
+      {/* Mobile only - Image gallery with horizontal scroll */}
+      {!isDesktop && venue.photos && venue.photos.length > 0 && (
+        <div style={{
+          display: 'flex',
+          gap: 'var(--spacing-sm)',
+          overflowX: 'auto',
+          marginTop: 'var(--spacing-lg)',
+          marginBottom: 'var(--spacing-lg)',
+          paddingBottom: 'var(--spacing-sm)',
+          paddingLeft: 'var(--spacing-xl)',
+          paddingRight: 'var(--spacing-xl)',
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none'
+        }}>
+          {venue.photos.map((photo, index) => (
+            <OptimizedImage 
+              key={index}
+              loading="lazy"
+              src={photo} 
+              alt={`${venue.name} - фото ${index + 1}`}
+              style={{
+                minWidth: '120px',
+                width: '120px',
+                height: '80px',
+                objectFit: 'cover',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer'
+              }}
+              onClick={() => openPhotoModal(index)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Mobile only - Club info with same padding */}
+      {!isDesktop && (
+        <div style={{...styles.clubInfoWrapper, padding: '0 var(--spacing-xl)'}}>
+          <h1 className="h1" style={styles.clubTitle}>{venue.name}</h1>
+          
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--spacing-md)',
+            marginBottom: 'var(--spacing-lg)',
+            flexWrap: 'nowrap'
+          }}>
+            {venue.phone && (
+              <a 
+                href={`tel:${venue.phone}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--spacing-xs)',
+                  padding: 'var(--spacing-xs) var(--spacing-sm)',
+                  backgroundColor: 'var(--primary-light)',
+                  borderRadius: 'var(--radius-sm)',
+                  textDecoration: 'none',
+                  color: 'var(--primary)',
+                  flexShrink: 0,
+                  transition: 'background 0.2s'
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span style={{...styles.infoIcon, marginBottom: 0}}>📞</span>
+                <span className="body-bold">{venue.phone}</span>
+              </a>
+            )}
+            
+            <a
+              href={venue.coordinates ? 
+                `https://yandex.ru/maps/?pt=${venue.coordinates.longitude},${venue.coordinates.latitude}&z=17&l=map` :
+                `https://yandex.ru/maps/?text=${encodeURIComponent(venue.address)}`
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--spacing-xs)',
+                flex: 1,
+                minWidth: 0,
+                textDecoration: 'none',
+                color: 'inherit'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span style={styles.infoIcon}>📍</span>
+              <span className="body" style={{ 
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                textDecoration: 'underline',
+                textDecorationStyle: 'dotted',
+                textUnderlineOffset: '2px'
+              }}>{venue.address}</span>
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile only - Courts section OUTSIDE padding */}
+      {!isDesktop && (
+        <div style={{...styles.courtsWrapper, padding: '0 var(--spacing-xl)'}}>
+          <h3 className="h2" style={styles.courtsTitle}>Доступные корты</h3>
+          
+          {courts.length === 0 ? (
+            <div className="flutter-card" style={styles.noCourtsCard}>
+              <span style={styles.noCourtsIcon}>🎾</span>
+              <p className="body" style={styles.noCourtsText}>
+                Нет доступных кортов
+              </p>
+            </div>
+          ) : (
+            <div>
+              {courts.map((court) => {
+                const isSelected = selectedCourt?.id === court.id
+                return (
+                  <div
+                    key={court.id}
+                    className={`court-card ${isSelected ? 'selected' : ''}`}
+                    onClick={() => handleCourtSelect(court)}
+                  >
+                    <div style={styles.courtCardContent}>
+                      <div style={styles.courtInfo}>
+                        <h4 className="body-bold" style={styles.courtName}>
+                          {court.name}
+                        </h4>
+                        <div style={styles.courtDetails}>
+                          <span 
+                            className={`sport-chip ${court.type}`}
+                            style={{ backgroundColor: sportColors[court.type] }}
+                          >
+                            {sportLabels[court.type]}
+                          </span>
+                          {court.indoor && (
+                            <span className="caption" style={styles.courtIndoor}>Крытый</span>
+                          )}
+                          {court.surface && (
+                            <span className="caption" style={styles.courtSurface}>• {court.surface}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div style={styles.courtPricing}>
+                        <div className="h3" style={styles.courtPrice}>
+                          {getCourtPriceRange(court).display}
+                        </div>
+                        <div className="caption" style={styles.courtPriceUnit}>за час</div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Main content */}
       <div style={isDesktop ? desktopStyles.container : mobileStyles.contentPadding}>
         <div style={isDesktop ? desktopStyles.mainContent : {}}>
@@ -447,96 +660,49 @@ export default function ClubPage() {
             </div>
           )}
 
-          {/* Mobile only - Image gallery */}
-          {!isDesktop && venue.photos && venue.photos.length > 0 && (
-            <div style={styles.mobileGallery}>
-              {venue.photos.map((photo, index) => (
-                <OptimizedImage 
-                  key={index}
-                  loading="lazy"
-                  src={photo} 
-                  alt={`${venue.name} - фото ${index + 1}`}
-                  style={styles.mobileGalleryImage}
-                  onClick={() => openPhotoModal(index)}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Club info */}
-          <div style={styles.clubInfoWrapper}>
-            <h1 className="h1" style={styles.clubTitle}>{venue.name}</h1>
-            
-            <div style={styles.clubInfoItems}>
-              <div style={styles.infoItem}>
-                <span style={styles.infoIcon}>📍</span>
-                <span className="body">{venue.address}</span>
+          {/* Club info - Desktop only */}
+          {isDesktop && (
+            <div style={styles.clubInfoWrapper}>
+              <h1 className="h1" style={styles.clubTitle}>{venue.name}</h1>
+              
+              <div style={styles.clubInfoItems}>
+                {venue.phone && (
+                  <a 
+                    href={`tel:${venue.phone}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 'var(--spacing-xs)',
+                      textDecoration: 'none',
+                      color: 'inherit'
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span style={styles.infoIcon}>📞</span>
+                    <span className="body">{venue.phone}</span>
+                  </a>
+                )}
+                
+                <a
+                  href={venue.coordinates ? 
+                    `https://yandex.ru/maps/?pt=${venue.coordinates.longitude},${venue.coordinates.latitude}&z=17&l=map` :
+                    `https://yandex.ru/maps/?text=${encodeURIComponent(venue.address)}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--spacing-xs)',
+                    textDecoration: 'none',
+                    color: 'inherit'
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span style={styles.infoIcon}>📍</span>
+                  <span className="body">{venue.address}</span>
+                </a>
               </div>
-              
-              {venue.phone && (
-                <div style={styles.infoItem}>
-                  <span style={styles.infoIcon}>📞</span>
-                  <span className="body">{venue.phone}</span>
-                </div>
-              )}
-              
-            </div>
-          </div>
-
-          {/* Mobile only - Courts section BEFORE About */}
-          {!isDesktop && (
-            <div style={styles.courtsWrapper}>
-              <h3 className="h2" style={styles.courtsTitle}>Доступные корты</h3>
-              
-              {courts.length === 0 ? (
-                <div className="flutter-card" style={styles.noCourtsCard}>
-                  <span style={styles.noCourtsIcon}>🎾</span>
-                  <p className="body" style={styles.noCourtsText}>
-                    Нет доступных кортов
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  {courts.map((court) => {
-                    const isSelected = selectedCourt?.id === court.id
-                    return (
-                      <div
-                        key={court.id}
-                        className={`court-card ${isSelected ? 'selected' : ''}`}
-                        onClick={() => handleCourtSelect(court)}
-                      >
-                        <div style={styles.courtCardContent}>
-                          <div style={styles.courtInfo}>
-                            <h4 className="body-bold" style={styles.courtName}>
-                              {court.name}
-                            </h4>
-                            <div style={styles.courtDetails}>
-                              <span 
-                                className={`sport-chip ${court.type}`}
-                                style={{ backgroundColor: sportColors[court.type] }}
-                              >
-                                {sportLabels[court.type]}
-                              </span>
-                              {court.indoor && (
-                                <span className="caption" style={styles.courtIndoor}>Крытый</span>
-                              )}
-                              {court.surface && (
-                                <span className="caption" style={styles.courtSurface}>• {court.surface}</span>
-                              )}
-                            </div>
-                          </div>
-                          <div style={styles.courtPricing}>
-                            <div className="h3" style={styles.courtPrice}>
-                              {getCourtPriceRange(court).display}
-                            </div>
-                            <div className="caption" style={styles.courtPriceUnit}>за час</div>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
             </div>
           )}
 
@@ -559,18 +725,19 @@ export default function ClubPage() {
                 <div className="info-section" style={{ marginBottom: 'var(--spacing-lg)' }}>
                   <h3 className="info-section-title">Часы работы</h3>
                   <div style={{ display: 'grid', gap: 'var(--spacing-xs)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span className="body">Будние дни (пн-пт)</span>
-                      <span className="body" style={{ color: 'var(--gray)' }}>
-                        {venue.workingHours.weekday || '07:00-23:00'}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span className="body">Выходные (сб-вс)</span>
-                      <span className="body" style={{ color: 'var(--gray)' }}>
-                        {venue.workingHours.weekend || '08:00-22:00'}
-                      </span>
-                    </div>
+                    {weekDays.map((day) => {
+                      const hours = venue.workingHours![day.key as keyof typeof venue.workingHours]
+                      if (!hours) return null
+                      
+                      return (
+                        <div key={day.key} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span className="body">{day.short}</span>
+                          <span className="body" style={{ color: 'var(--gray)' }}>
+                            {hours}
+                          </span>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -684,7 +851,7 @@ export default function ClubPage() {
               
               <button
                 className="flutter-button"
-                style={{ width: '100%', marginBottom: 'var(--spacing-md)' }}
+                style={{ width: '100%', marginBottom: 'var(--spacing-sm)' }}
                 onClick={handleContinue}
                 disabled={!selectedCourt}
               >
@@ -694,6 +861,26 @@ export default function ClubPage() {
                 }
               </button>
               
+              <div style={{ 
+                fontSize: '12px',
+                lineHeight: '1.4',
+                color: 'var(--gray)',
+                textAlign: 'center',
+                marginBottom: 'var(--spacing-md)'
+              }}>
+                Продолжая, соглашаюсь с{' '}
+                <Link 
+                  to={`/club/${clubId}/user-agreement`}
+                  target="_blank"
+                  style={{ 
+                    color: 'var(--primary)',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  политикой и соглашением
+                </Link>
+              </div>
+              
             </div>
 
             {/* Working hours */}
@@ -701,18 +888,19 @@ export default function ClubPage() {
               <div className="info-section" style={{ marginBottom: 'var(--spacing-lg)' }}>
                 <h3 className="info-section-title">Часы работы</h3>
                 <div style={{ display: 'grid', gap: 'var(--spacing-xs)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span className="caption">Будние дни (пн-пт)</span>
-                    <span className="caption" style={{ color: 'var(--gray)' }}>
-                      {venue.workingHours.weekday || '07:00-23:00'}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span className="caption">Выходные (сб-вс)</span>
-                    <span className="caption" style={{ color: 'var(--gray)' }}>
-                      {venue.workingHours.weekend || '08:00-22:00'}
-                    </span>
-                  </div>
+                  {weekDays.map((day) => {
+                    const hours = venue.workingHours![day.key as keyof typeof venue.workingHours]
+                    if (!hours) return null
+                    
+                    return (
+                      <div key={day.key} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span className="caption">{day.short}</span>
+                        <span className="caption" style={{ color: 'var(--gray)' }}>
+                          {hours}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -744,7 +932,7 @@ export default function ClubPage() {
         <div className="sticky-bottom-bar">
           <button
             className="flutter-button"
-            style={{ width: '100%' }}
+            style={{ width: '100%', marginBottom: 'var(--spacing-sm)' }}
             onClick={handleContinue}
             disabled={!selectedCourt}
           >
@@ -753,6 +941,25 @@ export default function ClubPage() {
               : 'Выберите корт'
             }
           </button>
+          
+          <div style={{ 
+            fontSize: '11px',
+            lineHeight: '1.3',
+            color: 'var(--gray)',
+            textAlign: 'center'
+          }}>
+            Продолжая, соглашаюсь с{' '}
+            <Link 
+              to={`/club/${clubId}/user-agreement`}
+              target="_blank"
+              style={{ 
+                color: 'var(--primary)',
+                textDecoration: 'underline'
+              }}
+            >
+              политикой и соглашением
+            </Link>
+          </div>
         </div>
       )}
 
@@ -915,7 +1122,7 @@ export default function ClubPage() {
       <div style={{
         borderTop: '1px solid var(--divider)',
         padding: '24px',
-        marginTop: '40px',
+        marginTop: !isDesktop ? '20px' : '40px',
         paddingBottom: !isDesktop ? 'calc(140px + 24px)' : '24px',
         textAlign: 'center',
         backgroundColor: 'var(--background)'
@@ -951,6 +1158,7 @@ export default function ClubPage() {
           </div>
         )}
       </div>
+
     </div>
   )
 }

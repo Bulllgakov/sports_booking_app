@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import {TBankAPI, getTBankConfig} from "../utils/tbank";
+import {BookingSMSService} from "../services/bookingSmsService";
 
 const region = "europe-west1";
 
@@ -217,6 +218,15 @@ async function handlePaymentRefunded(notification: TBankNotification) {
   const db = admin.firestore();
 
   try {
+    // Проверяем тип платежа по OrderId
+    const isBookingPayment = notification.OrderId.startsWith("booking_");
+
+    if (isBookingPayment) {
+      // Обрабатываем возврат за бронирование
+      await handleBookingRefund(notification);
+      return;
+    }
+
     // Находим invoice по OrderId
     const invoiceQuery = await db
       .collection("invoices")
@@ -375,8 +385,81 @@ async function handleBookingPaymentConfirmed(notification: TBankNotification) {
     }
 
     console.log(`Booking payment confirmed for booking: ${bookingId}`);
+
+    // Отправляем SMS подтверждение
+    try {
+      const smsService = new BookingSMSService();
+      await smsService.sendBookingConfirmation(bookingId);
+      console.log(`SMS confirmation sent for booking: ${bookingId}`);
+    } catch (smsError) {
+      console.error("Error sending SMS confirmation:", smsError);
+      // Не прерываем процесс, если SMS не отправилось
+    }
   } catch (error) {
     console.error("Error handling booking payment confirmed:", error);
+  }
+}
+
+/**
+ * Обработка возврата платежа за бронирование
+ * @param {TBankNotification} notification - Уведомление от Т-Банк
+ * @return {Promise<void>}
+ */
+async function handleBookingRefund(notification: TBankNotification) {
+  const db = admin.firestore();
+
+  try {
+    // Извлекаем bookingId из OrderId
+    const bookingIdMatch = notification.OrderId.match(/booking_(.+)_\d+$/);
+    if (!bookingIdMatch) {
+      console.error(`Invalid booking order ID format: ${notification.OrderId}`);
+      return;
+    }
+
+    const bookingId = bookingIdMatch[1];
+
+    // Обновляем статус платежа
+    const paymentQuery = await db
+      .collection("payments")
+      .where("bookingId", "==", bookingId)
+      .where("paymentId", "==", notification.PaymentId.toString())
+      .limit(1)
+      .get();
+
+    if (!paymentQuery.empty) {
+      const paymentDoc = paymentQuery.docs[0];
+      await paymentDoc.ref.update({
+        status: "refunded",
+        refundedAt: admin.firestore.FieldValue.serverTimestamp(),
+        refundAmount: notification.Amount / 100,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    // Обновляем статус бронирования
+    await db.collection("bookings").doc(bookingId).update({
+      paymentStatus: "refunded",
+      status: "cancelled",
+      refundedAt: admin.firestore.FieldValue.serverTimestamp(),
+      cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      cancelReason: "Возврат платежа",
+      refundAmount: notification.Amount / 100,
+    });
+
+    console.log(`Booking refund processed for booking: ${bookingId}`);
+
+    // Отправляем SMS об отмене
+    try {
+      const smsService = new BookingSMSService();
+      await smsService.sendBookingCancellation(bookingId);
+      console.log(`SMS cancellation sent for booking: ${bookingId}`);
+    } catch (smsError) {
+      console.error("Error sending SMS cancellation:", smsError);
+      // Не прерываем процесс, если SMS не отправилось
+    }
+  } catch (error) {
+    console.error("Error handling booking refund:", error);
   }
 }
 

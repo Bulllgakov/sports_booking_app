@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/text_styles.dart';
 import '../core/theme/spacing.dart';
 import '../models/venue_model.dart';
 import '../models/court_model.dart';
+import '../services/auth_service.dart';
 import 'simple_booking_form_screen.dart';
+import 'open_game_settings_screen.dart';
+import 'login_screen.dart';
 
 class SimpleGameTypeScreen extends StatefulWidget {
   final String venueId;
@@ -57,31 +61,95 @@ class _SimpleGameTypeScreenState extends State<SimpleGameTypeScreen> {
   }
 
   Future<void> _handleContinue() async {
-    // Calculate price per player for open games
-    final totalPrice = widget.price;
-    final pricePerPlayer = selectedGameType == 'open' 
-        ? totalPrice.toDouble() / selectedPlayersCount 
-        : totalPrice.toDouble();
+    // Проверяем авторизацию
+    AuthService? authService;
+    try {
+      authService = context.read<AuthService>();
+    } catch (e) {
+      // AuthService не найден, продолжаем без него
+    }
     
-    // Navigate to a booking form screen (we'll create SimpleBookingFormScreen)
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => SimpleBookingFormScreen(
-          venueId: widget.venueId,
-          courtId: widget.courtId,
-          date: widget.date,
-          time: widget.time,
-          duration: widget.duration,
-          price: widget.price,
-          pricePerPlayer: pricePerPlayer.round(),
-          gameType: selectedGameType,
-          playersCount: selectedGameType == 'open' ? selectedPlayersCount : 1,
-          venue: widget.venue,
-          court: widget.court,
+    // Если пользователь не авторизован, предлагаем войти
+    if (authService != null && !authService.isAuthenticated) {
+      final shouldLogin = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Требуется авторизация'),
+          content: Text(
+            selectedGameType == 'open' 
+              ? 'Для создания открытой игры необходимо войти в приложение'
+              : 'Для бронирования корта необходимо войти в приложение'
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Отмена'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Войти'),
+            ),
+          ],
         ),
-      ),
-    );
+      );
+      
+      if (shouldLogin == true && mounted) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const LoginScreen(),
+          ),
+        );
+        
+        // После возврата из экрана логина, проверяем снова
+        if (!mounted || !authService.isAuthenticated) {
+          return; // Пользователь не авторизовался
+        }
+      } else {
+        return; // Пользователь отменил
+      }
+    }
+    
+    // Теперь продолжаем с навигацией
+    if (selectedGameType == 'open') {
+      // For open games, navigate to settings screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => OpenGameSettingsScreen(
+            venueId: widget.venueId,
+            courtId: widget.courtId,
+            date: widget.date,
+            time: widget.time,
+            duration: widget.duration,
+            price: widget.price,
+            playersCount: selectedPlayersCount,
+            venue: widget.venue,
+            court: widget.court,
+          ),
+        ),
+      );
+    } else {
+      // For private games, go directly to booking form
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SimpleBookingFormScreen(
+            venueId: widget.venueId,
+            courtId: widget.courtId,
+            date: widget.date,
+            time: widget.time,
+            duration: widget.duration,
+            price: widget.price,
+            pricePerPlayer: widget.price,
+            gameType: 'private',
+            playersCount: 1,
+            venue: widget.venue,
+            court: widget.court,
+          ),
+        ),
+      );
+    }
   }
 
   @override

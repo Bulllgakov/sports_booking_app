@@ -13,6 +13,7 @@ import 'screens/simple_home_screen.dart';
 import 'screens/simple_find_game_screen.dart';
 import 'screens/simple_my_bookings_screen.dart';
 import 'screens/simple_profile_screen_v2.dart';
+import 'screens/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -77,7 +78,53 @@ class _MainScreenState extends State<MainScreen> {
     const SimpleProfileScreenV2(),
   ];
 
-  void _onItemTapped(int index) {
+  void _onItemTapped(int index) async {
+    // Проверяем авторизацию для вкладок "Мои брони" и "Профиль"
+    if (index == 2 || index == 3) {
+      final authService = context.read<AuthService>();
+      if (!authService.isAuthenticated) {
+        // Показываем диалог с предложением войти
+        final shouldLogin = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Требуется авторизация'),
+            content: Text(
+              index == 2 
+                ? 'Для просмотра ваших бронирований необходимо войти в приложение'
+                : 'Для доступа к профилю необходимо войти в приложение'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Отмена'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Войти'),
+              ),
+            ],
+          ),
+        );
+        
+        if (shouldLogin == true && mounted) {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const LoginScreen(),
+            ),
+          );
+          
+          // Если пользователь успешно авторизовался, переходим на выбранную вкладку
+          if (result == true && mounted) {
+            setState(() {
+              _selectedIndex = index;
+            });
+          }
+        }
+        return; // Не меняем вкладку если пользователь не авторизовался
+      }
+    }
+    
     setState(() {
       _selectedIndex = index;
     });
