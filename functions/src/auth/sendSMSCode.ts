@@ -81,14 +81,6 @@ export const verifySMSCode = functions.region(region).https.onCall(async (data, 
 
     const codeData = doc.data()!;
 
-    // Проверяем количество попыток
-    if (codeData.attempts >= 3) {
-      throw new functions.https.HttpsError(
-        "permission-denied",
-        "Too many attempts. Please request a new code"
-      );
-    }
-
     // Проверяем срок действия кода (10 минут)
     const createdAt = codeData.createdAt.toDate();
     const now = new Date();
@@ -110,6 +102,14 @@ export const verifySMSCode = functions.region(region).https.onCall(async (data, 
 
     // Проверяем код
     if (codeData.code !== code) {
+      // Проверяем количество попыток ПЕРЕД увеличением
+      if (codeData.attempts >= 2) { // Изменено с 3 на 2, так как мы проверяем ПЕРЕД увеличением
+        throw new functions.https.HttpsError(
+          "permission-denied",
+          "Too many attempts. Please request a new code"
+        );
+      }
+
       // Увеличиваем счетчик попыток
       await docRef.update({
         attempts: admin.firestore.FieldValue.increment(1),
