@@ -57,6 +57,13 @@ interface Booking {
   }
   venueId: string
   createdAt: Date
+  
+  // Поля для тренера
+  trainerId?: string
+  trainerName?: string
+  trainerPrice?: number
+  trainerCommission?: number
+  totalAmount?: number
 }
 
 interface Court {
@@ -82,6 +89,13 @@ export default function BookingsManagement() {
   const [courts, setCourts] = useState<Court[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(new Date())
+  
+  // Для тренеров автоматически устанавливаем режим календаря по тренеру
+  const isTrainer = admin?.role === 'trainer'
+  const [calendarMode, setCalendarMode] = useState<'courts' | 'trainer'>(isTrainer ? 'trainer' : 'courts')
+  const [selectedTrainerId, setSelectedTrainerId] = useState<string>(isTrainer && admin?.trainerId ? admin.trainerId : '')
+  
+  const [trainers, setTrainers] = useState<any[]>([])
   const [formData, setFormData] = useState({
     clientName: '',
     clientPhone: '',
@@ -110,15 +124,23 @@ export default function BookingsManagement() {
       if (venueId) {
         setSelectedVenueId(venueId)
         fetchCourts(venueId)
+        fetchTrainers(venueId)
         fetchBookings(venueId)
       } else {
         setLoading(false)
       }
     } else if (admin?.venueId) {
-      // Загружаем данные клуба для обычного админа
+      // Загружаем данные клуба для обычного админа и тренера
       fetchVenueData(admin.venueId)
       fetchCourts(admin.venueId)
+      fetchTrainers(admin.venueId)
       fetchBookings(admin.venueId)
+      
+      // Для тренера автоматически устанавливаем фильтр по его ID
+      if (isTrainer && admin.trainerId) {
+        setCalendarMode('trainer')
+        setSelectedTrainerId(admin.trainerId)
+      }
     } else {
       setLoading(false)
     }
@@ -184,6 +206,7 @@ export default function BookingsManagement() {
     setSelectedVenueId(venueId)
     localStorage.setItem('selectedVenueId', venueId)
     fetchCourts(venueId)
+    fetchTrainers(venueId)
     fetchBookings(venueId)
   }
 
@@ -203,6 +226,43 @@ export default function BookingsManagement() {
       setCourts(courtsData)
     } catch (error) {
       console.error('Error fetching courts:', error)
+    }
+  }
+
+  const fetchTrainers = async (venueId: string) => {
+    if (!venueId) {
+      console.log('No venueId provided for fetching trainers')
+      return
+    }
+
+    console.log('Fetching trainers for venue:', venueId)
+    try {
+      const trainersQuery = query(
+        collection(db, 'trainers'),
+        where('clubId', '==', venueId)
+      )
+      const snapshot = await getDocs(trainersQuery)
+      
+      console.log('Found trainers documents:', snapshot.size)
+      
+      const allTrainers = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      
+      console.log('All trainers:', allTrainers)
+      
+      const trainersData = allTrainers.filter((trainer: any) => trainer.status === 'active') // Фильтруем на клиенте
+      
+      // Сортируем на клиенте
+      trainersData.sort((a: any, b: any) => 
+        (a.firstName || '').localeCompare(b.firstName || '')
+      )
+      
+      setTrainers(trainersData)
+      console.log('Active trainers:', trainersData)
+    } catch (error) {
+      console.error('Error fetching trainers:', error)
     }
   }
 
@@ -249,17 +309,31 @@ export default function BookingsManagement() {
           
           // Используем утилиту для безопасного преобразования даты с учетом часового пояса клуба
           const bookingDate = normalizeDateInClubTZ(data.date, clubTimezone)
-          // Для createdAt используем fallback на дату бронирования, если нет даты создания
-          const createdAt = data.createdAt ? normalizeDateInClubTZ(data.createdAt, clubTimezone) : bookingDate
-
-          // Логируем для диагностики
-          if (!data.createdAt) {
-            console.log('Booking without createdAt:', doc.id, 'using date as fallback:', bookingDate)
+          
+          // Для createdAt НЕ используем normalizeDateInClubTZ, так как это точное время, а не дата!
+          let createdAt: Date
+          if (data.createdAt) {
+            // Правильно конвертируем Firestore Timestamp в Date без изменения времени
+            if (data.createdAt?.toDate && typeof data.createdAt.toDate === 'function') {
+              createdAt = data.createdAt.toDate()
+            } else if (data.createdAt?.seconds && typeof data.createdAt.seconds === 'number') {
+              createdAt = new Date(data.createdAt.seconds * 1000)
+            } else if (data.createdAt instanceof Date) {
+              createdAt = data.createdAt
+            } else {
+              createdAt = new Date(data.createdAt)
+            }
+          } else {
+            // Fallback на текущее время, если нет createdAt
+            console.log('Booking without createdAt:', doc.id, 'using current time as fallback')
+            createdAt = new Date()
           }
+          
 
+          // Важно: сначала spread, потом наши корректные значения, чтобы они имели приоритет
           return {
-            id: doc.id,
             ...data,
+            id: doc.id,
             // Обеспечиваем наличие обязательных полей
             status: data.status || 'pending',
             paymentStatus: data.paymentStatus || 'awaiting_payment',
@@ -270,6 +344,7 @@ export default function BookingsManagement() {
             customerName: data.customerName || '',
             customerPhone: data.customerPhone || '',
             amount: data.amount || data.totalPrice || 0,
+            // ВАЖНО: эти поля должны быть последними, чтобы перезаписать любые неправильные значения из data
             date: bookingDate,
             createdAt: createdAt
           }
@@ -400,8 +475,8 @@ export default function BookingsManagement() {
           return dateB.getTime() - dateA.getTime()
         })
         
-        // console.log('Calendar bookings (occupying courts):', sortedCalendarBookings)
-        // console.log('All bookings:', sortedAllBookings)
+        // console.log('Calendar bookings (occupying courts):', sortedCalendarBookings.length)
+        // console.log('All bookings for list:', sortedAllBookings.length)
         
           setBookings(sortedCalendarBookings) // Для календаря
           setAllBookings(sortedAllBookings) // Для списка
@@ -695,7 +770,8 @@ export default function BookingsManagement() {
     return <div>Загрузка...</div>
   }
 
-  if (!hasPermission(['manage_bookings', 'manage_all_bookings', 'view_bookings'])) {
+  // Тренеры могут просматривать свой календарь
+  if (!isTrainer && !hasPermission(['manage_bookings', 'manage_all_bookings', 'view_bookings'])) {
     return (
       <Alert severity="error">
         <strong>Доступ запрещен</strong><br />
@@ -730,10 +806,11 @@ export default function BookingsManagement() {
     )
   }
 
-  const canCreateBooking = hasPermission(['manage_bookings', 'manage_all_bookings', 'create_bookings'])
+  // Тренеры не могут создавать бронирования
+  const canCreateBooking = !isTrainer && hasPermission(['manage_bookings', 'manage_all_bookings', 'create_bookings'])
 
   return (
-    <PermissionGate permission={['manage_bookings', 'manage_all_bookings', 'view_bookings']}>
+    <PermissionGate permission={['manage_bookings', 'manage_all_bookings', 'view_bookings']} allowTrainer={true}>
     <div>
       {/* Селектор клуба для суперадмина */}
       {isSuperAdmin && (
@@ -810,9 +887,105 @@ export default function BookingsManagement() {
             </button>
           </div>
         </div>
+
+        {/* Переключатель режима календаря - скрываем для тренеров */}
+        {!isTrainer && (
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '16px', 
+            marginBottom: '16px',
+            padding: '12px',
+            background: '#f9fafb',
+            borderRadius: '8px'
+          }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => {
+                  setCalendarMode('courts')
+                  setSelectedTrainerId('')
+                }}
+                style={{
+                  padding: '8px 16px',
+                  border: '1px solid',
+                  borderColor: calendarMode === 'courts' ? 'var(--primary)' : 'var(--extra-light-gray)',
+                  background: calendarMode === 'courts' ? 'var(--primary)' : 'white',
+                  color: calendarMode === 'courts' ? 'white' : 'var(--text-secondary)',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: calendarMode === 'courts' ? '600' : '400'
+                }}
+              >
+                По кортам
+              </button>
+              <button
+                onClick={() => setCalendarMode('trainer')}
+                style={{
+                  padding: '8px 16px',
+                  border: '1px solid',
+                  borderColor: calendarMode === 'trainer' ? 'var(--primary)' : 'var(--extra-light-gray)',
+                  background: calendarMode === 'trainer' ? 'var(--primary)' : 'white',
+                  color: calendarMode === 'trainer' ? 'white' : 'var(--text-secondary)',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: calendarMode === 'trainer' ? '600' : '400'
+                }}
+              >
+                По тренеру
+              </button>
+            </div>
+
+            {/* Выбор тренера */}
+            {calendarMode === 'trainer' && (
+              <>
+                <div style={{ 
+                  width: '1px', 
+                  height: '24px', 
+                  background: 'var(--extra-light-gray)' 
+                }} />
+                <select
+                  value={selectedTrainerId}
+                  onChange={(e) => setSelectedTrainerId(e.target.value)}
+                  style={{
+                    padding: '8px 12px',
+                    border: '1px solid var(--extra-light-gray)',
+                    borderRadius: '6px',
+                    background: 'white',
+                    fontSize: '14px',
+                    minWidth: '200px'
+                  }}
+                >
+                  <option value="">Выберите тренера</option>
+                  {trainers.map((trainer: any) => (
+                    <option key={trainer.id} value={trainer.id}>
+                      {trainer.firstName} {trainer.lastName}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+          </div>
+        )}
+        
+        {/* Для тренеров показываем информацию о текущем фильтре */}
+        {isTrainer && (
+          <div style={{
+            marginBottom: '16px',
+            padding: '12px',
+            background: '#f0fdf4',
+            borderRadius: '8px',
+            border: '1px solid #86efac'
+          }}>
+            <span style={{ fontSize: '14px', color: '#166534' }}>
+              Показан календарь ваших бронирований
+            </span>
+          </div>
+        )}
         
         {/* Легенда кортов */}
-        {courts.length > 0 && (
+        {calendarMode === 'courts' && courts.length > 0 && (
           <div style={{
             display: 'flex',
             gap: '16px',
@@ -846,17 +1019,19 @@ export default function BookingsManagement() {
           </div>
         )}
         
-        <div className="calendar-grid" style={{
-          display: 'grid',
-          gridTemplateColumns: '60px repeat(7, 1fr)',
-          gap: '1px',
-          background: 'var(--extra-light-gray)',
-          border: '1px solid var(--extra-light-gray)',
-          borderRadius: '8px',
-          overflow: 'hidden'
-        }}>
-          <div style={{ background: 'var(--white)', padding: '12px' }}></div>
-          {(weekDates || []).map((date, index) => (
+        {/* Календарь по кортам */}
+        {calendarMode === 'courts' && (
+          <div className="calendar-grid" style={{
+            display: 'grid',
+            gridTemplateColumns: '60px repeat(7, 1fr)',
+            gap: '1px',
+            background: 'var(--extra-light-gray)',
+            border: '1px solid var(--extra-light-gray)',
+            borderRadius: '8px',
+            overflow: 'hidden'
+          }}>
+            <div style={{ background: 'var(--white)', padding: '12px' }}></div>
+            {(weekDates || []).map((date, index) => (
             <div key={index} className="day-header" style={{ 
               fontWeight: '600', 
               textAlign: 'center',
@@ -946,7 +1121,7 @@ export default function BookingsManagement() {
                                   
                                   if (paymentStatus === 'awaiting_payment') {
                                     statusColor = '#F59E0B' // оранжевый
-                                  } else if (paymentStatus === 'paid' || paymentStatus === 'online_payment') {
+                                  } else if (paymentStatus === 'paid') {
                                     statusColor = '#10B981' // зеленый
                                   } else if (paymentStatus === 'cancelled' || paymentStatus === 'refunded') {
                                     statusColor = '#EF4444' // красный
@@ -1068,6 +1243,20 @@ export default function BookingsManagement() {
                                   {bookingForCourt.clientPhone || bookingForCourt.customerPhone}
                                 </div>
                               )}
+                              {bookingForCourt?.trainerName && (
+                                <div style={{ 
+                                  color: (() => {
+                                    // Находим тренера по ID, чтобы получить его цвет
+                                    const trainer = trainers.find(t => t.id === bookingForCourt.trainerId)
+                                    return trainer?.color || 'var(--primary)'
+                                  })(), 
+                                  fontSize: '9px',
+                                  marginTop: '1px',
+                                  fontWeight: '500'
+                                }}>
+                                  Тренер: {bookingForCourt.trainerName}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1078,15 +1267,236 @@ export default function BookingsManagement() {
               })}
             </React.Fragment>
           ))}
-        </div>
+          </div>
+        )}
+
+        {/* Календарь по тренеру */}
+        {calendarMode === 'trainer' && selectedTrainerId && (
+          <div>
+            {(() => {
+              const trainer = trainers.find((t: any) => t.id === selectedTrainerId)
+              if (!trainer) return <div>Тренер не найден</div>
+              
+              return (
+                <>
+                  {/* Информация о тренере */}
+                  <div style={{
+                    padding: '16px',
+                    background: '#f9fafb',
+                    borderRadius: '8px',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px'
+                  }}>
+                    <div style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '50%',
+                      backgroundColor: trainer.color || '#00A86B',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontWeight: 'bold',
+                      fontSize: '18px'
+                    }}>
+                      {trainer.firstName[0]}{trainer.lastName[0]}
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0 }}>{trainer.firstName} {trainer.lastName}</h3>
+                      <p style={{ margin: 0, color: '#6B7280', fontSize: '14px' }}>
+                        {trainer.specialization?.join(', ')} • {trainer.pricePerHour}₽/час
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Календарь тренера */}
+                  <div className="calendar-grid" style={{
+                    display: 'grid',
+                    gridTemplateColumns: '60px repeat(7, 1fr)',
+                    gap: '1px',
+                    background: 'var(--extra-light-gray)',
+                    border: '1px solid var(--extra-light-gray)',
+                    borderRadius: '8px',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{ background: 'var(--white)', padding: '12px' }}></div>
+                    {(weekDates || []).map((date, index) => (
+                      <div key={index} className="day-header" style={{ 
+                        fontWeight: '600', 
+                        textAlign: 'center',
+                        background: 'var(--background)',
+                        padding: '12px'
+                      }}>
+                        {dayNames[index]} {date ? date.getDate() : ''}
+                      </div>
+                    ))}
+                    
+                    {(timeSlots || []).map(time => (
+                      <React.Fragment key={time}>
+                        <div className="time-slot" style={{ 
+                          fontSize: '12px',
+                          color: 'var(--gray)',
+                          textAlign: 'center',
+                          padding: '8px',
+                          background: 'var(--white)'
+                        }}>
+                          {time || ''}
+                        </div>
+                        {(weekDates || []).map((date, dateIndex) => {
+                          // Проверяем доступность слота для тренера
+                          const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()]
+                          const daySchedule = trainer.schedule?.[dayOfWeek]
+                          
+                          // Проверка выходного дня
+                          const isNotWorkingDay = !daySchedule?.enabled
+                          
+                          // Проверка рабочего времени
+                          let isOutsideWorkingHours = false
+                          if (daySchedule?.enabled && daySchedule.start && daySchedule.end) {
+                            const [slotHour] = time.split(':').map(Number)
+                            const [startHour] = daySchedule.start.split(':').map(Number)
+                            const [endHour] = daySchedule.end.split(':').map(Number)
+                            isOutsideWorkingHours = slotHour < startHour || slotHour >= endHour
+                          }
+                          
+                          // Проверка занятости тренера
+                          const trainerBooking = bookings.find(b => 
+                            b.trainerId === trainer.id &&
+                            b.date instanceof Date && 
+                            date instanceof Date &&
+                            b.date.toDateString() === date.toDateString() &&
+                            b.startTime <= time &&
+                            b.endTime > time &&
+                            b.status !== 'cancelled'
+                          )
+                          
+                          // Проверка занятости всех кортов
+                          const allCourtsOccupied = courts.length > 0 && courts.every(court => {
+                            return bookings.some(b => 
+                              b.courtId === court.id &&
+                              b.date instanceof Date && 
+                              date instanceof Date &&
+                              b.date.toDateString() === date.toDateString() &&
+                              b.startTime <= time &&
+                              b.endTime > time &&
+                              b.status !== 'cancelled'
+                            )
+                          })
+                          
+                          const isUnavailable = isNotWorkingDay || isOutsideWorkingHours || trainer.status === 'vacation'
+                          const isBooked = !!trainerBooking
+                          
+                          return (
+                            <div 
+                              key={`${time}-${dateIndex}`}
+                              onClick={() => {
+                                // Тренеры могут только просматривать детали бронирования
+                                if (isTrainer && isBooked && trainerBooking) {
+                                  setSelectedBooking(trainerBooking)
+                                  setShowDetailsModal(true)
+                                } else if (!isUnavailable && !isBooked && !allCourtsOccupied && canCreateBooking) {
+                                  setSelectedSlotDate(date)
+                                  setSelectedSlotTime(time)
+                                  setShowCreateModal(true)
+                                }
+                              }}
+                              style={{
+                                background: isUnavailable 
+                                  ? '#E5E7EB'
+                                  : isBooked 
+                                    ? '#10B981'
+                                    : allCourtsOccupied
+                                      ? '#9CA3AF'
+                                      : 'white',
+                                color: isBooked ? 'white' : (isUnavailable || allCourtsOccupied) ? '#6B7280' : '#374151',
+                                padding: '8px',
+                                minHeight: '60px',
+                                cursor: isTrainer && isBooked ? 'pointer' : (isUnavailable || isBooked || allCourtsOccupied) ? 'not-allowed' : 'pointer',
+                                position: 'relative',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                transition: 'all 0.2s',
+                                ...((!isUnavailable && !isBooked && !allCourtsOccupied) ? {
+                                  ':hover': {
+                                    background: '#F3F4F6',
+                                    border: '1px solid #10B981'
+                                  }
+                                } : {})
+                              }}
+                              onMouseEnter={(e) => {
+                                if (!isUnavailable && !isBooked && !allCourtsOccupied) {
+                                  e.currentTarget.style.background = '#F3F4F6'
+                                  e.currentTarget.style.border = '1px solid #10B981'
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (!isUnavailable && !isBooked && !allCourtsOccupied) {
+                                  e.currentTarget.style.background = 'white'
+                                  e.currentTarget.style.border = 'none'
+                                }
+                              }}
+                            >
+                              {isUnavailable ? (
+                                <span style={{ fontSize: '11px' }}>
+                                  {isNotWorkingDay ? 'Выходной' : isOutsideWorkingHours ? 'Нерабочее время' : 'Недоступно'}
+                                </span>
+                              ) : isBooked ? (
+                                <div style={{ textAlign: 'center' }}>
+                                  <div style={{ fontSize: '12px', fontWeight: '600' }}>
+                                    {trainerBooking.clientName}
+                                  </div>
+                                  <div style={{ fontSize: '10px', marginTop: '2px' }}>
+                                    {trainerBooking.courtName}
+                                  </div>
+                                </div>
+                              ) : allCourtsOccupied ? (
+                                <span style={{ fontSize: '11px', color: 'white' }}>
+                                  Корты заняты
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '11px', color: '#10B981' }}>
+                                  Свободно
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </>
+              )
+            })()}
+          </div>
+        )}
+
+        {/* Сообщение если не выбран тренер */}
+        {calendarMode === 'trainer' && !selectedTrainerId && (
+          <div style={{
+            padding: '48px',
+            textAlign: 'center',
+            background: '#f9fafb',
+            borderRadius: '8px'
+          }}>
+            <p style={{ fontSize: '18px', color: '#6B7280' }}>
+              Выберите тренера для просмотра его расписания
+            </p>
+          </div>
+        )}
       </div>
       
-      {/* Список бронирований - показываем ВСЕ бронирования */}
-      <BookingsList 
-        venueId={selectedVenueId || admin?.venueId || ''} 
-        bookings={allBookings}
-        onRefresh={() => fetchBookings(selectedVenueId || admin?.venueId || '')}
-      />
+      {/* Список бронирований - скрываем для тренеров */}
+      {!isTrainer && (
+        <BookingsList 
+          venueId={selectedVenueId || admin?.venueId || ''} 
+          bookings={allBookings}
+          onRefresh={() => fetchBookings(selectedVenueId || admin?.venueId || '')}
+        />
+      )}
       
       {/* Модальное окно деталей бронирования */}
       <BookingDetailsModal
@@ -1120,6 +1530,7 @@ export default function BookingsManagement() {
         preSelectedDate={selectedSlotDate || undefined}
         preSelectedTime={selectedSlotTime || undefined}
         preSelectedCourtId={formData.courtId || undefined}
+        preSelectedTrainerId={calendarMode === 'trainer' ? selectedTrainerId : undefined}
       />
     </div>
     </PermissionGate>

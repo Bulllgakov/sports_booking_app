@@ -20,7 +20,8 @@ import {
   Paper,
   IconButton,
   Chip,
-  CircularProgress
+  CircularProgress,
+  Snackbar
 } from '@mui/material'
 import { Edit, Save, Cancel, Payment, Settings, TrendingUp } from '@mui/icons-material'
 import { doc, getDoc, setDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore'
@@ -73,6 +74,7 @@ export default function BillingSettings() {
   })
   const [editingPlan, setEditingPlan] = useState<string | null>(null)
   const [planPrices, setPlanPrices] = useState<Record<string, number>>({})
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
   useEffect(() => {
     loadBillingConfig()
@@ -119,9 +121,11 @@ export default function BillingSettings() {
 
   const loadPlanPrices = () => {
     const prices: Record<string, number> = {}
-    Object.entries(SUBSCRIPTION_PLANS).forEach(([key, plan]) => {
-      prices[key] = plan.price
-    })
+    Object.entries(SUBSCRIPTION_PLANS)
+      .filter(([key]) => key !== 'premium') // Исключаем Premium из списка
+      .forEach(([key, plan]) => {
+        prices[key] = plan.pricePerCourt || plan.price
+      })
     setPlanPrices(prices)
   }
 
@@ -136,10 +140,12 @@ export default function BillingSettings() {
       }, { merge: true })
       
       setEditMode(false)
-      alert('Настройки биллинга сохранены')
+      setMessage({ type: 'success', text: 'Настройки биллинга сохранены' })
+      setTimeout(() => setMessage(null), 3000)
     } catch (error) {
       console.error('Error saving billing config:', error)
-      alert('Ошибка при сохранении настроек')
+      setMessage({ type: 'error', text: 'Ошибка при сохранении настроек' })
+      setTimeout(() => setMessage(null), 3000)
     } finally {
       setSaving(false)
     }
@@ -148,11 +154,13 @@ export default function BillingSettings() {
   const handlePlanPriceUpdate = async (planKey: string) => {
     try {
       // TODO: Обновить цены в системе
-      alert(`Цена тарифа ${SUBSCRIPTION_PLANS[planKey].name} обновлена`)
+      setMessage({ type: 'success', text: `Цена тарифа ${SUBSCRIPTION_PLANS[planKey].name} обновлена на ${planPrices[planKey]}₽ за корт/месяц` })
       setEditingPlan(null)
+      setTimeout(() => setMessage(null), 3000)
     } catch (error) {
       console.error('Error updating plan price:', error)
-      alert('Ошибка при обновлении цены')
+      setMessage({ type: 'error', text: 'Ошибка при обновлении цены' })
+      setTimeout(() => setMessage(null), 3000)
     }
   }
 
@@ -184,6 +192,12 @@ export default function BillingSettings() {
         <Typography variant="h4" gutterBottom>
           Настройки биллинга
         </Typography>
+        
+        {message && (
+          <Alert severity={message.type} sx={{ mb: 3 }} onClose={() => setMessage(null)}>
+            {message.text}
+          </Alert>
+        )}
 
         {/* Статистика */}
         <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -415,27 +429,43 @@ export default function BillingSettings() {
               Тарифные планы
             </Typography>
             
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <Typography variant="body2">
+                Актуальная тарифная сетка: <strong>Старт</strong> (бесплатно до 2 кортов), 
+                <strong> Стандарт</strong> (990₽/корт), <strong>Профи</strong> (1990₽/корт).
+                SMS-уведомления тарифицируются отдельно: 6₽ за сообщение.
+              </Typography>
+            </Alert>
+            
             <TableContainer component={Paper} variant="outlined">
               <Table>
                 <TableHead>
                   <TableRow>
                     <TableCell>Тариф</TableCell>
-                    <TableCell>Описание</TableCell>
-                    <TableCell align="right">Цена за корт/мес</TableCell>
+                    <TableCell>Основные возможности</TableCell>
+                    <TableCell align="right">Цена</TableCell>
+                    <TableCell align="center">Лимиты</TableCell>
                     <TableCell align="center">Статус</TableCell>
                     <TableCell align="center">Действия</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {Object.entries(SUBSCRIPTION_PLANS).map(([key, plan]) => (
+                  {Object.entries(SUBSCRIPTION_PLANS)
+                    .filter(([key]) => key !== 'premium') // Исключаем Premium тариф
+                    .map(([key, plan]) => (
                     <TableRow key={key}>
                       <TableCell>
                         <Typography variant="subtitle2">{plan.name}</Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" color="textSecondary">
-                          {plan.features[0]}
-                        </Typography>
+                        <Box>
+                          <Typography variant="body2" color="textSecondary">
+                            {plan.features[0]}
+                          </Typography>
+                          {key === 'standard' && (
+                            <Chip label="3 месяца бесплатно" size="small" color="primary" sx={{ mt: 0.5 }} />
+                          )}
+                        </Box>
                       </TableCell>
                       <TableCell align="right">
                         {editingPlan === key ? (
@@ -448,12 +478,29 @@ export default function BillingSettings() {
                             })}
                             size="small"
                             sx={{ width: 120 }}
+                            InputProps={{
+                              endAdornment: <Typography variant="caption">₽/корт</Typography>
+                            }}
                           />
                         ) : (
                           <Typography>
-                            {plan.price === 0 ? 'Бесплатно' : `${plan.price.toLocaleString('ru-RU')} ₽`}
+                            {key === 'start' ? 'Бесплатно' : 
+                             `${(plan.pricePerCourt || plan.price).toLocaleString('ru-RU')} ₽/корт`}
                           </Typography>
                         )}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Box>
+                          {key === 'start' && (
+                            <Typography variant="caption">До 2 кортов</Typography>
+                          )}
+                          {key === 'standard' && (
+                            <Typography variant="caption">500 SMS/Email</Typography>
+                          )}
+                          {key === 'pro' && (
+                            <Typography variant="caption">Без лимитов</Typography>
+                          )}
+                        </Box>
                       </TableCell>
                       <TableCell align="center">
                         <Chip
@@ -497,6 +544,18 @@ export default function BillingSettings() {
                 </TableBody>
               </Table>
             </TableContainer>
+            
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body2" color="textSecondary">
+                * SMS-уведомления тарифицируются отдельно по 6₽ за сообщение для всех тарифов
+              </Typography>
+              <Typography variant="body2" color="textSecondary">
+                * Тариф Стандарт включает 500 SMS/Email уведомлений суммарно на клуб в месяц
+              </Typography>
+              <Typography variant="body2" color="textSecondary">
+                * Тариф Профи включает неограниченные SMS/Email уведомления
+              </Typography>
+            </Box>
           </CardContent>
         </Card>
       </Box>

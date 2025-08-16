@@ -6,7 +6,7 @@ import { CheckCircle, Cancel, AttachMoney, Timer } from '@mui/icons-material'
 
 interface PaymentStatusManagerProps {
   bookingId: string
-  currentStatus: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled' | 'refunded' | 'expired' | 'error' | ''
+  currentStatus: 'awaiting_payment' | 'paid' | 'cancelled' | 'refunded' | 'expired' | 'error' | ''
   paymentMethod?: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card' | 'vtb_card'
   onStatusUpdate?: () => void
   onRefund?: () => void
@@ -15,7 +15,6 @@ interface PaymentStatusManagerProps {
 const statusLabels = {
   awaiting_payment: 'Ожидает оплаты',
   paid: 'Оплачено',
-  online_payment: 'Онлайн оплата',
   cancelled: 'Отменено',
   refunded: 'Возврат',
   expired: 'Время истекло',
@@ -26,7 +25,6 @@ const statusLabels = {
 const statusColors = {
   awaiting_payment: '#F59E0B',
   paid: '#10B981',
-  online_payment: '#3B82F6',
   cancelled: '#EF4444',
   refunded: '#8B5CF6',
   expired: '#6B7280', // Темно-серый для истекшего времени
@@ -37,7 +35,6 @@ const statusColors = {
 const statusIcons = {
   awaiting_payment: Timer,
   paid: CheckCircle,
-  online_payment: AttachMoney,
   cancelled: Cancel,
   refunded: Cancel,
   expired: Timer, // Иконка таймера для истекшего времени

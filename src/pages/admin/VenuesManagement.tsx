@@ -60,8 +60,9 @@ export default function VenuesManagement() {
   const [loading, setLoading] = useState(true)
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [subscriptionDialogOpen, setSubscriptionDialogOpen] = useState(false)
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('start')
+  // Удалены состояния для диалога изменения тарифа - теперь это делается в разделе Подписка
+  // const [subscriptionDialogOpen, setSubscriptionDialogOpen] = useState(false)
+  // const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('start')
   const [error, setError] = useState('')
   const [copiedVenueId, setCopiedVenueId] = useState<string | null>(null)
   const [qrDialogOpen, setQrDialogOpen] = useState(false)
@@ -213,51 +214,8 @@ export default function VenuesManagement() {
     setQrDialogOpen(true)
   }
 
-  const handleOpenSubscriptionDialog = (venue: Venue) => {
-    setSelectedVenue(venue)
-    setSelectedPlan(venue.subscription?.plan || 'start')
-    setSubscriptionDialogOpen(true)
-  }
-
-  const handleUpdateSubscription = async () => {
-    if (!selectedVenue) return
-
-    try {
-      const subscriptionData = {
-        venueId: selectedVenue.id,
-        plan: selectedPlan,
-        status: 'active',
-        startDate: new Date(),
-        endDate: null, // Будет установлено в зависимости от типа подписки
-        updatedAt: new Date(),
-        updatedBy: 'superadmin',
-        usage: selectedVenue.subscription?.usage || {
-          courtsCount: 0,
-          bookingsThisMonth: 0,
-          smsEmailsSent: 0,
-          lastUpdated: new Date()
-        }
-      }
-
-      if (selectedVenue.subscription?.id) {
-        // Обновляем существующую подписку
-        await updateDoc(doc(db, 'subscriptions', selectedVenue.subscription.id), {
-          plan: selectedPlan,
-          updatedAt: new Date(),
-          updatedBy: 'superadmin'
-        })
-      } else {
-        // Создаем новую подписку
-        await addDoc(collection(db, 'subscriptions'), subscriptionData)
-      }
-
-      setSubscriptionDialogOpen(false)
-      loadVenues()
-    } catch (error) {
-      console.error('Error updating subscription:', error)
-      setError('Ошибка при обновлении подписки')
-    }
-  }
+  // Функции изменения тарифа удалены - теперь это делается в разделе Подписка
+  // Для изменения тарифа используйте раздел "Подписка" в админ-панели
 
   if (loading) {
     return (
@@ -426,14 +384,16 @@ export default function VenuesManagement() {
                       <Box display="flex" alignItems="center" gap={1} mb={0.5}>
                         <CardMembership fontSize="small" color="primary" />
                         <Typography variant="subtitle2" color="primary">
-                          Тариф: {venue.subscription ? SUBSCRIPTION_PLANS[venue.subscription.plan].name : 'Не определен'}
+                          Тариф: {venue.subscription && SUBSCRIPTION_PLANS[venue.subscription.plan] ? SUBSCRIPTION_PLANS[venue.subscription.plan].name : 'Не определен'}
                         </Typography>
                       </Box>
-                      {venue.subscription && (
+                      {venue.subscription && SUBSCRIPTION_PLANS[venue.subscription.plan] && (
                         <Typography variant="caption" color="text.secondary">
                           {SUBSCRIPTION_PLANS[venue.subscription.plan].price === 0 
                             ? 'Бесплатный' 
-                            : `${SUBSCRIPTION_PLANS[venue.subscription.plan].price.toLocaleString('ru-RU')} ₽/мес`}
+                            : SUBSCRIPTION_PLANS[venue.subscription.plan].pricePerCourt 
+                              ? `${SUBSCRIPTION_PLANS[venue.subscription.plan].pricePerCourt!.toLocaleString('ru-RU')} ₽/корт в месяц`
+                              : `${SUBSCRIPTION_PLANS[venue.subscription.plan].price.toLocaleString('ru-RU')} ₽/мес`}
                         </Typography>
                       )}
                       {!venue.subscription && (
@@ -497,14 +457,6 @@ export default function VenuesManagement() {
                     </Button>
                     <Button
                       size="small"
-                      onClick={() => handleOpenSubscriptionDialog(venue)}
-                      startIcon={<CardMembership fontSize="small" />}
-                      color="secondary"
-                    >
-                      Тариф
-                    </Button>
-                    <Button
-                      size="small"
                       onClick={() => handleStatusToggle(venue)}
                     >
                       {venue.status === 'active' ? 'Деактивировать' : 'Активировать'}
@@ -563,75 +515,7 @@ export default function VenuesManagement() {
         </DialogActions>
       </Dialog>
 
-      {/* Диалог изменения тарифа */}
-      <Dialog open={subscriptionDialogOpen} onClose={() => setSubscriptionDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          Изменение тарифа для {selectedVenue?.name}
-        </DialogTitle>
-        <DialogContent>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          
-          <Box sx={{ mt: 2 }}>
-            <FormControl fullWidth>
-              <InputLabel>Тарифный план</InputLabel>
-              <Select
-                value={selectedPlan}
-                onChange={(e) => setSelectedPlan(e.target.value as SubscriptionPlan)}
-                label="Тарифный план"
-              >
-                {Object.entries(SUBSCRIPTION_PLANS)
-                  .filter(([key]) => key !== 'premium') // Премиум только по запросу
-                  .map(([key, plan]) => (
-                    <MenuItem key={key} value={key}>
-                      <Box>
-                        <Typography variant="body1">
-                          {plan.name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {plan.price === 0 ? 'Бесплатно' : `${plan.price.toLocaleString('ru-RU')} ₽/месяц`}
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  ))}
-              </Select>
-            </FormControl>
-
-            {selectedPlan && (
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Возможности тарифа {SUBSCRIPTION_PLANS[selectedPlan].name}:
-                </Typography>
-                <List dense>
-                  {SUBSCRIPTION_PLANS[selectedPlan].features.slice(0, 5).map((feature, index) => (
-                    <ListItem key={index} disablePadding>
-                      <ListItemText 
-                        primary={feature} 
-                        primaryTypographyProps={{ variant: 'body2' }}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              </Box>
-            )}
-
-            <Alert severity="info" sx={{ mt: 2 }}>
-              Изменение тарифа вступит в силу немедленно. Клуб будет уведомлен об изменении.
-            </Alert>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSubscriptionDialogOpen(false)}>
-            Отмена
-          </Button>
-          <Button onClick={handleUpdateSubscription} variant="contained">
-            Применить
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Диалог изменения тарифа удален - используйте раздел "Подписка" для управления тарифами */}
 
       {/* Диалог добавления клуба */}
       <Dialog open={addClubDialogOpen} onClose={() => setAddClubDialogOpen(false)} maxWidth="md" fullWidth>

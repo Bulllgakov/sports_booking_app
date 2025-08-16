@@ -24,7 +24,7 @@ export interface BookingData {
   
   // Статусы
   status: 'pending' | 'confirmed' | 'cancelled'
-  paymentStatus?: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled' | 'refunded' | 'expired' | 'error'
+  paymentStatus?: 'awaiting_payment' | 'paid' | 'cancelled' | 'refunded' | 'expired' | 'error'
   paymentMethod: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card' | 'vtb_card'
   
   // Финансы
@@ -70,7 +70,7 @@ export interface BookingFirestore {
   customerEmail?: string
   
   status: 'pending' | 'confirmed' | 'cancelled'
-  paymentStatus?: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled' | 'refunded' | 'expired' | 'error'
+  paymentStatus?: 'awaiting_payment' | 'paid' | 'cancelled' | 'refunded' | 'expired' | 'error'
   paymentMethod: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card' | 'vtb_card'
   
   amount: number

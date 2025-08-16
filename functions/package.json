@@ -11,7 +11,11 @@
     "logs": "firebase functions:log",
     "test:cleanup": "node test-cleanup-web-bookings.js",
     "test:cleanup:check": "node test-cleanup-web-bookings.js check",
-    "test:cleanup:run": "node test-cleanup-web-bookings.js test"
+    "test:cleanup:run": "node test-cleanup-web-bookings.js test",
+    "migrate:dates": "node lib/migrations/unifyAllDateFormats.js",
+    "migrate:dates:check": "node ../scripts/run-date-migration.cjs check",
+    "migrate:dates:run": "node ../scripts/run-date-migration.cjs run",
+    "migrate:dates:status": "node ../scripts/run-date-migration.cjs status"
   },
   "engines": {
     "node": "20"

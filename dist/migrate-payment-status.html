@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Миграция статусов оплаты</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #00A86B;
+            padding-bottom: 10px;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        button {
+            background: #00A86B;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #008856;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .stats-table th, .stats-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .stats-table th {
+            background: #f2f2f2;
+        }
+        #loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #00A86B;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Миграция статусов оплаты</h1>
+        
+        <div class="warning">
+            <strong>⚠️ Внимание!</strong><br>
+            Эта миграция внесет следующие изменения в базу данных:
+            <ul>
+                <li>Статус <code>paymentStatus: 'online_payment'</code> будет заменен на <code>paymentStatus: 'paid'</code></li>
+                <li>Для всех записей с <code>paymentStatus: 'paid'</code> будет проверен и установлен корректный <code>paymentMethod</code></li>
+                <li>Записи с онлайн-оплатой получат <code>paymentMethod: 'online'</code></li>
+            </ul>
+        </div>
+
+        <div class="info">
+            <strong>ℹ️ Новая схема:</strong><br>
+            <ul>
+                <li><strong>paymentStatus</strong> - статус оплаты: awaiting_payment | paid | cancelled | refunded | error</li>
+                <li><strong>paymentMethod</strong> - способ оплаты: cash | card_on_site | transfer | online | sberbank_card | tbank_card | vtb_card</li>
+            </ul>
+        </div>
+
+        <div>
+            <button id="checkBtn" onclick="checkStatuses()">📊 Проверить статусы</button>
+            <button id="migrateBtn" onclick="runMigration()" disabled>🚀 Запустить миграцию</button>
+        </div>
+
+        <div id="loading">
+            <div class="spinner"></div>
+            <p>Обработка...</p>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js';
+        import { getAuth, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnp3SY9XEyF-le5q_Tcv-7Le2qqvtz0ZM",
+            authDomain: "sports-booking-app-1d7e5.firebaseapp.com",
+            projectId: "sports-booking-app-1d7e5",
+            storageBucket: "sports-booking-app-1d7e5.firebasestorage.app",
+            messagingSenderId: "648540980109",
+            appId: "1:648540980109:web:97fbe182c59bb2641ab3c4"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const functions = getFunctions(app, 'europe-west1');
+        const auth = getAuth(app);
+
+        let isAuthenticated = false;
+
+        window.checkStatuses = async function() {
+            const resultsDiv = document.getElementById('results');
+            const loading = document.getElementById('loading');
+            const checkBtn = document.getElementById('checkBtn');
+            const migrateBtn = document.getElementById('migrateBtn');
+            
+            if (!isAuthenticated) {
+                const email = prompt('Введите email суперадмина:');
+                const password = prompt('Введите пароль:');
+                
+                try {
+                    await signInWithEmailAndPassword(auth, email, password);
+                    isAuthenticated = true;
+                } catch (error) {
+                    resultsDiv.innerHTML = `<div class="error">Ошибка авторизации: ${error.message}</div>`;
+                    return;
+                }
+            }
+            
+            loading.style.display = 'block';
+            checkBtn.disabled = true;
+            
+            try {
+                const checkPaymentStatuses = httpsCallable(functions, 'checkPaymentStatuses');
+                const result = await checkPaymentStatuses();
+                
+                if (result.data.success) {
+                    const stats = result.data.stats;
+                    const methods = result.data.paymentMethods;
+                    
+                    let html = '<div class="info">';
+                    html += '<h3>📊 Статистика текущих данных:</h3>';
+                    html += '<table class="stats-table">';
+                    html += '<tr><th>Статус оплаты</th><th>Количество</th></tr>';
+                    html += `<tr><td>paid</td><td>${stats.paid}</td></tr>`;
+                    html += `<tr style="background: #fff3cd"><td>online_payment (требует миграции)</td><td><strong>${stats.online_payment}</strong></td></tr>`;
+                    html += `<tr><td>awaiting_payment</td><td>${stats.awaiting_payment}</td></tr>`;
+                    html += `<tr><td>cancelled</td><td>${stats.cancelled}</td></tr>`;
+                    html += `<tr><td>refunded</td><td>${stats.refunded}</td></tr>`;
+                    html += `<tr><td>error</td><td>${stats.error}</td></tr>`;
+                    html += `<tr><td>Другие</td><td>${stats.other}</td></tr>`;
+                    html += `<tr><th>Всего записей</th><th>${stats.total}</th></tr>`;
+                    html += '</table>';
+                    
+                    html += '<h3>💳 Способы оплаты:</h3>';
+                    html += '<table class="stats-table">';
+                    html += '<tr><th>Способ оплаты</th><th>Количество</th></tr>';
+                    Object.entries(methods).forEach(([method, count]) => {
+                        html += `<tr><td>${method}</td><td>${count}</td></tr>`;
+                    });
+                    html += '</table>';
+                    
+                    html += `<p><strong>${result.data.message}</strong></p>`;
+                    html += '</div>';
+                    
+                    resultsDiv.innerHTML = html;
+                    
+                    if (stats.online_payment > 0) {
+                        migrateBtn.disabled = false;
+                    }
+                } else {
+                    resultsDiv.innerHTML = `<div class="error">Ошибка при проверке данных</div>`;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">Ошибка: ${error.message}</div>`;
+            } finally {
+                loading.style.display = 'none';
+                checkBtn.disabled = false;
+            }
+        };
+
+        window.runMigration = async function() {
+            if (!confirm('Вы уверены, что хотите запустить миграцию? Это действие необратимо!')) {
+                return;
+            }
+            
+            const resultsDiv = document.getElementById('results');
+            const loading = document.getElementById('loading');
+            const checkBtn = document.getElementById('checkBtn');
+            const migrateBtn = document.getElementById('migrateBtn');
+            
+            loading.style.display = 'block';
+            checkBtn.disabled = true;
+            migrateBtn.disabled = true;
+            
+            try {
+                const migratePaymentStatuses = httpsCallable(functions, 'migratePaymentStatuses');
+                const result = await migratePaymentStatuses();
+                
+                if (result.data.success) {
+                    resultsDiv.innerHTML = `
+                        <div class="success">
+                            <h3>✅ Миграция завершена успешно!</h3>
+                            <p>${result.data.message}</p>
+                            <ul>
+                                <li>Всего записей: ${result.data.totalRecords}</li>
+                                <li>Обновлено записей: ${result.data.updatedRecords}</li>
+                            </ul>
+                        </div>
+                    `;
+                } else {
+                    resultsDiv.innerHTML = `<div class="error">Ошибка при выполнении миграции</div>`;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">Ошибка: ${error.message}</div>`;
+            } finally {
+                loading.style.display = 'none';
+                checkBtn.disabled = false;
+                // Не включаем кнопку миграции после выполнения
+            }
+        };
+    </script>
+</body>
+</html>

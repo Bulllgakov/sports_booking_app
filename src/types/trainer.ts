@@ -34,16 +34,27 @@ export interface Trainer {
   
   // Статус и доступ
   status: 'active' | 'vacation' | 'inactive'
-  hasAccess: boolean
-  canEditProfile: boolean
-  canViewClients: boolean
+  hasAccount?: boolean // Имеет ли аккаунт для входа в систему
+  accountCreatedAt?: any // Когда был создан аккаунт
   
   // Метаданные
   createdAt: any // Timestamp
   updatedAt: any // Timestamp
+  
+  // Отпуска и блокированные даты
+  vacations?: VacationPeriod[]
+  blockedDates?: string[] // Массив дат в формате YYYY-MM-DD
+  holidays?: string[] // Праздничные дни в формате YYYY-MM-DD
 }
 
 export type SportType = 'tennis' | 'padel' | 'badminton'
+
+export interface VacationPeriod {
+  id?: string
+  startDate: string // YYYY-MM-DD
+  endDate: string // YYYY-MM-DD
+  reason?: string
+}
 
 export interface WeekSchedule {
   [key: string]: DaySchedule // monday, tuesday, etc.

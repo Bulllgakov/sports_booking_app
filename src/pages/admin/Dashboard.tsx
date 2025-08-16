@@ -194,7 +194,7 @@ export default function Dashboard() {
       // Подсчитываем только оплаченные бронирования для дохода
       const paidTodayBookings = todayBookingsDocs.filter(doc => {
         const paymentStatus = doc.data().paymentStatus
-        return paymentStatus === 'paid' || paymentStatus === 'online_payment'
+        return paymentStatus === 'paid'
       })
       
       const todayBookings = todayBookingsDocs.length
@@ -292,7 +292,7 @@ export default function Dashboard() {
         
         // Если в истории нет записи об оплате, проверяем основные поля
         // (для совместимости со старыми записями)
-        if (!paidToday && (data.paymentStatus === 'paid' || data.paymentStatus === 'online_payment')) {
+        if (!paidToday && data.paymentStatus === 'paid') {
           const createdAt = data.createdAt?.toDate?.() || new Date(data.createdAt)
           if (createdAt >= startOfToday && createdAt <= endOfToday) {
             return sum + (data.amount || 0)
@@ -398,7 +398,7 @@ export default function Dashboard() {
       // Подсчитываем только оплаченные бронирования для дохода
       const paidTodayBookings = todayBookingsDocs.filter(doc => {
         const paymentStatus = doc.data().paymentStatus
-        return paymentStatus === 'paid' || paymentStatus === 'online_payment'
+        return paymentStatus === 'paid'
       })
       
       const todayBookings = todayBookingsDocs.length
@@ -445,7 +445,7 @@ export default function Dashboard() {
         
         // Если в истории нет записи об оплате, проверяем основные поля
         // (для совместимости со старыми записями)
-        if (!paidToday && (data.paymentStatus === 'paid' || data.paymentStatus === 'online_payment')) {
+        if (!paidToday && data.paymentStatus === 'paid') {
           const createdAt = data.createdAt?.toDate?.() || new Date(data.createdAt)
           if (createdAt >= startOfToday && createdAt <= endOfToday) {
             return sum + (data.amount || 0)
@@ -718,7 +718,7 @@ export default function Dashboard() {
                     <td>
                       {booking.status === 'confirmed' && (
                         <>
-                          {(booking.paymentStatus === 'paid' || booking.paymentStatus === 'online_payment') && (
+                          {booking.paymentStatus === 'paid' && (
                             <span style={{ color: 'var(--success)' }}>✅ Оплачено</span>
                           )}
                           {booking.paymentStatus === 'awaiting_payment' && (

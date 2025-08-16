@@ -1,5 +1,6 @@
 import React from 'react'
 import { usePermission } from '../hooks/usePermission'
+import { useAuth } from '../contexts/AuthContext'
 import { Alert, AlertTitle } from '@mui/material'
 
 interface PermissionGateProps {
@@ -8,6 +9,7 @@ interface PermissionGateProps {
   role?: 'superadmin' | 'admin' | 'manager' | Array<'superadmin' | 'admin' | 'manager'>
   requireAll?: boolean
   fallback?: React.ReactNode
+  allowTrainer?: boolean // Новый проп для разрешения доступа тренерам
 }
 
 export const PermissionGate: React.FC<PermissionGateProps> = ({ 
@@ -15,9 +17,16 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
   permission, 
   role,
   requireAll = false,
-  fallback 
+  fallback,
+  allowTrainer = false
 }) => {
   const { hasPermission, hasAllPermissions, hasRole } = usePermission()
+  const { admin } = useAuth()
+
+  // Если разрешено тренерам и текущий пользователь - тренер, даём доступ
+  if (allowTrainer && admin?.role === 'trainer') {
+    return <>{children}</>
+  }
 
   // Проверка ролей
   if (role && !hasRole(role)) {

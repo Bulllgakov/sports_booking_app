@@ -42,7 +42,7 @@ interface Booking {
   status: 'confirmed' | 'pending' | 'cancelled'
   amount: number
   paymentMethod: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card' | 'vtb_card'
-  paymentStatus?: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled' | 'refunded'
+  paymentStatus?: 'awaiting_payment' | 'paid' | 'cancelled' | 'refunded' | 'error'
   paymentId?: string
   paymentHistory?: PaymentHistory[]
   createdBy?: {
@@ -52,6 +52,12 @@ interface Booking {
   }
   venueId: string
   createdAt: Date
+  // Поля для тренера
+  trainerId?: string
+  trainerName?: string
+  trainerPrice?: number
+  trainerCommission?: number
+  totalAmount?: number
 }
 
 interface BookingsListProps {
@@ -67,6 +73,8 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterPaymentStatus, setFilterPaymentStatus] = useState<string>('all')
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>('all')
+  const [filterTrainer, setFilterTrainer] = useState<string>('all')
   const [showFilters, setShowFilters] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
@@ -77,15 +85,9 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
   useEffect(() => {
     // Если бронирования переданы через props, используем их
     if (propsBookings) {
-      // Логируем первые 5 бронирований для отладки
-      console.log('BookingsList received bookings (first 5):', propsBookings.slice(0, 5).map(b => ({
-        id: b.id,
-        name: b.customerName || b.clientName,
-        createdAt: b.createdAt,
-        createdAtType: typeof b.createdAt,
-        hasToDate: b.createdAt?.toDate ? true : false,
-        hasSeconds: b.createdAt?.seconds ? true : false
-      })))
+      // console.log('BookingsList received bookings:', propsBookings.length, 'total')
+      
+      
       setBookings(propsBookings)
       setLoading(false)
     } else {
@@ -123,7 +125,7 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
         const data = doc.data()
         console.log('BookingsList: Raw booking:', data)
         
-        // Преобразуем даты правильно
+        // Преобразуем даты правильно - НЕ нормализуем createdAt, так как это точное время!
         let createdAt: Date
         if (data.createdAt?.toDate) {
           createdAt = data.createdAt.toDate()
@@ -214,14 +216,22 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
 
   // Фильтруем бронирования
   const filteredByStatus = bookings.filter(booking => {
+    
     if (filterStatus !== 'all' && booking.status !== filterStatus) return false
     if (filterPaymentStatus !== 'all') {
       const paymentStatus = booking.paymentStatus || 'awaiting_payment'
       if (paymentStatus !== filterPaymentStatus) return false
     }
+    if (filterPaymentMethod !== 'all' && booking.paymentMethod !== filterPaymentMethod) return false
+    if (filterTrainer !== 'all') {
+      if (filterTrainer === 'no_trainer' && booking.trainerId) return false
+      if (filterTrainer !== 'no_trainer' && booking.trainerId !== filterTrainer) return false
+    }
     return true
   })
 
+  // console.log('BookingsList: After filtering:', filteredByStatus.length, 'bookings (from', bookings.length, 'total)')
+  
   // Сортируем отфильтрованные бронирования
   const filteredBookings = [...filteredByStatus].sort((a, b) => {
     // Нормализуем даты для сортировки
@@ -301,6 +311,15 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
       minimumFractionDigits: 0
     }).format(amount)
   }
+  
+  // Получаем уникальных тренеров из бронирований
+  const uniqueTrainers = Array.from(
+    new Map(
+      bookings
+        .filter(b => b.trainerId && b.trainerName)
+        .map(b => [b.trainerId, { id: b.trainerId, name: b.trainerName }])
+    ).values()
+  ).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
 
 
   if (loading) {
@@ -310,7 +329,20 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
   return (
     <div className="section-card">
       <div className="section-header">
-        <h2 className="section-title">Список бронирований</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <h2 className="section-title">Список бронирований</h2>
+          {filteredBookings.length !== bookings.length && (
+            <span style={{ 
+              fontSize: '14px', 
+              color: 'var(--gray)',
+              padding: '4px 12px',
+              background: 'var(--background)',
+              borderRadius: '4px'
+            }}>
+              Показано: {filteredBookings.length} из {bookings.length}
+            </span>
+          )}
+        </div>
         <button 
           className="btn btn-secondary btn-icon"
           onClick={() => setShowFilters(!showFilters)}
@@ -362,10 +394,80 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
               <option value="all">Все</option>
               <option value="awaiting_payment">Ожидает оплаты</option>
               <option value="paid">Оплачено</option>
-              <option value="online_payment">Онлайн оплата</option>
+              <option value="expired">Время истекло</option>
               <option value="cancelled">Отменено</option>
+              <option value="refunded">Возвращено</option>
+              <option value="error">Ошибка оплаты</option>
             </select>
           </div>
+          
+          <div>
+            <label className="form-label" style={{ fontSize: '12px', marginBottom: '4px' }}>
+              Способ оплаты
+            </label>
+            <select 
+              className="form-select" 
+              value={filterPaymentMethod}
+              onChange={(e) => setFilterPaymentMethod(e.target.value)}
+              style={{ minWidth: '150px' }}
+            >
+              <option value="all">Все</option>
+              <option value="cash">Наличные</option>
+              <option value="card_on_site">Карта на месте</option>
+              <option value="transfer">Перевод на счет</option>
+              <option value="online">ЮKassa (онлайн)</option>
+              <option value="sberbank_card">Перевод Сбербанк</option>
+              <option value="tbank_card">Перевод Т-Банк</option>
+              <option value="vtb_card">Перевод ВТБ</option>
+            </select>
+          </div>
+          
+          <div>
+            <label className="form-label" style={{ fontSize: '12px', marginBottom: '4px' }}>
+              Тренер
+            </label>
+            <select 
+              className="form-select" 
+              value={filterTrainer}
+              onChange={(e) => setFilterTrainer(e.target.value)}
+              style={{ minWidth: '150px' }}
+            >
+              <option value="all">Все</option>
+              <option value="no_trainer">Без тренера</option>
+              {uniqueTrainers.map(trainer => (
+                <option key={trainer.id} value={trainer.id}>
+                  {trainer.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Кнопка сброса фильтров */}
+          {(filterStatus !== 'all' || filterPaymentStatus !== 'all' || 
+            filterPaymentMethod !== 'all' || filterTrainer !== 'all') && (
+            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setFilterStatus('all')
+                  setFilterPaymentStatus('all')
+                  setFilterPaymentMethod('all')
+                  setFilterTrainer('all')
+                }}
+                style={{
+                  padding: '8px 16px',
+                  background: 'var(--error)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                Сбросить фильтры
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -446,14 +548,21 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
                       {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
                     </div>
                   </td>
-                  <td>{booking.courtName}</td>
+                  <td>
+                    <div>{booking.courtName}</div>
+                    {booking.trainerName && (
+                      <div style={{ fontSize: '14px', color: 'var(--primary)' }}>
+                        Тренер: {booking.trainerName}
+                      </div>
+                    )}
+                  </td>
                   <td>
                     <div>{booking.clientName || booking.customerName}</div>
                     <div style={{ fontSize: '14px', color: 'var(--gray)' }}>
                       {booking.clientPhone || booking.customerPhone}
                     </div>
                   </td>
-                  <td style={{ fontWeight: '600' }}>{formatAmount(booking.amount)}</td>
+                  <td style={{ fontWeight: '600' }}>{formatAmount(booking.totalAmount || booking.amount)}</td>
                   <td>{getPaymentMethodName(booking.paymentMethod)}</td>
                   <td>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -467,13 +576,19 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
                           setShowRefundModal(true)
                         }}
                       />
-                      {booking.createdAt && (
-                        <PaymentTimeLimit
-                          createdAt={booking.createdAt}
-                          paymentMethod={booking.paymentMethod}
-                          paymentStatus={booking.paymentStatus}
-                        />
-                      )}
+                      {(() => {
+                        // Логируем для отладки бронирований с онлайн оплатой
+                        if (booking.paymentMethod === 'online' && !booking.createdAt) {
+                          console.log('WARNING: Online booking without createdAt:', booking.id)
+                        }
+                        return booking.createdAt ? (
+                          <PaymentTimeLimit
+                            createdAt={booking.createdAt}
+                            paymentMethod={booking.paymentMethod}
+                            paymentStatus={booking.paymentStatus}
+                          />
+                        ) : null
+                      })()}
                     </div>
                   </td>
                   <td>

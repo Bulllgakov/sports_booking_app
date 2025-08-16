@@ -30,7 +30,19 @@ export default function PaymentTimeLimit({
 
     const calculateTimeLeft = () => {
       const now = new Date()
-      const created = new Date(createdAt)
+      let created: Date
+      
+      // Обрабатываем разные форматы createdAt
+      if (createdAt instanceof Date) {
+        created = createdAt
+      } else if ((createdAt as any)?.toDate) {
+        created = (createdAt as any).toDate()
+      } else if ((createdAt as any)?.seconds) {
+        created = new Date((createdAt as any).seconds * 1000)
+      } else {
+        created = new Date(createdAt)
+      }
+      
       const diffInMinutes = Math.floor((now.getTime() - created.getTime()) / (1000 * 60))
       
       let limitMinutes = 30 // По умолчанию 30 минут

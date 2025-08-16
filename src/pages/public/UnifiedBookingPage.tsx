@@ -58,6 +58,10 @@ export default function UnifiedBookingPage() {
   const { clubId, courtId } = useParams<{ clubId: string; courtId: string }>()
   const navigate = useNavigate()
   
+  // Получаем trainer ID из query параметров
+  const searchParams = new URLSearchParams(window.location.search)
+  const trainerId = searchParams.get('trainer')
+  
   const [court, setCourt] = useState<Court | null>(null)
   const [venue, setVenue] = useState<Venue | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -70,6 +74,7 @@ export default function UnifiedBookingPage() {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
   const [dateOptions, setDateOptions] = useState<DateOption[]>([])
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+  const [selectedTrainer, setSelectedTrainer] = useState<any>(null)
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768)
@@ -84,6 +89,12 @@ export default function UnifiedBookingPage() {
   useEffect(() => {
     loadData()
   }, [clubId, courtId])
+
+  useEffect(() => {
+    if (trainerId && clubId) {
+      loadTrainerData(trainerId)
+    }
+  }, [trainerId, clubId])
 
   useEffect(() => {
     if (venue && court) {
@@ -157,6 +168,21 @@ export default function UnifiedBookingPage() {
     }
   }
 
+  const loadTrainerData = async (trainerId: string) => {
+    try {
+      const trainerDoc = await getDoc(doc(db, 'trainers', trainerId))
+      if (trainerDoc.exists()) {
+        const trainerData = { id: trainerDoc.id, ...trainerDoc.data() }
+        setSelectedTrainer(trainerData)
+        
+        // Если тренер найден, можно показать информацию о нем
+        console.log('Загружен тренер:', trainerData)
+      }
+    } catch (err) {
+      console.error('Error loading trainer:', err)
+    }
+  }
+
   const loadBookingsAndGenerateTimeSlots = async () => {
     if (!venue?.workingHours || !court) return
 
@@ -199,7 +225,6 @@ export default function UnifiedBookingPage() {
             status === 'confirmed' || 
             status === 'pending' ||
             paymentStatus === 'paid' || 
-            paymentStatus === 'online_payment' ||
             paymentStatus === 'awaiting_payment'
           )
         )
@@ -298,7 +323,14 @@ export default function UnifiedBookingPage() {
   const handleContinue = () => {
     if (!selectedTime) return
     const dateString = format(selectedDate, 'yyyy-MM-dd')
-    navigate(`/club/${clubId}/court/${courtId}/game-type?date=${dateString}&time=${selectedTime}&duration=${duration}`)
+    let url = `/club/${clubId}/court/${courtId}/game-type?date=${dateString}&time=${selectedTime}&duration=${duration}`
+    
+    // Добавляем параметр тренера, если он был передан
+    if (trainerId) {
+      url += `&trainer=${trainerId}`
+    }
+    
+    navigate(url)
   }
 
   const shouldDisableDate = (date: Date) => {
@@ -406,7 +438,10 @@ export default function UnifiedBookingPage() {
           <div>
             <h1 className="h3" style={{ marginBottom: '4px' }}>Выберите время</h1>
             {court && venue && (
-              <p className="caption">{venue.name} • {court.name}</p>
+              <p className="caption">
+                {venue.name} • {court.name}
+                {selectedTrainer && ` • Тренер: ${selectedTrainer.firstName} ${selectedTrainer.lastName}`}
+              </p>
             )}
           </div>
         </div>

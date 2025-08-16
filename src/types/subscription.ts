@@ -1,4 +1,4 @@
-export type SubscriptionPlan = 'start' | 'standard' | 'pro' | 'premium'
+export type SubscriptionPlan = 'start' | 'standard' | 'pro'
 
 export interface SubscriptionLimits {
   maxCourts: number
@@ -13,7 +13,7 @@ export interface SubscriptionLimits {
   personalManager: boolean
 }
 
-export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, {
+export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan | 'premium', {
   name: string
   price: number
   pricePerCourt?: number
@@ -27,25 +27,29 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, {
     limits: {
       maxCourts: 2,
       maxBookingsPerMonth: -1, // unlimited
-      smsEmailNotifications: 0,
+      smsEmailNotifications: -1, // unlimited email, SMS paid separately
       customDesign: false,
       apiAccess: false,
       multiVenue: false,
       searchPriority: 0,
       abTesting: false,
-      trainersModule: false,
+      trainersModule: true, // включены тренеры
       personalManager: false
     },
     features: [
       'До 2 кортов бесплатно',
       'Неограниченные бронирования',
+      'Email-уведомления без ограничений',
+      'SMS-уведомления от 6₽ за сообщение',
       'Управление расписанием',
       'Онлайн-оплата (свой эквайринг)',
       'Белый лейбл (логотип клуба)',
       'Push-уведомления в приложении',
       'Мобильное приложение для клиентов',
-      'Базовая отчетность',
-      'QR-коды для бронирований'
+      'Финансовая отчетность',
+      'QR-коды для бронирований',
+      'Аккаунты для тренеров с расписанием',
+      'Персональный менеджер на 3 месяца'
     ]
   },
   standard: {
@@ -55,25 +59,26 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, {
     limits: {
       maxCourts: -1, // unlimited
       maxBookingsPerMonth: -1, // unlimited
-      smsEmailNotifications: 500, // per court
+      smsEmailNotifications: 500, // total per club
       customDesign: false,
       apiAccess: false,
       multiVenue: false,
       searchPriority: 10,
       abTesting: false,
-      trainersModule: false,
+      trainersModule: true,
       personalManager: false
     },
     features: [
       '990₽ за корт в месяц',
-      'От 3 кортов',
+      'От 1 корта (без ограничений)',
+      '🎁 Первые 3 месяца бесплатно',
       'Неограниченные бронирования',
-      'SMS/Email уведомления (500 шт/месяц на корт)',
+      'SMS/Email уведомления (500 шт/месяц на клуб)',
       'Расширенная аналитика и отчеты',
       'Управление ценами и скидками',
-      'Промокоды и акции',
-      'Интеграция с календарями',
-      'Экспорт данных в Excel',
+      'Маркетинг - промокоды, акции и рассылки',
+      'CRM система для работы с клиентской базой',
+      'Экспорт данных в Excel и PDF',
       'Приоритет в поиске (+10%)'
     ]
   },
@@ -84,27 +89,26 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, {
     limits: {
       maxCourts: -1, // unlimited
       maxBookingsPerMonth: -1,
-      smsEmailNotifications: -1,
+      smsEmailNotifications: -1, // unlimited for club
       customDesign: true,
       apiAccess: true,
       multiVenue: true,
       searchPriority: 30,
-      abTesting: true,
+      abTesting: false, // убрали A/B тестирование
       trainersModule: true,
       personalManager: true
     },
     features: [
       '1,990₽ за корт в месяц',
-      'От 1 корта',
-      'SMS/Email без ограничений',
-      'Белый лейбл PRO (кастомизация дизайна)',
+      'От 1 корта (без ограничений)',
+      'SMS/Email уведомления без ограничений',
+      'Белый лейбл PRO (кастомизация дизайна приложения)',
       'API доступ для интеграций',
       'Мультиплощадки (управление сетью)',
-      'Топ в поиске (+30% видимости)',
-      'A/B тестирование цен',
+      'Приоритет в поиске (+30%)',
       'Модуль абонементов и пакетов',
       'Модуль тренеров и расписания',
-      'Персональный менеджер'
+      'Персональный менеджер навсегда'
     ]
   },
   premium: {
@@ -133,6 +137,9 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, {
     ]
   }
 }
+
+// Тарификация SMS
+export const SMS_PRICE = 6 // рублей за SMS
 
 export interface ClubSubscription {
   id: string

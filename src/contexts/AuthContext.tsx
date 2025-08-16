@@ -6,9 +6,10 @@ import { auth, db } from '../services/firebase'
 interface AdminData {
   name: string
   email: string
-  role: 'superadmin' | 'admin' | 'manager'
+  role: 'superadmin' | 'admin' | 'manager' | 'trainer'
   venueId?: string
   permissions: string[]
+  trainerId?: string // ID связанного профиля тренера
 }
 
 interface ClubData {

@@ -203,7 +203,6 @@ export default function BookingPaymentPage() {
               status === 'confirmed' || 
               status === 'pending' ||
               paymentStatus === 'paid' || 
-              paymentStatus === 'online_payment' ||
               paymentStatus === 'awaiting_payment'
             )
           )

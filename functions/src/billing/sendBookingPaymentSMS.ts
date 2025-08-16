@@ -129,9 +129,19 @@ export const sendBookingPaymentSMS = functions
       }
 
       // Получаем информацию о площадке для часового пояса
-      const venueDoc = await db.collection("venues").doc(data.venueId).get();
-      const venue = venueDoc.data();
-      const venueTimezone = venue?.timezone || "Europe/Moscow";
+      let venueTimezone = "Europe/Moscow";
+      if (data.venueId) {
+        try {
+          const venueDoc = await db.collection("venues").doc(data.venueId).get();
+          const venue = venueDoc.data();
+          venueTimezone = venue?.timezone || "Europe/Moscow";
+        } catch (venueError) {
+          console.warn("Could not fetch venue data:", venueError);
+          // Используем timezone по умолчанию
+        }
+      } else {
+        console.warn("No venueId provided, using default timezone");
+      }
 
       // Форматируем дату с учетом часового пояса клуба
       const dateObj = new Date(date);

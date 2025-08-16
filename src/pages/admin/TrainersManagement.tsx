@@ -25,7 +25,9 @@ import {
   CalendarMonth,
   AttachMoney,
   Schedule,
-  School
+  School,
+  AccountCircle,
+  PersonOff
 } from '@mui/icons-material'
 import { Alert, AlertTitle } from '@mui/material'
 
@@ -384,6 +386,37 @@ const TrainersManagement: React.FC = () => {
                               {getSportEmoji(sport)}
                             </span>
                           ))}
+                          {trainer.hasAccount ? (
+                            <span style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '2px 8px',
+                              fontSize: '12px',
+                              background: '#e0f2fe',
+                              color: '#0369a1',
+                              borderRadius: '12px',
+                              marginLeft: '8px'
+                            }}>
+                              <AccountCircle style={{ fontSize: '14px' }} />
+                              Аккаунт
+                            </span>
+                          ) : (
+                            <span style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '2px 8px',
+                              fontSize: '12px',
+                              background: '#fef3c7',
+                              color: '#92400e',
+                              borderRadius: '12px',
+                              marginLeft: '8px'
+                            }}>
+                              <PersonOff style={{ fontSize: '14px' }} />
+                              Нет аккаунта
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -467,6 +500,7 @@ const TrainersManagement: React.FC = () => {
           onClose={() => setIsModalOpen(false)}
           onSave={handleSaveTrainer}
           trainer={editingTrainer}
+          clubId={isSuperAdmin ? selectedVenueId : (admin?.venueId || club?.id)}
         />
       )}
     </div>

@@ -24,6 +24,8 @@ import Settings from './pages/admin/Settings'
 import Debug from './pages/admin/Debug'
 import FixPermissions from './pages/admin/FixPermissions'
 import TrainersManagement from './pages/admin/TrainersManagement'
+import TrainerProfile from './pages/admin/TrainerProfile'
+import CompanySettings from './pages/admin/CompanySettings'
 import ErrorBoundary from './components/ErrorBoundary'
 // Public pages
 import ClubPage from './pages/public/ClubPage'
@@ -36,6 +38,8 @@ import PaymentResultPage from './pages/public/PaymentResultPage'
 import PaymentErrorPage from './pages/public/PaymentErrorPage'
 import UnifiedBookingPage from './pages/public/UnifiedBookingPage'
 import UserAgreement from './pages/public/UserAgreement'
+import PublicOffer from './pages/public/PublicOffer'
+import PrivacyPolicy from './pages/public/PrivacyPolicy'
 
 const theme = createTheme({
   palette: {
@@ -89,6 +93,10 @@ function App() {
             <Route path="/club/:clubId/payment-error" element={<PaymentErrorPage />} />
             <Route path="/club/:clubId/user-agreement" element={<UserAgreement />} />
             
+            {/* Публичные документы */}
+            <Route path="/offer" element={<PublicOffer />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            
             {/* Публичные маршруты */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<RegisterClub />} />
@@ -116,11 +124,13 @@ function App() {
               <Route path="payment-settings" element={<PaymentSettings />} />
               <Route path="courts" element={<CourtsManagement />} />
               <Route path="trainers" element={<TrainersManagement />} />
+              <Route path="trainer-profile" element={<TrainerProfile />} />
               <Route path="bookings" element={<BookingsManagement />} />
               <Route path="finance" element={<Finance />} />
               <Route path="customers" element={<CustomersManagement />} />
               <Route path="marketing" element={<Marketing />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="company-settings" element={<CompanySettings />} />
               <Route path="debug" element={<Debug />} />
               <Route path="fix-permissions" element={<FixPermissions />} />
             </Route>

@@ -32,6 +32,12 @@ interface Booking extends Omit<BookingData, 'paymentHistory'> {
     sentTo: string
     paymentUrl: string
   }
+  // Поля для тренера
+  trainerId?: string
+  trainerName?: string
+  trainerPrice?: number
+  trainerCommission?: number
+  totalAmount?: number
 }
 
 interface BookingDetailsModalProps {
@@ -47,9 +53,12 @@ export default function BookingDetailsModal({
   onClose,
   onUpdate 
 }: BookingDetailsModalProps) {
-  const { club } = useAuth()
+  const { club, admin } = useAuth()
   const [currentBooking, setCurrentBooking] = useState<Booking | null>(booking)
   const [showRefundModal, setShowRefundModal] = useState(false)
+  
+  // Проверяем, является ли пользователь тренером
+  const isTrainer = admin?.role === 'trainer'
   
   // Получаем часовой пояс клуба
   const clubTimezone = club?.timezone || 'Europe/Moscow'
@@ -65,7 +74,20 @@ export default function BookingDetailsModal({
           const data = doc.data()
           // Используем утилиту для безопасного преобразования даты с учетом часового пояса клуба
           const bookingDate = normalizeDateInClubTZ(data.date, clubTimezone)
-          const createdAt = normalizeDateInClubTZ(data.createdAt, clubTimezone)
+          
+          // Для createdAt НЕ используем normalizeDateInClubTZ, так как это точное время, а не дата!
+          let createdAt: Date
+          if (data.createdAt?.toDate && typeof data.createdAt.toDate === 'function') {
+            createdAt = data.createdAt.toDate()
+          } else if (data.createdAt?.seconds && typeof data.createdAt.seconds === 'number') {
+            createdAt = new Date(data.createdAt.seconds * 1000)
+          } else if (data.createdAt instanceof Date) {
+            createdAt = data.createdAt
+          } else if (data.createdAt) {
+            createdAt = new Date(data.createdAt)
+          } else {
+            createdAt = new Date()
+          }
           
           // Вычисляем endTime из startTime и duration
           const endTime = data.duration ? 
@@ -104,7 +126,20 @@ export default function BookingDetailsModal({
         const data = bookingDoc.data()
         // Используем утилиту для безопасного преобразования даты с учетом часового пояса клуба
         const bookingDate = normalizeDateInClubTZ(data.date, clubTimezone)
-        const createdAt = normalizeDateInClubTZ(data.createdAt, clubTimezone)
+        
+        // Для createdAt НЕ используем normalizeDateInClubTZ, так как это точное время, а не дата!
+        let createdAt: Date
+        if (data.createdAt?.toDate && typeof data.createdAt.toDate === 'function') {
+          createdAt = data.createdAt.toDate()
+        } else if (data.createdAt?.seconds && typeof data.createdAt.seconds === 'number') {
+          createdAt = new Date(data.createdAt.seconds * 1000)
+        } else if (data.createdAt instanceof Date) {
+          createdAt = data.createdAt
+        } else if (data.createdAt) {
+          createdAt = new Date(data.createdAt)
+        } else {
+          createdAt = new Date()
+        }
         
         // Вычисляем endTime из startTime и duration
         const endTime = data.duration ? 
@@ -199,6 +234,14 @@ export default function BookingDetailsModal({
                   <span style={{ color: 'var(--gray)' }}>Корт:</span>
                   <span style={{ fontWeight: '600' }}>{currentBooking.courtName}</span>
                 </div>
+                {currentBooking.trainerName && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--gray)' }}>Тренер:</span>
+                    <span style={{ fontWeight: '600', color: 'var(--primary)' }}>
+                      {currentBooking.trainerName}
+                    </span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--gray)' }}>Дата:</span>
                   <span style={{ fontWeight: '600' }}>{formatDate(currentBooking.date)}</span>
@@ -286,9 +329,28 @@ export default function BookingDetailsModal({
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--gray)' }}>Сумма:</span>
                   <span style={{ fontWeight: '600', fontSize: '18px' }}>
-                    {formatAmount(currentBooking.amount)}
+                    {formatAmount(currentBooking.totalAmount || currentBooking.amount)}
                   </span>
                 </div>
+                {currentBooking.trainerPrice && (
+                  <div style={{ 
+                    paddingLeft: '20px',
+                    fontSize: '14px',
+                    color: 'var(--gray)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>• Корт:</span>
+                      <span>{formatAmount(currentBooking.amount - (currentBooking.trainerPrice || 0))}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>• Тренер:</span>
+                      <span>{formatAmount(currentBooking.trainerPrice)}</span>
+                    </div>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--gray)' }}>Способ оплаты:</span>
                   <span style={{ fontWeight: '600' }}>
@@ -297,21 +359,39 @@ export default function BookingDetailsModal({
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: 'var(--gray)' }}>Статус оплаты:</span>
-                  <PaymentStatusManager
-                    key={`${currentBooking.id}-${currentBooking.paymentStatus}`}
-                    bookingId={currentBooking.id}
-                    currentStatus={currentBooking.paymentStatus || 'awaiting_payment'}
-                    paymentMethod={currentBooking.paymentMethod}
-                    onStatusUpdate={async () => {
-                      // Обновляем только список в родительском компоненте
-                      if (onUpdate) {
-                        await onUpdate()
-                      }
-                    }}
-                    onRefund={() => {
-                      setShowRefundModal(true)
-                    }}
-                  />
+                  {/* Тренеры видят только статус, без возможности управления */}
+                  {isTrainer ? (
+                    <span style={{ 
+                      padding: '4px 12px',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      background: currentBooking.paymentStatus === 'paid' ? '#10B981' : 
+                                 currentBooking.paymentStatus === 'cancelled' ? '#EF4444' : '#F59E0B',
+                      color: 'white'
+                    }}>
+                      {currentBooking.paymentStatus === 'paid' ? 'Оплачено' :
+                       currentBooking.paymentStatus === 'cancelled' ? 'Отменено' :
+                       currentBooking.paymentStatus === 'refunded' ? 'Возвращено' :
+                       'Ожидает оплаты'}
+                    </span>
+                  ) : (
+                    <PaymentStatusManager
+                      key={`${currentBooking.id}-${currentBooking.paymentStatus}`}
+                      bookingId={currentBooking.id}
+                      currentStatus={currentBooking.paymentStatus || 'awaiting_payment'}
+                      paymentMethod={currentBooking.paymentMethod}
+                      onStatusUpdate={async () => {
+                        // Обновляем только список в родительском компоненте
+                        if (onUpdate) {
+                          await onUpdate()
+                        }
+                      }}
+                      onRefund={() => {
+                        setShowRefundModal(true)
+                      }}
+                    />
+                  )}
                 </div>
                 {/* Таймер до автоматической отмены */}
                 {currentBooking.paymentStatus === 'awaiting_payment' && (
@@ -397,8 +477,8 @@ export default function BookingDetailsModal({
               </div>
             </div>
 
-            {/* История платежей */}
-            {currentBooking.paymentHistory && currentBooking.paymentHistory.length > 0 && (
+            {/* История платежей - скрываем для тренеров */}
+            {!isTrainer && currentBooking.paymentHistory && currentBooking.paymentHistory.length > 0 && (
               <PaymentHistory history={currentBooking.paymentHistory} />
             )}
           </div>

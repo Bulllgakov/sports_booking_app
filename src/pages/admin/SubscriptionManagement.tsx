@@ -38,7 +38,9 @@ import { collection, query, where, onSnapshot, doc, getDoc, Timestamp, orderBy, 
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../../services/firebase'
 import { useAuth } from '../../contexts/AuthContext'
-import AdminLayout from '../../layouts/AdminLayout'
+import { usePermission } from '../../hooks/usePermission'
+import { VenueSelector, VenueSelectorEmpty } from '../../components/VenueSelector'
+// AdminLayout не нужен, так как страница уже обернута в layout в роутере
 import { formatDate, formatCurrency } from '../../utils/formatters'
 
 interface Subscription {
@@ -96,26 +98,25 @@ interface PaymentMethod {
 const planNames: Record<string, string> = {
   start: 'Старт',
   standard: 'Стандарт',
-  pro: 'Профи',
-  premium: 'Премиум'
+  pro: 'Профи'
 }
 
 const planPrices: Record<string, number> = {
   start: 0,
   standard: 990,
-  pro: 1990,
-  premium: 2990
+  pro: 1990
 }
 
 const planFeatures: Record<string, string[]> = {
-  start: ['1 корт', 'Базовые функции', 'Email поддержка'],
-  standard: ['До 3 кортов', 'Онлайн-оплата', 'SMS-уведомления', 'Статистика'],
-  pro: ['До 10 кортов', 'Все функции Standard', 'Приоритетная поддержка', 'API доступ'],
-  premium: ['Неограниченно кортов', 'Все функции Pro', 'Персональный менеджер', 'Кастомизация']
+  start: ['До 2 кортов', 'Email без ограничений', 'SMS от 6₽/шт', 'Тренеры', 'Менеджер 3 месяца'],
+  standard: ['От 1 корта', '500 SMS/Email в месяц', 'CRM система', 'Маркетинг', '3 месяца бесплатно'],
+  pro: ['От 1 корта', 'SMS/Email без лимитов', 'API доступ', 'Мультиплощадки', 'Персональный менеджер']
 }
 
 export default function SubscriptionManagement() {
   const { admin } = useAuth()
+  const { isSuperAdmin } = usePermission()
+  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -126,14 +127,30 @@ export default function SubscriptionManagement() {
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Инициализация выбранного клуба для суперадминов
   useEffect(() => {
-    if (!admin?.venueId) return
+    if (isSuperAdmin) {
+      const savedVenueId = localStorage.getItem('selectedVenueId')
+      if (savedVenueId) {
+        setSelectedVenueId(savedVenueId)
+      }
+      setLoading(false)
+    } else if (admin?.venueId) {
+      setSelectedVenueId(admin.venueId)
+      setLoading(false)
+    }
+  }, [admin, isSuperAdmin])
+
+  // Загрузка данных подписки
+  useEffect(() => {
+    const targetVenueId = selectedVenueId || admin?.venueId
+    if (!targetVenueId) return
 
     // Подписка на изменения подписки
     const unsubscribeSub = onSnapshot(
       query(
         collection(db, 'subscriptions'),
-        where('venueId', '==', admin.venueId),
+        where('venueId', '==', targetVenueId),
         limit(1)
       ),
       (snapshot) => {
@@ -153,7 +170,7 @@ export default function SubscriptionManagement() {
     const unsubscribeInvoices = onSnapshot(
       query(
         collection(db, 'invoices'),
-        where('venueId', '==', admin.venueId),
+        where('venueId', '==', targetVenueId),
         orderBy('createdAt', 'desc'),
         limit(20)
       ),
@@ -170,7 +187,7 @@ export default function SubscriptionManagement() {
     const unsubscribePayment = onSnapshot(
       query(
         collection(db, 'payment_methods'),
-        where('venueId', '==', admin.venueId),
+        where('venueId', '==', targetVenueId),
         where('isDefault', '==', true),
         limit(1)
       ),
@@ -187,14 +204,17 @@ export default function SubscriptionManagement() {
       }
     )
 
-    setLoading(false)
-
     return () => {
       unsubscribeSub()
       unsubscribeInvoices()
       unsubscribePayment()
     }
-  }, [admin])
+  }, [selectedVenueId, admin?.venueId])
+
+  const handleVenueChange = (venueId: string) => {
+    setSelectedVenueId(venueId)
+    localStorage.setItem('selectedVenueId', venueId)
+  }
 
   const handleChangePlan = async () => {
     if (!selectedPlan || !courtsCount) return
@@ -204,8 +224,9 @@ export default function SubscriptionManagement() {
 
     try {
       const initPayment = httpsCallable(functions, 'initSubscriptionPayment')
+      const targetVenueId = selectedVenueId || admin?.venueId
       const result = await initPayment({
-        venueId: admin?.venueId,
+        venueId: targetVenueId,
         planKey: selectedPlan,
         amount: planPrices[selectedPlan] * courtsCount,
         courtsCount: courtsCount
@@ -269,11 +290,9 @@ export default function SubscriptionManagement() {
 
   if (loading) {
     return (
-      <AdminLayout>
-        <Box sx={{ width: '100%' }}>
-          <LinearProgress />
-        </Box>
-      </AdminLayout>
+      <Box sx={{ width: '100%' }}>
+        <LinearProgress />
+      </Box>
     )
   }
 
@@ -281,12 +300,24 @@ export default function SubscriptionManagement() {
     ? Math.floor((subscription.endDate.toMillis() - Date.now()) / (1000 * 60 * 60 * 24))
     : 0
 
+  // Показываем выбор клуба для суперадмина, если клуб не выбран
+  if (isSuperAdmin && !selectedVenueId) {
+    return <VenueSelectorEmpty title="Выберите клуб для управления подпиской" />
+  }
+
   return (
-    <AdminLayout>
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h5" gutterBottom>
-          Управление подпиской
-        </Typography>
+    <Box sx={{ p: 3 }}>
+      {/* Селектор клуба для суперадмина */}
+      {isSuperAdmin && (
+        <VenueSelector
+          selectedVenueId={selectedVenueId}
+          onVenueChange={handleVenueChange}
+        />
+      )}
+      
+      <Typography variant="h5" gutterBottom>
+        Управление подпиской
+      </Typography>
 
         {error && (
           <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
@@ -582,6 +613,5 @@ export default function SubscriptionManagement() {
           </DialogActions>
         </Dialog>
       </Box>
-    </AdminLayout>
   )
 }

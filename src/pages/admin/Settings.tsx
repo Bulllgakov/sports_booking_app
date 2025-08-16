@@ -1169,7 +1169,7 @@ export default function Settings() {
                     <strong>Когда появляется:</strong> После успешной оплаты через YooKassa
                   </Typography>
                   <Typography variant="body2" paragraph>
-                    <strong>Статус в БД:</strong> <code>paymentStatus: 'paid'</code> или <code>paymentStatus: 'online_payment'</code>, <code>status: 'confirmed'</code>
+                    <strong>Статус в БД:</strong> <code>paymentStatus: 'paid'</code>, <code>status: 'confirmed'</code>
                   </Typography>
                   <Typography variant="body2">
                     <strong>Что видит клиент:</strong> Зеленый хедер с галочкой ✅, заголовок "Бронирование подтверждено!", 

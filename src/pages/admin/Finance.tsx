@@ -8,9 +8,12 @@ import {
   where, 
   getDocs,
   orderBy,
-  Timestamp
+  Timestamp,
+  doc,
+  getDoc
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
+import { normalizeDateInClubTZ } from '../../utils/clubDateTime'
 import { 
   Box,
   Card,
@@ -29,17 +32,22 @@ import {
   FormControl,
   InputLabel,
   CircularProgress,
-  Chip
+  Chip,
+  TextField,
+  Button
 } from '@mui/material'
-import { TrendingUp, TrendingDown, AttachMoney, Receipt } from '@mui/icons-material'
+import { TrendingUp, TrendingDown, AttachMoney, Receipt, DateRange } from '@mui/icons-material'
 
 export default function Finance() {
   const { admin } = useAuth()
   const { isSuperAdmin } = usePermission()
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null)
+  const [venueTimezone, setVenueTimezone] = useState<string>('Europe/Moscow')
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState('month')
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('all')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
   const [stats, setStats] = useState({
     totalRevenue: 0,
     bookingsCount: 0,
@@ -47,6 +55,36 @@ export default function Finance() {
     revenueChange: 0
   })
   const [transactions, setTransactions] = useState<any[]>([])
+  
+  // Функция для получения отображаемого периода
+  const getPeriodDisplay = () => {
+    const now = new Date()
+    let startDate = new Date()
+    let endDate = new Date()
+    
+    switch(period) {
+      case 'today':
+        return 'Сегодня'
+      case 'yesterday':
+        return 'Вчера'
+      case 'week':
+        startDate.setDate(now.getDate() - 7)
+        return `${startDate.toLocaleDateString('ru-RU')} - ${endDate.toLocaleDateString('ru-RU')}`
+      case 'month':
+        startDate.setMonth(now.getMonth(), 1) // Первое число текущего месяца
+        const monthName = now.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
+        return monthName.charAt(0).toUpperCase() + monthName.slice(1) // Капитализируем первую букву
+      case 'year':
+        return now.getFullYear().toString()
+      case 'custom':
+        if (customStartDate && customEndDate) {
+          return `${new Date(customStartDate).toLocaleDateString('ru-RU')} - ${new Date(customEndDate).toLocaleDateString('ru-RU')}`
+        }
+        return 'Выберите даты'
+      default:
+        return ''
+    }
+  }
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -77,11 +115,33 @@ export default function Finance() {
     try {
       setLoading(true)
       
+      // Загружаем информацию о клубе для получения часового пояса
+      const venueDocRef = doc(db, 'venues', targetVenueId)
+      const venueDoc = await getDoc(venueDocRef)
+      
+      if (venueDoc.exists()) {
+        const venueData = venueDoc.data()
+        const timezone = venueData.timezone || 'Europe/Moscow'
+        setVenueTimezone(timezone)
+        console.log('Club timezone:', timezone)
+      }
+      
       // Calculate date range based on period
       const now = new Date()
       let startDate = new Date()
+      let endDate = new Date()
       
       switch(period) {
+        case 'today':
+          startDate.setHours(0, 0, 0, 0)
+          endDate.setHours(23, 59, 59, 999)
+          break
+        case 'yesterday':
+          startDate.setDate(now.getDate() - 1)
+          startDate.setHours(0, 0, 0, 0)
+          endDate.setDate(now.getDate() - 1)
+          endDate.setHours(23, 59, 59, 999)
+          break
         case 'week':
           startDate.setDate(now.getDate() - 7)
           break
@@ -90,6 +150,17 @@ export default function Finance() {
           break
         case 'year':
           startDate.setFullYear(now.getFullYear() - 1)
+          break
+        case 'custom':
+          if (customStartDate && customEndDate) {
+            startDate = new Date(customStartDate)
+            endDate = new Date(customEndDate)
+            // Устанавливаем конец дня для endDate
+            endDate.setHours(23, 59, 59, 999)
+          } else {
+            // Если даты не выбраны, используем последний месяц
+            startDate.setMonth(now.getMonth() - 1)
+          }
           break
       }
 
@@ -105,25 +176,37 @@ export default function Finance() {
       
       const snapshot = await getDocs(bookingsQuery)
       console.log('Total bookings found:', snapshot.size)
-      let bookings = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        date: doc.data().date?.toDate(),
-        paymentStatus: doc.data().paymentStatus || 'awaiting_payment',
-        paymentMethod: doc.data().paymentMethod || 'cash'
-      }))
+      let bookings = snapshot.docs.map(doc => {
+        const data = doc.data()
+        
+        return {
+          id: doc.id,
+          ...data,
+          date: normalizeDateInClubTZ(data.date, venueTimezone),
+          paymentStatus: data.paymentStatus || 'awaiting_payment',
+          paymentMethod: data.paymentMethod || 'cash'
+        }
+      })
 
       // Фильтруем по периоду на клиенте
       bookings = bookings.filter(booking => {
         if (!booking.date) return false
-        return booking.date >= startDate && booking.status === 'confirmed'
+        const bookingDate = new Date(booking.date)
+        
+        if (period === 'custom' && customEndDate) {
+          return bookingDate >= startDate && bookingDate <= endDate && booking.status === 'confirmed'
+        } else if (period === 'today' || period === 'yesterday') {
+          return bookingDate >= startDate && bookingDate <= endDate && booking.status === 'confirmed'
+        } else {
+          return bookingDate >= startDate && booking.status === 'confirmed'
+        }
       })
 
       console.log('Bookings after date filter:', bookings.length)
 
       // Filter only paid bookings
       bookings = bookings.filter(booking => 
-        booking.paymentStatus === 'paid' || booking.paymentStatus === 'online_payment'
+        booking.paymentStatus === 'paid'
       )
       
       console.log('Paid bookings:', bookings.length)
@@ -208,6 +291,9 @@ export default function Finance() {
               <MenuItem value="card_on_site">Карта на месте</MenuItem>
               <MenuItem value="transfer">Перевод</MenuItem>
               <MenuItem value="online">Онлайн оплата</MenuItem>
+              <MenuItem value="sberbank_card">Карта Сбербанк</MenuItem>
+              <MenuItem value="tbank_card">Карта Т-Банк</MenuItem>
+              <MenuItem value="vtb_card">Карта ВТБ</MenuItem>
             </Select>
           </FormControl>
           
@@ -218,12 +304,52 @@ export default function Finance() {
               label="Период"
               onChange={(e) => setPeriod(e.target.value)}
             >
+              <MenuItem value="today">Сегодня</MenuItem>
+              <MenuItem value="yesterday">Вчера</MenuItem>
               <MenuItem value="week">Неделя</MenuItem>
               <MenuItem value="month">Месяц</MenuItem>
               <MenuItem value="year">Год</MenuItem>
+              <MenuItem value="custom">Персональный период</MenuItem>
             </Select>
           </FormControl>
         </Box>
+      </Box>
+
+      {/* Поля для персонального периода */}
+      {period === 'custom' && (
+        <Box display="flex" gap={2} mb={3}>
+          <TextField
+            label="Начальная дата"
+            type="date"
+            value={customStartDate}
+            onChange={(e) => setCustomStartDate(e.target.value)}
+            size="small"
+            InputLabelProps={{ shrink: true }}
+          />
+          <TextField
+            label="Конечная дата"
+            type="date"
+            value={customEndDate}
+            onChange={(e) => setCustomEndDate(e.target.value)}
+            size="small"
+            InputLabelProps={{ shrink: true }}
+          />
+          <Button 
+            variant="contained" 
+            size="small"
+            onClick={() => loadFinanceData(selectedVenueId || admin?.venueId)}
+            disabled={!customStartDate || !customEndDate}
+          >
+            Применить
+          </Button>
+        </Box>
+      )}
+
+      {/* Отображение выбранного периода */}
+      <Box mb={3}>
+        <Typography variant="body2" color="text.secondary">
+          Период: {getPeriodDisplay()}
+        </Typography>
       </Box>
 
       {/* Stats Cards */}

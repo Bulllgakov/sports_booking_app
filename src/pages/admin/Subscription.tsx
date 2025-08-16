@@ -188,22 +188,22 @@ export default function Subscription() {
     }
     
     if (plan === 'standard') {
-      return courtsCount >= 3 ? planDetails.pricePerCourt! * courtsCount : -1
+      return courtsCount >= 1 ? planDetails.pricePerCourt! * courtsCount : -1
     }
     
     if (plan === 'pro') {
       return courtsCount >= 1 ? planDetails.pricePerCourt! * courtsCount : -1
     }
     
-    return -1 // premium - по запросу
+    return -1 // недоступный тариф
   }
   
   // Проверка доступности тарифа для текущего количества кортов
   const isPlanAvailable = (plan: SubscriptionPlan): boolean => {
     if (plan === 'start') return courtsCount <= 2
-    if (plan === 'standard') return courtsCount >= 3
+    if (plan === 'standard') return courtsCount >= 1 // убрали ограничение от 3 кортов
     if (plan === 'pro') return courtsCount >= 1
-    return false // premium по запросу
+    return false
   }
 
   // Расчет процента использования
@@ -334,7 +334,9 @@ export default function Subscription() {
       </Typography>
       
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        {Object.entries(SUBSCRIPTION_PLANS).filter(([key]) => key !== 'premium').map(([key, plan]) => {
+        {Object.entries(SUBSCRIPTION_PLANS)
+          .filter(([key]) => key !== 'premium') // Исключаем несуществующий тариф Premium
+          .map(([key, plan]) => {
           const isCurrentPlan = key === subscription.plan
           const isDowngrade = SUBSCRIPTION_PLANS[key as SubscriptionPlan].price < currentPlan.price
           
@@ -370,8 +372,7 @@ export default function Subscription() {
                       const price = calculateSubscriptionPrice(key as SubscriptionPlan, courtsCount)
                       if (price === 0) return 'Бесплатно'
                       if (price === -1) {
-                        if (key === 'premium') return 'По запросу'
-                        return isPlanAvailable(key as SubscriptionPlan) ? 'Недоступно' : `Нужно ${key === 'standard' ? '3+' : '1+'} кортов`
+                        return isPlanAvailable(key as SubscriptionPlan) ? 'Недоступно' : `Нужно ${key === 'standard' ? '1+' : '1+'} кортов`
                       }
                       return (
                         <>
@@ -396,7 +397,7 @@ export default function Subscription() {
                     ))}
                   </List>
 
-                  {!isCurrentPlan && isPlanAvailable(key as SubscriptionPlan) && key !== 'premium' && (
+                  {!isCurrentPlan && isPlanAvailable(key as SubscriptionPlan) && (
                     <Button
                       variant={isDowngrade ? "outlined" : "contained"}
                       fullWidth
@@ -405,16 +406,6 @@ export default function Subscription() {
                       startIcon={<Upgrade />}
                     >
                       {isDowngrade ? 'Понизить тариф' : 'Повысить тариф'}
-                    </Button>
-                  )}
-                  {key === 'premium' && !isCurrentPlan && (
-                    <Button
-                      variant="outlined"
-                      fullWidth
-                      sx={{ mt: 2 }}
-                      onClick={() => window.open('mailto:sales@allcourt.ru?subject=Запрос на тариф ПРЕМИУМ', '_blank')}
-                    >
-                      Связаться с нами
                     </Button>
                   )}
                 </CardContent>

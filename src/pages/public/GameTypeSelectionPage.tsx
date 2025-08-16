@@ -38,6 +38,7 @@ export default function GameTypeSelectionPage() {
   const dateParam = searchParams.get('date')
   const timeParam = searchParams.get('time')
   const durationParam = searchParams.get('duration')
+  const trainerParam = searchParams.get('trainer')
   
   const [selectedGameType, setSelectedGameType] = useState<string>('open')
   const [showBookingForm, setShowBookingForm] = useState(false)
@@ -126,6 +127,11 @@ export default function GameTypeSelectionPage() {
         pricePerPlayer: (gameType.pricePerPlayer || price).toString()
       })
       
+      // Добавляем параметр тренера, если он был передан
+      if (trainerParam) {
+        params.append('trainer', trainerParam)
+      }
+      
       navigate(`/club/${clubId}/court/${courtId}/payment?${params.toString()}`)
     } else {
       // Show app download dialog
@@ -134,7 +140,11 @@ export default function GameTypeSelectionPage() {
       )
       
       if (shouldDownload) {
-        window.location.href = `allcourts://club/${clubId}/court/${courtId}?date=${dateParam}&time=${timeParam}&duration=${durationParam}`
+        let deepLink = `allcourts://club/${clubId}/court/${courtId}?date=${dateParam}&time=${timeParam}&duration=${durationParam}`
+        if (trainerParam) {
+          deepLink += `&trainer=${trainerParam}`
+        }
+        window.location.href = deepLink
       }
     }
   }

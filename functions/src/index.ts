@@ -386,7 +386,7 @@ export const sendWelcomeEmail = functions.region(region).firestore
       
       <p>Если у вас возникнут вопросы, обратитесь в нашу службу поддержки:</p>
       <ul>
-        <li>Email: support@allcourt.ru</li>
+        <li>Email: admin@allcourt.ru</li>
         <li>Телефон: +7 (495) 123-45-67</li>
       </ul>
     </div>
@@ -859,6 +859,7 @@ export {sendSMSCode, verifySMSCode} from "./auth/sendSMSCode";
 export {getSMSSettings, updateSMSSettings, testSMSSending, getSMSStats} from "./admin/smsSettings";
 export {initializeSMSSettings} from "./admin/initializeSMSSettings";
 export {getSMSTemplates, updateSMSTemplates} from "./admin/smsTemplates";
+export {createTrainerAccount, deleteTrainerAccount, resetTrainerPassword} from "./admin/trainerAccountManager";
 // SMS Auth functions - TEMPORARILY COMMENTED DUE TO DEPLOYMENT ISSUES
 // export {sendAuthSMSCode, verifyAuthSMSCode, cleanupExpiredAuthCodes} from "./auth/smsAuth";
 // SMS Reminders - TEMPORARILY COMMENTED DUE TO DEPLOYMENT ISSUES
@@ -869,5 +870,6 @@ export {fixOldBookings, checkOldBookings} from "./migrations/fixOldBookings";
 export {forceFixCreatedAt} from "./migrations/forceFixCreatedAt";
 export {fixBookingStatuses} from "./migrations/fixBookingStatuses";
 export {unifyDateFormats} from "./migrations/unifyDateFormats";
+export {migratePaymentStatuses, checkPaymentStatuses} from "./migrations/migratePaymentStatus";
 // Booking update with SMS - TEMPORARILY COMMENTED DUE TO DEPLOYMENT ISSUES
 // export {updateBooking} from "./booking/updateBooking";

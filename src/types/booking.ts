@@ -15,7 +15,7 @@ export interface Booking {
   customerName: string
   customerPhone: string
   status: 'pending' | 'confirmed' | 'cancelled'
-  paymentStatus: 'awaiting_payment' | 'paid' | 'online_payment' | 'cancelled'
+  paymentStatus: 'awaiting_payment' | 'paid' | 'cancelled' | 'refunded' | 'error' | 'expired'
   paymentMethod?: 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card' | 'vtb_card'
   paymentHistory?: PaymentHistory[]
   createdBy?: {
@@ -24,4 +24,11 @@ export interface Booking {
     userRole?: string
   }
   createdAt: Date
+  
+  // Поля для тренера
+  trainerId?: string
+  trainerName?: string
+  trainerPrice?: number
+  trainerCommission?: number
+  totalAmount?: number // courtPrice + trainerPrice
 }
