@@ -14,9 +14,9 @@ class BookingService {
     String courtId,
   ) async {
     try {
-      // Создаем начало и конец дня
-      final startOfDay = DateTime(date.year, date.month, date.day);
-      final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
+      // Создаем начало и конец дня в UTC для согласованности с веб-версией
+      final startOfDay = DateTime.utc(date.year, date.month, date.day);
+      final endOfDay = DateTime.utc(date.year, date.month, date.day, 23, 59, 59);
       
       // Получаем ВСЕ бронирования для даты и корта, затем фильтруем на клиенте
       final snapshot = await _firestore
@@ -184,7 +184,7 @@ class BookingService {
         'courtName': courtName,
         'venueId': venueId,
         'venueName': venueName,
-        'date': Timestamp.fromDate(date), // Сохраняем как Timestamp для совместимости
+        'date': Timestamp.fromDate(DateTime.utc(date.year, date.month, date.day)), // Используем UTC дату для согласованности
         'time': time, // Для обратной совместимости
         'startTime': startTime,
         'endTime': endTime,

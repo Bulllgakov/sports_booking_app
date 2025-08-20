@@ -8,7 +8,7 @@ import { Timestamp } from 'firebase/firestore'
 // ============ РАБОТА С ДАТАМИ ============
 
 /**
- * Преобразует строку даты в объект Date
+ * Преобразует строку даты в Date объект
  * @param dateString - дата в формате 'yyyy-MM-dd'
  * @returns Date объект
  */

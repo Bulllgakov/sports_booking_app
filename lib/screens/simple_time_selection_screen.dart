@@ -132,8 +132,8 @@ class _SimpleTimeSelectionScreenState extends State<SimpleTimeSelectionScreen> {
   
   void _setupBookingsStream() {
     final selectedDate = dates[selectedDateIndex];
-    final startOfDay = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
-    final endOfDay = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, 23, 59, 59);
+    final startOfDay = DateTime.utc(selectedDate.year, selectedDate.month, selectedDate.day);
+    final endOfDay = DateTime.utc(selectedDate.year, selectedDate.month, selectedDate.day, 23, 59, 59);
     
     // Получаем ВСЕ бронирования для даты и корта, затем фильтруем на клиенте
     // (так же как в веб-версии)

@@ -490,12 +490,18 @@ export default function BookingModal({ isOpen, onClose, court, venue }: BookingM
       // Находим выбранный слот для получения цены
       const selectedSlot = timeSlots.find(slot => slot.time === selectedTime)
       
+      // Создаем чистую UTC дату без времени и часового пояса
+      const year = selectedDate.getFullYear()
+      const month = selectedDate.getMonth() 
+      const day = selectedDate.getDate()
+      const utcBookingDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0))
+      
       const bookingData = {
         courtId: court.id,
         courtName: court.name,
         venueId: venue.id,
         venueName: venue.name,
-        date: Timestamp.fromDate(selectedDate), // Используем Timestamp (все даты унифицированы)
+        date: Timestamp.fromDate(utcBookingDate), // Используем UTC дату
         time: selectedTime, // Для обратной совместимости
         startTime: selectedTime,
         endTime: `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`,

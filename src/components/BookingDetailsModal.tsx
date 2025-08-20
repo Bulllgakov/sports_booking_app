@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { Close } from '@mui/icons-material'
-import { doc, getDoc, onSnapshot } from 'firebase/firestore'
+import { Close, Edit, Save, Cancel } from '@mui/icons-material'
+import { doc, getDoc, onSnapshot, updateDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import PaymentStatusManager from './PaymentStatusManager'
 import PaymentHistory from './PaymentHistory'
@@ -11,6 +11,7 @@ import { normalizeDateInClubTZ } from '../utils/clubDateTime'
 import type { BookingData, firestoreToBooking } from '../types/bookingTypes'
 import { getPaymentMethodName } from '../utils/paymentMethods'
 import { useAuth } from '../contexts/AuthContext'
+import { format, parse, addMinutes, isAfter, isBefore, startOfDay } from 'date-fns'
 
 interface PaymentHistory {
   timestamp: any
@@ -45,28 +46,46 @@ interface BookingDetailsModalProps {
   isOpen: boolean
   onClose: () => void
   onUpdate: () => void
+  clubTimezone?: string
 }
 
 export default function BookingDetailsModal({ 
   booking, 
   isOpen, 
   onClose,
-  onUpdate 
+  onUpdate,
+  clubTimezone = 'Europe/Moscow' 
 }: BookingDetailsModalProps) {
   const { club, admin } = useAuth()
   const [currentBooking, setCurrentBooking] = useState<Booking | null>(booking)
   const [showRefundModal, setShowRefundModal] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [editedData, setEditedData] = useState({
+    courtId: '',
+    courtName: '',
+    date: '',
+    startTime: '',
+    duration: 60
+  })
+  const [availableCourts, setAvailableCourts] = useState<any[]>([])
+  const [availableSlots, setAvailableSlots] = useState<string[]>([])
+  const [existingBookings, setExistingBookings] = useState<any[]>([])
+  const [loadingSlots, setLoadingSlots] = useState(false)
+  const [saving, setSaving] = useState(false)
   
   // Проверяем, является ли пользователь тренером
   const isTrainer = admin?.role === 'trainer'
-  
-  // Получаем часовой пояс клуба
-  const clubTimezone = club?.timezone || 'Europe/Moscow'
 
   useEffect(() => {
     if (booking && isOpen) {
       // При открытии модалки всегда загружаем свежие данные
       loadFreshBooking(booking.id)
+      
+      // Загружаем список кортов
+      loadAvailableCourts()
+      
+      // Сбрасываем режим редактирования при открытии
+      setIsEditMode(false)
       
       // Подписываемся на изменения документа
       const unsubscribe = onSnapshot(doc(db, 'bookings', booking.id), (doc) => {
@@ -153,6 +172,7 @@ export default function BookingDetailsModal({
           createdAt: createdAt,
           startTime: data.startTime || data.time || '00:00',
           endTime: endTime,
+          duration: data.duration || 60,
           // Для обратной совместимости
           clientName: data.customerName || data.clientName,
           clientPhone: data.customerPhone || data.clientPhone,
@@ -164,12 +184,355 @@ export default function BookingDetailsModal({
         
         console.log('Fresh booking loaded with payment status:', freshBooking.paymentStatus)
         setCurrentBooking(freshBooking)
+        
+        // Инициализируем данные для редактирования
+        setEditedData({
+          courtId: data.courtId || '',
+          courtName: data.courtName || '',
+          date: format(bookingDate, 'yyyy-MM-dd'),
+          startTime: data.startTime || data.time || '00:00',
+          duration: data.duration || 60
+        })
       }
     } catch (error) {
       console.error('Error loading fresh booking:', error)
     }
   }
 
+  const loadAvailableCourts = async () => {
+    if (!currentBooking?.venueId) return
+    
+    try {
+      const courtsSnapshot = await getDocs(
+        collection(db, 'venues', currentBooking.venueId, 'courts')
+      )
+      const courts = courtsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      setAvailableCourts(courts)
+    } catch (error) {
+      console.error('Error loading courts:', error)
+    }
+  }
+
+  const generateTimeSlots = (duration: number, date: string) => {
+    const slots: string[] = []
+    // Используем slotInterval из настроек клуба, по умолчанию 30 минут
+    const interval = club?.slotInterval || 30
+    
+    // Получаем день недели
+    const selectedDate = new Date(date)
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+    const dayName = dayNames[selectedDate.getDay()]
+    
+    // Получаем режим работы (по умолчанию 08:00 - 22:00)
+    const workingHours = club?.workingHours || {}
+    const dayHours = workingHours[dayName]
+    
+    let openTimeStr = '08:00'
+    let closeTimeStr = '22:00'
+    
+    if (dayHours) {
+      if (typeof dayHours === 'string' && dayHours.includes('-')) {
+        const [open, close] = dayHours.split('-').map(t => t.trim())
+        openTimeStr = open
+        closeTimeStr = close
+      } else if (typeof dayHours === 'object' && dayHours.open && dayHours.close) {
+        openTimeStr = dayHours.open
+        closeTimeStr = dayHours.close
+      }
+    }
+    
+    const [openHour, openMinute] = openTimeStr.split(':').map(Number)
+    const [closeHour, closeMinute] = closeTimeStr.split(':').map(Number)
+    
+    const openTime = openHour * 60 + openMinute
+    const closeTime = closeHour * 60 + closeMinute
+    
+    for (let time = openTime; time <= closeTime - duration; time += interval) {
+      const hours = Math.floor(time / 60)
+      const minutes = time % 60
+      const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+      slots.push(timeStr)
+    }
+    
+    return slots
+  }
+
+  const checkSlotAvailability = async (courtId: string, date: string, startTime: string, duration: number) => {
+    try {
+      const queryDate = new Date(date + 'T00:00:00')
+      const startOfDay = new Date(Date.UTC(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate(), 0, 0, 0))
+      const endOfDay = new Date(Date.UTC(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate(), 23, 59, 59))
+      
+      const bookingsQuery = query(
+        collection(db, 'bookings'),
+        where('courtId', '==', courtId),
+        where('date', '>=', Timestamp.fromDate(startOfDay)),
+        where('date', '<=', Timestamp.fromDate(endOfDay))
+      )
+      
+      const bookingsSnapshot = await getDocs(bookingsQuery)
+      const existingBookings = bookingsSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(b => {
+          // Исключаем текущее бронирование
+          if (b.id === currentBooking?.id) return false
+          
+          const status = b.status || 'pending'
+          const paymentStatus = b.paymentStatus || 'awaiting_payment'
+          
+          return (
+            status !== 'cancelled' && 
+            paymentStatus !== 'cancelled' && 
+            paymentStatus !== 'refunded' &&
+            paymentStatus !== 'error'
+          )
+        })
+      
+      // Проверяем пересечение времени
+      const requestedStart = parse(startTime, 'HH:mm', new Date())
+      const requestedEnd = addMinutes(requestedStart, duration)
+      
+      for (const booking of existingBookings) {
+        const bookingStart = parse(booking.startTime || booking.time, 'HH:mm', new Date())
+        const bookingEnd = parse(booking.endTime || calculateEndTime(booking.startTime || booking.time, booking.duration || 60), 'HH:mm', new Date())
+        
+        if (
+          (isAfter(requestedStart, bookingStart) && isBefore(requestedStart, bookingEnd)) ||
+          (isAfter(requestedEnd, bookingStart) && isBefore(requestedEnd, bookingEnd)) ||
+          (isBefore(requestedStart, bookingStart) && isAfter(requestedEnd, bookingEnd)) ||
+          (format(requestedStart, 'HH:mm') === (booking.startTime || booking.time))
+        ) {
+          return false // Слот занят
+        }
+      }
+      
+      return true // Слот свободен
+    } catch (error) {
+      console.error('Error checking slot availability:', error)
+      return false
+    }
+  }
+
+  const handleEditClick = async () => {
+    // Проверяем, не в прошлом ли бронирование
+    const bookingDate = new Date(editedData.date)
+    const today = startOfDay(new Date())
+    
+    if (bookingDate < today) {
+      alert('Нельзя редактировать бронирования в прошлом')
+      return
+    }
+    
+    setIsEditMode(true)
+    // Генерируем слоты для текущей даты
+    const slots = generateTimeSlots(editedData.duration, editedData.date)
+    setAvailableSlots(slots)
+    
+    // Загружаем существующие бронирования для проверки доступности
+    await loadExistingBookings(editedData.courtId, editedData.date)
+  }
+
+  const loadExistingBookings = async (courtId: string, date: string) => {
+    if (!courtId || !date) return
+    
+    setLoadingSlots(true)
+    try {
+      const queryDate = new Date(date + 'T00:00:00')
+      const startOfDay = new Date(Date.UTC(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate(), 0, 0, 0))
+      const endOfDay = new Date(Date.UTC(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate(), 23, 59, 59))
+      
+      const bookingsQuery = query(
+        collection(db, 'bookings'),
+        where('courtId', '==', courtId),
+        where('date', '>=', Timestamp.fromDate(startOfDay)),
+        where('date', '<=', Timestamp.fromDate(endOfDay))
+      )
+      
+      const bookingsSnapshot = await getDocs(bookingsQuery)
+      const bookings = bookingsSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(b => {
+          // Исключаем текущее бронирование
+          if (b.id === currentBooking?.id) return false
+          
+          const status = b.status || 'pending'
+          const paymentStatus = b.paymentStatus || 'awaiting_payment'
+          
+          return (
+            status !== 'cancelled' && 
+            paymentStatus !== 'cancelled' && 
+            paymentStatus !== 'refunded' &&
+            paymentStatus !== 'error'
+          )
+        })
+      
+      setExistingBookings(bookings)
+    } catch (error) {
+      console.error('Error loading existing bookings:', error)
+    } finally {
+      setLoadingSlots(false)
+    }
+  }
+
+  const isSlotOccupied = (time: string) => {
+    if (!existingBookings.length) return false
+    
+    const slotStart = parse(time, 'HH:mm', new Date())
+    const slotEnd = addMinutes(slotStart, editedData.duration)
+    
+    for (const booking of existingBookings) {
+      const bookingStart = parse(booking.startTime || booking.time, 'HH:mm', new Date())
+      const bookingEnd = parse(booking.endTime || calculateEndTime(booking.startTime || booking.time, booking.duration || 60), 'HH:mm', new Date())
+      
+      // Проверяем пересечение временных интервалов
+      if (
+        (isAfter(slotStart, bookingStart) && isBefore(slotStart, bookingEnd)) ||
+        (isAfter(slotEnd, bookingStart) && isBefore(slotEnd, bookingEnd)) ||
+        (isBefore(slotStart, bookingStart) && isAfter(slotEnd, bookingEnd)) ||
+        (format(slotStart, 'HH:mm') === (booking.startTime || booking.time))
+      ) {
+        return true
+      }
+    }
+    
+    return false
+  }
+
+  const handleSaveChanges = async () => {
+    if (!currentBooking) return
+    
+    // Проверяем доступность перед сохранением
+    if (isSlotOccupied(editedData.startTime)) {
+      alert('Выбранное время уже занято. Пожалуйста, выберите другое время.')
+      return
+    }
+    
+    setSaving(true)
+    
+    try {
+      // Дополнительная проверка доступности нового слота
+      const isAvailable = await checkSlotAvailability(
+        editedData.courtId,
+        editedData.date,
+        editedData.startTime,
+        editedData.duration
+      )
+      
+      if (!isAvailable) {
+        alert('Выбранное время уже занято. Пожалуйста, выберите другое время.')
+        setSaving(false)
+        return
+      }
+      
+      // Находим выбранный корт
+      const selectedCourt = availableCourts.find(c => c.id === editedData.courtId)
+      
+      // Создаем дату корректно для часового пояса UTC (как в календаре)
+      // Используем тот же подход что и при создании новых бронирований
+      const [year, month, day] = editedData.date.split('-').map(Number)
+      const dateForSaving = new Date(Date.UTC(year, month - 1, day, 0, 0, 0))
+      
+      // Подготавливаем данные для обновления
+      const updateData: any = {
+        courtId: editedData.courtId,
+        courtName: selectedCourt?.name || editedData.courtName,
+        date: Timestamp.fromDate(dateForSaving),
+        startTime: editedData.startTime,
+        endTime: calculateEndTime(editedData.startTime, editedData.duration),
+        duration: editedData.duration,
+        updatedAt: Timestamp.now()
+      }
+      
+      // Добавляем запись в историю изменений
+      const historyEntry = {
+        timestamp: Timestamp.now(),
+        action: 'edited',
+        userId: admin?.id || '',
+        userName: admin?.name || 'Администратор',
+        changes: {
+          court: currentBooking.courtName !== updateData.courtName ? 
+            { from: currentBooking.courtName, to: updateData.courtName } : null,
+          date: format(currentBooking.date, 'yyyy-MM-dd') !== editedData.date ?
+            { from: format(currentBooking.date, 'yyyy-MM-dd'), to: editedData.date } : null,
+          duration: currentBooking.duration !== editedData.duration ?
+            { from: `${currentBooking.duration} мин`, to: `${editedData.duration} мин` } : null,
+          time: currentBooking.startTime !== editedData.startTime ?
+            { from: `${currentBooking.startTime}-${currentBooking.endTime}`, 
+              to: `${editedData.startTime}-${calculateEndTime(editedData.startTime, editedData.duration)}` } : null
+        }
+      }
+      
+      // Фильтруем только реальные изменения
+      const actualChanges = Object.entries(historyEntry.changes)
+        .filter(([_, value]) => value !== null)
+        .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
+      
+      if (Object.keys(actualChanges).length > 0) {
+        historyEntry.changes = actualChanges
+        updateData.paymentHistory = [...(currentBooking.paymentHistory || []), historyEntry]
+      }
+      
+      // Обновляем документ в Firestore
+      await updateDoc(doc(db, 'bookings', currentBooking.id), updateData)
+      
+      // Выходим из режима редактирования
+      setIsEditMode(false)
+      
+      // Обновляем список бронирований
+      if (onUpdate) {
+        await onUpdate()
+      }
+      
+      // Перезагружаем данные бронирования
+      await loadFreshBooking(currentBooking.id)
+      
+    } catch (error) {
+      console.error('Error updating booking:', error)
+      alert('Ошибка при сохранении изменений')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    // Восстанавливаем исходные данные
+    if (currentBooking) {
+      setEditedData({
+        courtId: currentBooking.courtId || '',
+        courtName: currentBooking.courtName || '',
+        date: format(currentBooking.date, 'yyyy-MM-dd'),
+        startTime: currentBooking.startTime,
+        duration: currentBooking.duration || 60
+      })
+    }
+    setIsEditMode(false)
+  }
+
+  // Обновляем слоты и проверяем доступность при изменении параметров в режиме редактирования
+  useEffect(() => {
+    if (isEditMode && editedData.date) {
+      const slots = generateTimeSlots(editedData.duration, editedData.date)
+      setAvailableSlots(slots)
+    }
+  }, [editedData.duration, editedData.date, isEditMode])
+  
+  // Загружаем бронирования при изменении корта или даты в режиме редактирования
+  useEffect(() => {
+    if (isEditMode && editedData.courtId && editedData.date) {
+      loadExistingBookings(editedData.courtId, editedData.date)
+    }
+  }, [editedData.courtId, editedData.date, isEditMode])
+
+
+  // Сбрасываем режим редактирования при закрытии
+  useEffect(() => {
+    if (!isOpen) {
+      setIsEditMode(false)
+    }
+  }, [isOpen])
 
   if (!isOpen || !currentBooking) return null
 
@@ -217,9 +580,21 @@ export default function BookingDetailsModal({
       <div className="modal-content" style={{ maxWidth: '700px' }}>
         <div className="modal-header">
           <h2 className="modal-title">Детали бронирования</h2>
-          <button className="modal-close" onClick={onClose}>
-            <Close />
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {!isTrainer && !isEditMode && (
+              <button 
+                className="btn btn-primary btn-icon"
+                onClick={handleEditClick}
+                title="Редактировать"
+                style={{ marginRight: '8px' }}
+              >
+                <Edit style={{ fontSize: '18px' }} />
+              </button>
+            )}
+            <button className="modal-close" onClick={onClose}>
+              <Close />
+            </button>
+          </div>
         </div>
 
         <div className="modal-body">
@@ -230,9 +605,24 @@ export default function BookingDetailsModal({
                 Информация о бронировании
               </h3>
               <div style={{ display: 'grid', gap: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: 'var(--gray)' }}>Корт:</span>
-                  <span style={{ fontWeight: '600' }}>{currentBooking.courtName}</span>
+                  {isEditMode ? (
+                    <select
+                      value={editedData.courtId}
+                      onChange={(e) => setEditedData({ ...editedData, courtId: e.target.value })}
+                      className="form-select"
+                      style={{ width: '200px' }}
+                    >
+                      {availableCourts.map(court => (
+                        <option key={court.id} value={court.id}>
+                          {court.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span style={{ fontWeight: '600' }}>{currentBooking.courtName}</span>
+                  )}
                 </div>
                 {currentBooking.trainerName && (
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -242,15 +632,100 @@ export default function BookingDetailsModal({
                     </span>
                   </div>
                 )}
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: 'var(--gray)' }}>Дата:</span>
-                  <span style={{ fontWeight: '600' }}>{formatDate(currentBooking.date)}</span>
+                  {isEditMode ? (
+                    <input
+                      type="date"
+                      value={editedData.date}
+                      onChange={(e) => setEditedData({ ...editedData, date: e.target.value })}
+                      className="form-input"
+                      style={{ width: '200px' }}
+                      min={format(new Date(), 'yyyy-MM-dd')}
+                    />
+                  ) : (
+                    <span style={{ fontWeight: '600' }}>{formatDate(currentBooking.date)}</span>
+                  )}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--gray)' }}>Время:</span>
-                  <span style={{ fontWeight: '600' }}>
-                    {currentBooking.startTime} - {currentBooking.endTime}
-                  </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--gray)' }}>Длительность:</span>
+                  {isEditMode ? (
+                    <select
+                      value={editedData.duration}
+                      onChange={(e) => setEditedData({ ...editedData, duration: Number(e.target.value) })}
+                      className="form-select"
+                      style={{ width: '200px' }}
+                    >
+                      <option value={30}>30 минут</option>
+                      <option value={60}>1 час</option>
+                      <option value={90}>1.5 часа</option>
+                      <option value={120}>2 часа</option>
+                      <option value={150}>2.5 часа</option>
+                      <option value={180}>3 часа</option>
+                    </select>
+                  ) : (
+                    <span style={{ fontWeight: '600' }}>
+                      {currentBooking.duration === 30 ? '30 минут' :
+                       currentBooking.duration === 60 ? '1 час' :
+                       currentBooking.duration === 90 ? '1.5 часа' :
+                       currentBooking.duration === 120 ? '2 часа' :
+                       currentBooking.duration === 150 ? '2.5 часа' :
+                       currentBooking.duration === 180 ? '3 часа' :
+                       `${currentBooking.duration} мин`}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: 'var(--gray)' }}>Доступные интервалы:</span>
+                    {isEditMode ? (
+                      <select
+                        value={editedData.startTime}
+                        onChange={(e) => setEditedData({ ...editedData, startTime: e.target.value })}
+                        className="form-select"
+                        style={{ 
+                          width: '250px',
+                          backgroundColor: isSlotOccupied(editedData.startTime) ? '#FEE2E2' : 'white'
+                        }}
+                      >
+                        <option value="">
+                          {loadingSlots ? 'Загрузка...' : 'Выберите время'}
+                        </option>
+                        {!loadingSlots && availableSlots.map(time => {
+                          const occupied = isSlotOccupied(time)
+                          const endTime = calculateEndTime(time, editedData.duration)
+                          
+                          return (
+                            <option 
+                              key={time} 
+                              value={time}
+                              disabled={occupied}
+                              style={occupied ? { color: '#9CA3AF', backgroundColor: '#F3F4F6' } : {}}
+                            >
+                              {time} - {endTime} {occupied ? '❌ ЗАНЯТО' : ''}
+                            </option>
+                          )
+                        })}
+                      </select>
+                    ) : (
+                      <span style={{ fontWeight: '600' }}>
+                        {currentBooking.startTime} - {currentBooking.endTime}
+                      </span>
+                    )}
+                  </div>
+                  {isEditMode && !loadingSlots && isSlotOccupied(editedData.startTime) && (
+                    <div style={{ 
+                      marginTop: '6px',
+                      padding: '8px',
+                      backgroundColor: '#FEE2E2',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      color: '#991B1B',
+                      fontWeight: '500'
+                    }}>
+                      ⚠️ Выбранное время занято. Пожалуйста, выберите другой интервал.
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--gray)' }}>Статус:</span>
@@ -477,7 +952,7 @@ export default function BookingDetailsModal({
               </div>
             </div>
 
-            {/* История платежей - скрываем для тренеров */}
+            {/* История изменений - скрываем для тренеров */}
             {!isTrainer && currentBooking.paymentHistory && currentBooking.paymentHistory.length > 0 && (
               <PaymentHistory history={currentBooking.paymentHistory} />
             )}
@@ -485,9 +960,30 @@ export default function BookingDetailsModal({
         </div>
 
         <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onClose}>
-            Закрыть
-          </button>
+          {isEditMode ? (
+            <>
+              <button 
+                className="btn btn-secondary" 
+                onClick={handleCancelEdit}
+                disabled={saving}
+              >
+                <Cancel style={{ fontSize: '18px', marginRight: '6px' }} />
+                Отмена
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleSaveChanges}
+                disabled={saving}
+              >
+                <Save style={{ fontSize: '18px', marginRight: '6px' }} />
+                {saving ? 'Сохранение...' : 'Сохранить'}
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-secondary" onClick={onClose}>
+              Закрыть
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -505,6 +1001,7 @@ export default function BookingDetailsModal({
           onUpdate()
         }
       }}
+      clubTimezone={clubTimezone}
     />
   </>
   )

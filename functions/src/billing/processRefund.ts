@@ -59,25 +59,40 @@ export const processBookingRefund = functions
         );
       }
 
+      // Получаем часовой пояс клуба
+      const venueDocForTimezone = await db.collection("venues").doc(booking.venueId).get();
+      const venueDataForTimezone = venueDocForTimezone.exists ? venueDocForTimezone.data() : null;
+      const clubTimezone = venueDataForTimezone?.timezone || "Europe/Moscow";
+
       // Проверяем, что день бронирования еще не прошел
       const bookingDate = booking.date.toDate ? booking.date.toDate() : new Date(booking.date);
 
-      // Устанавливаем конец дня бронирования (23:59:59)
-      const endOfBookingDay = new Date(
-        bookingDate.getFullYear(),
-        bookingDate.getMonth(),
-        bookingDate.getDate(),
-        23,
-        59,
-        59,
-        999
-      );
+      // Создаем форматтер для получения текущей даты в часовом поясе клуба
+      const nowInClubTZ = new Intl.DateTimeFormat("en-CA", {
+        timeZone: clubTimezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date());
 
-      const now = new Date();
+      // Создаем форматтер для получения даты бронирования в часовом поясе клуба
+      const bookingDateInClubTZ = new Intl.DateTimeFormat("en-CA", {
+        timeZone: clubTimezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(bookingDate);
 
-      // Если текущее время больше конца дня бронирования - возврат невозможен
-      if (now > endOfBookingDay) {
-        const bookingDateStr = bookingDate.toLocaleDateString("ru-RU");
+      // Сравниваем даты как строки (YYYY-MM-DD)
+      // Если текущая дата больше даты бронирования - возврат невозможен
+      if (nowInClubTZ > bookingDateInClubTZ) {
+        const bookingDateStr = new Intl.DateTimeFormat("ru-RU", {
+          timeZone: clubTimezone,
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }).format(bookingDate);
+        
         throw new functions.https.HttpsError(
           "failed-precondition",
           "Возврат невозможен после окончания дня бронирования " +

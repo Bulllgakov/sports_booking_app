@@ -64,11 +64,15 @@ interface BookingsListProps {
   venueId: string
   bookings?: Booking[]
   onRefresh?: () => void
+  clubTimezone?: string
 }
 
-export default function BookingsList({ venueId, bookings: propsBookings, onRefresh }: BookingsListProps) {
-  const { admin } = useAuth()
+export default function BookingsList({ venueId, bookings: propsBookings, onRefresh, clubTimezone = 'Europe/Moscow' }: BookingsListProps) {
+  const { admin, club } = useAuth()
   const { hasPermission, isSuperAdmin } = usePermission()
+  
+  // Получаем часовой пояс клуба
+  const getClubTimezone = () => club?.timezone || clubTimezone || 'Europe/Moscow'
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState<string>('all')
@@ -296,7 +300,8 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
     return new Intl.DateTimeFormat('ru-RU', {
       day: 'numeric',
       month: 'long',
-      year: 'numeric'
+      year: 'numeric',
+      timeZone: getClubTimezone()
     }).format(date)
   }
 
@@ -527,7 +532,8 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
                             <div style={{ fontSize: '14px', color: 'var(--gray)' }}>
                               {createdDate.toLocaleTimeString('ru-RU', { 
                                 hour: '2-digit', 
-                                minute: '2-digit' 
+                                minute: '2-digit',
+                                timeZone: getClubTimezone()
                               })}
                             </div>
                           </>
@@ -643,6 +649,7 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
           setShowRefundModal(false)
           setRefundBooking(null)
         }}
+        clubTimezone={clubTimezone}
       />
     </div>
   )

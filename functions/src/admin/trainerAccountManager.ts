@@ -2,7 +2,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import {sendEmail} from "../services/emailService";
 
-export const createTrainerAccount = functions.https.onCall(async (data, context) => {
+export const createTrainerAccount = functions.region('europe-west1').https.onCall(async (data, context) => {
   // Проверяем авторизацию и права
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Требуется авторизация");
@@ -191,7 +191,7 @@ export const createTrainerAccount = functions.https.onCall(async (data, context)
   }
 });
 
-export const resetTrainerPassword = functions.https.onCall(async (data, context) => {
+export const resetTrainerPassword = functions.region('europe-west1').https.onCall(async (data, context) => {
   // Проверяем авторизацию и права
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Требуется авторизация");
@@ -337,7 +337,7 @@ export const resetTrainerPassword = functions.https.onCall(async (data, context)
   }
 });
 
-export const deleteTrainerAccount = functions.https.onCall(async (data, context) => {
+export const deleteTrainerAccount = functions.region('europe-west1').https.onCall(async (data, context) => {
   // Проверяем авторизацию и права
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Требуется авторизация");

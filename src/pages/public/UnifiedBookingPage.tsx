@@ -191,10 +191,8 @@ export default function UnifiedBookingPage() {
       const dateString = format(selectedDate, 'yyyy-MM-dd')
       
       // Используем Timestamp для запроса (все даты теперь в формате Timestamp)
-      const startOfDay = new Date(selectedDate)
-      startOfDay.setHours(0, 0, 0, 0)
-      const endOfDay = new Date(selectedDate)
-      endOfDay.setHours(23, 59, 59, 999)
+      const startOfDay = new Date(Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0))
+      const endOfDay = new Date(Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59))
       
       const bookingsQuery = query(
         collection(db, 'bookings'),

@@ -22,6 +22,9 @@ import Finance from './pages/admin/Finance'
 import Marketing from './pages/admin/Marketing'
 import Settings from './pages/admin/Settings'
 import Debug from './pages/admin/Debug'
+import FixBookingDates from './pages/admin/FixBookingDates'
+import FixBookingDatesAdvanced from './pages/admin/FixBookingDatesAdvanced'
+import FindAugust18Bookings from './pages/admin/FindAugust18Bookings'
 import FixPermissions from './pages/admin/FixPermissions'
 import TrainersManagement from './pages/admin/TrainersManagement'
 import TrainerProfile from './pages/admin/TrainerProfile'
@@ -132,6 +135,9 @@ function App() {
               <Route path="settings" element={<Settings />} />
               <Route path="company-settings" element={<CompanySettings />} />
               <Route path="debug" element={<Debug />} />
+              <Route path="fix-booking-dates" element={<FixBookingDates />} />
+              <Route path="fix-booking-dates-advanced" element={<FixBookingDatesAdvanced />} />
+              <Route path="find-august18-bookings" element={<FindAugust18Bookings />} />
               <Route path="fix-permissions" element={<FixPermissions />} />
             </Route>
           </Routes>

@@ -1142,15 +1142,20 @@ export default function Settings() {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
                   <Payment color="primary" fontSize="large" />
                   <Typography variant="h5" fontWeight="bold">
-                    Страницы подтверждения бронирования и оплаты
+                    🔗 Страницы подтверждения бронирования и их URL
                   </Typography>
                 </Box>
 
                 <Alert severity="info" sx={{ mb: 3 }}>
-                  <AlertTitle>О страницах оплаты</AlertTitle>
-                  После создания бронирования с онлайн оплатой, клиент перенаправляется на страницу оплаты YooKassa. 
-                  После оплаты или отмены, он возвращается на страницу подтверждения, которая показывает разное содержимое 
-                  в зависимости от статуса бронирования и оплаты.
+                  <AlertTitle>Структура URL страниц</AlertTitle>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    <strong>Базовый URL:</strong> https://sports-booking-app-1d7e5.web.app
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    После создания бронирования с онлайн оплатой, клиент перенаправляется на страницу оплаты YooKassa. 
+                    После оплаты или отмены, он возвращается на страницу подтверждения, которая показывает разное содержимое 
+                    в зависимости от статуса бронирования и оплаты.
+                  </Typography>
                 </Alert>
 
                 <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>
@@ -1158,14 +1163,22 @@ export default function Settings() {
                 </Typography>
 
                 {/* Успешная оплата */}
-                <Paper sx={{ p: 2, mb: 2, backgroundColor: '#e8f5e9' }}>
+                <Paper sx={{ p: 2, mb: 2, backgroundColor: '#e8f5e9', border: '2px solid #4caf50' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                     <CheckCircle sx={{ color: '#4caf50' }} />
                     <Typography variant="subtitle1" fontWeight="bold">
                       1. Успешная оплата
                     </Typography>
                   </Box>
-                  <Typography variant="body2" paragraph>
+                  <Box sx={{ mt: 2, p: 1.5, bgcolor: 'white', borderRadius: 1, fontFamily: 'monospace', border: '1px solid #e0e0e0' }}>
+                    <Typography variant="body2" sx={{ wordBreak: 'break-all', color: '#1976d2' }}>
+                      /club/<span style={{ color: '#059669', fontWeight: 'bold' }}>{'{clubId}'}</span>/booking-confirmation/<span style={{ color: '#059669', fontWeight: 'bold' }}>{'{bookingId}'}</span>
+                    </Typography>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    <strong>Пример:</strong> /club/abc123/booking-confirmation/booking456
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 2 }}>
                     <strong>Когда появляется:</strong> После успешной оплаты через YooKassa
                   </Typography>
                   <Typography variant="body2" paragraph>
@@ -1178,14 +1191,22 @@ export default function Settings() {
                 </Paper>
 
                 {/* Ожидание оплаты */}
-                <Paper sx={{ p: 2, mb: 2, backgroundColor: '#fff3cd' }}>
+                <Paper sx={{ p: 2, mb: 2, backgroundColor: '#fff3cd', border: '2px solid #ff9800' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                     <HourglassEmpty sx={{ color: '#ff9800' }} />
                     <Typography variant="subtitle1" fontWeight="bold">
-                      2. Ожидание оплаты
+                      2. Ожидание оплаты (15 минут на оплату)
                     </Typography>
                   </Box>
-                  <Typography variant="body2" paragraph>
+                  <Box sx={{ mt: 2, p: 1.5, bgcolor: 'white', borderRadius: 1, fontFamily: 'monospace', border: '1px solid #e0e0e0' }}>
+                    <Typography variant="body2" sx={{ wordBreak: 'break-all', color: '#1976d2' }}>
+                      /club/<span style={{ color: '#B45309', fontWeight: 'bold' }}>{'{clubId}'}</span>/booking-confirmation/<span style={{ color: '#B45309', fontWeight: 'bold' }}>{'{bookingId}'}</span>
+                    </Typography>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    <strong>Та же страница</strong>, но с paymentStatus = 'awaiting_payment'
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 2 }}>
                     <strong>Когда появляется:</strong> Клиент вышел из YooKassa без оплаты (нажал "Отменить" или вернулся назад)
                   </Typography>
                   <Typography variant="body2" paragraph>
@@ -1193,7 +1214,7 @@ export default function Settings() {
                   </Typography>
                   <Typography variant="body2" paragraph>
                     <strong>Что видит клиент:</strong> Желтый хедер с часами ⏰, заголовок "Требуется оплата!", 
-                    большой таймер обратного отсчета (15:00 → 00:00), анимированная кнопка "Оплатить сейчас"
+                    большой таймер обратного отсчета (15:00 → 00:00), анимированная кнопка "💳 Оплатить сейчас", кнопка "Отменить бронирование"
                   </Typography>
                   <Typography variant="body2" color="warning.main">
                     <strong>⚠️ Важно:</strong> Бронирование автоматически отменяется через 15 минут без оплаты
@@ -1201,14 +1222,22 @@ export default function Settings() {
                 </Paper>
 
                 {/* Бронирование отменено */}
-                <Paper sx={{ p: 2, mb: 2, backgroundColor: '#ffebee' }}>
+                <Paper sx={{ p: 2, mb: 2, backgroundColor: '#ffebee', border: '2px solid #f44336' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                     <Cancel sx={{ color: '#f44336' }} />
                     <Typography variant="subtitle1" fontWeight="bold">
                       3. Бронирование отменено
                     </Typography>
                   </Box>
-                  <Typography variant="body2" paragraph>
+                  <Box sx={{ mt: 2, p: 1.5, bgcolor: 'white', borderRadius: 1, fontFamily: 'monospace', border: '1px solid #e0e0e0' }}>
+                    <Typography variant="body2" sx={{ wordBreak: 'break-all', color: '#1976d2' }}>
+                      /club/<span style={{ color: '#DC2626', fontWeight: 'bold' }}>{'{clubId}'}</span>/booking-confirmation/<span style={{ color: '#DC2626', fontWeight: 'bold' }}>{'{bookingId}'}</span>
+                    </Typography>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    <strong>Та же страница</strong>, показывает специальное сообщение об отмене
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 2 }}>
                     <strong>Когда появляется:</strong>
                   </Typography>
                   <ul style={{ margin: '8px 0 8px 24px' }}>
@@ -1221,33 +1250,38 @@ export default function Settings() {
                   </Typography>
                   <Typography variant="body2">
                     <strong>Что видит клиент:</strong> Красный крестик ❌, заголовок "Бронирование отменено", 
-                    список возможных причин отмены
+                    список возможных причин отмены, кнопки возврата к клубу и на главную
                   </Typography>
                 </Paper>
 
                 {/* Ошибка оплаты */}
-                <Paper sx={{ p: 2, mb: 2, backgroundColor: '#ffebee' }}>
+                <Paper sx={{ p: 2, mb: 2, backgroundColor: '#ffebee', border: '2px solid #f44336' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                     <Error sx={{ color: '#f44336' }} />
                     <Typography variant="subtitle1" fontWeight="bold">
                       4. Ошибка оплаты
                     </Typography>
                   </Box>
-                  <Typography variant="body2" paragraph>
+                  <Box sx={{ mt: 2, p: 1.5, bgcolor: 'white', borderRadius: 1, fontFamily: 'monospace', border: '1px solid #e0e0e0' }}>
+                    <Typography variant="body2" sx={{ wordBreak: 'break-all', color: '#1976d2' }}>
+                      /club/<span style={{ color: '#DC2626', fontWeight: 'bold' }}>{'{clubId}'}</span>/payment-error?paymentError=true&bookingId=<span style={{ color: '#DC2626', fontWeight: 'bold' }}>{'{bookingId}'}</span>
+                    </Typography>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    <strong>Пример:</strong> /club/abc123/payment-error?paymentError=true&bookingId=booking456
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 2 }}>
                     <strong>Когда появляется:</strong> Техническая ошибка при создании платежа в YooKassa/T-Bank
                   </Typography>
                   <Typography variant="body2" paragraph>
                     <strong>Статус в БД:</strong> <code>paymentStatus: 'error'</code>
                   </Typography>
                   <Typography variant="body2" paragraph>
-                    <strong>URL параметр:</strong> <code>?paymentError=true</code>
-                  </Typography>
-                  <Typography variant="body2" paragraph>
                     <strong>Что видит клиент:</strong> Красный хедер с крестиком ❌, заголовок "Ошибка оплаты", 
                     рекомендация связаться с администратором
                   </Typography>
                   <Typography variant="body2" color="warning.main">
-                    <strong>⚠️ Важно:</strong> Бронирования с этим статусом НЕ занимают слоты в календаре и могут быть удалены суперадмином
+                    <strong>⚠️ Важно:</strong> Бронирования с этим статусом НЕ занимают слоты в календаре
                   </Typography>
                 </Paper>
 
@@ -1274,18 +1308,23 @@ export default function Settings() {
                 </Paper>
 
                 {/* Обработка платежа */}
-                <Paper sx={{ p: 2, mb: 2, backgroundColor: '#f5f5f5' }}>
+                <Paper sx={{ p: 2, mb: 2, backgroundColor: '#e3f2fd', border: '2px solid #2196f3' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    <HourglassBottom sx={{ color: '#9e9e9e' }} />
+                    <HourglassBottom sx={{ color: '#2196f3' }} />
                     <Typography variant="subtitle1" fontWeight="bold">
-                      6. Обработка платежа
+                      6. Обработка платежа (редко)
                     </Typography>
                   </Box>
-                  <Typography variant="body2" paragraph>
-                    <strong>Когда появляется:</strong> Платеж обрабатывается банком (редкий случай)
+                  <Box sx={{ mt: 2, p: 1.5, bgcolor: 'white', borderRadius: 1, fontFamily: 'monospace', border: '1px solid #e0e0e0' }}>
+                    <Typography variant="body2" sx={{ wordBreak: 'break-all', color: '#1976d2' }}>
+                      /club/<span style={{ color: '#2563EB', fontWeight: 'bold' }}>{'{clubId}'}</span>/booking-confirmation/<span style={{ color: '#2563EB', fontWeight: 'bold' }}>{'{bookingId}'}</span>?processing=true
+                    </Typography>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    <strong>Редкий случай:</strong> Появляется когда webhook еще не обработан
                   </Typography>
-                  <Typography variant="body2" paragraph>
-                    <strong>URL параметр:</strong> <code>?processing=true</code>
+                  <Typography variant="body2" sx={{ mt: 2 }}>
+                    <strong>Когда появляется:</strong> Платеж обрабатывается банком (редкий случай)
                   </Typography>
                   <Typography variant="body2">
                     <strong>Что видит клиент:</strong> Песочные часы ⏳, заголовок "Обработка платежа", 
@@ -1333,17 +1372,106 @@ export default function Settings() {
 
                 <Paper sx={{ p: 2, mb: 2 }}>
                   <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-                    URL структура
+                    URL структура и маршруты
                   </Typography>
-                  <Typography variant="body2" paragraph>
-                    • Основной URL: <code>/club/{'{clubId}'}/booking-confirmation/{'{bookingId}'}</code>
-                  </Typography>
-                  <Typography variant="body2" paragraph>
-                    • Параметр ошибки: <code>?paymentError=true</code>
-                  </Typography>
-                  <Typography variant="body2">
-                    • Параметр обработки: <code>?processing=true</code>
-                  </Typography>
+                  
+                  <Box sx={{ mt: 2, mb: 2 }}>
+                    <Typography variant="body2" fontWeight="bold" color="primary" gutterBottom>
+                      📍 Страница подтверждения бронирования:
+                    </Typography>
+                    <Typography variant="body2" paragraph>
+                      <code style={{ backgroundColor: '#f5f5f5', padding: '2px 6px', borderRadius: '3px' }}>
+                        /club/{'{clubId}'}/booking-confirmation/{'{bookingId}'}
+                      </code>
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" paragraph>
+                      Основная страница для отображения деталей бронирования
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ mt: 2, mb: 2 }}>
+                    <Typography variant="body2" fontWeight="bold" color="success.main" gutterBottom>
+                      ✅ После успешной оплаты:
+                    </Typography>
+                    <Typography variant="body2" paragraph>
+                      <code style={{ backgroundColor: '#e8f5e9', padding: '2px 6px', borderRadius: '3px' }}>
+                        /club/{'{clubId}'}/booking-confirmation/{'{bookingId}'}
+                      </code>
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" paragraph>
+                      YooKassa/T-Bank перенаправляет сюда после успешной оплаты (без дополнительных параметров)
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ mt: 2, mb: 2 }}>
+                    <Typography variant="body2" fontWeight="bold" color="warning.main" gutterBottom>
+                      ⏰ Ожидание оплаты (таймер 15 минут):
+                    </Typography>
+                    <Typography variant="body2" paragraph>
+                      <code style={{ backgroundColor: '#fff3cd', padding: '2px 6px', borderRadius: '3px' }}>
+                        /club/{'{clubId}'}/booking-confirmation/{'{bookingId}'}
+                      </code>
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" paragraph>
+                      Если клиент вышел из платежной формы без оплаты
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ mt: 2, mb: 2 }}>
+                    <Typography variant="body2" fontWeight="bold" color="error" gutterBottom>
+                      ❌ Ошибка оплаты:
+                    </Typography>
+                    <Typography variant="body2" paragraph>
+                      <code style={{ backgroundColor: '#ffebee', padding: '2px 6px', borderRadius: '3px' }}>
+                        /club/{'{clubId}'}/payment-error?paymentError=true&bookingId={'{bookingId}'}
+                      </code>
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" paragraph>
+                      При технической ошибке создания платежа
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ mt: 2, mb: 2 }}>
+                    <Typography variant="body2" fontWeight="bold" color="grey.600" gutterBottom>
+                      ⏳ Обработка платежа:
+                    </Typography>
+                    <Typography variant="body2" paragraph>
+                      <code style={{ backgroundColor: '#f5f5f5', padding: '2px 6px', borderRadius: '3px' }}>
+                        /club/{'{clubId}'}/booking-confirmation/{'{bookingId}'}?processing=true
+                      </code>
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" paragraph>
+                      Редкий случай, когда webhook еще не обработан
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ mt: 2, mb: 2 }}>
+                    <Typography variant="body2" fontWeight="bold" color="primary" gutterBottom>
+                      💳 Страница оплаты бронирования:
+                    </Typography>
+                    <Typography variant="body2" paragraph>
+                      <code style={{ backgroundColor: '#e3f2fd', padding: '2px 6px', borderRadius: '3px' }}>
+                        /club/{'{clubId}'}/booking-payment/{'{bookingId}'}
+                      </code>
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" paragraph>
+                      Промежуточная страница для инициализации платежа
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ mt: 2, mb: 2 }}>
+                    <Typography variant="body2" fontWeight="bold" color="primary" gutterBottom>
+                      🔄 Страница обработки результата платежа:
+                    </Typography>
+                    <Typography variant="body2" paragraph>
+                      <code style={{ backgroundColor: '#e3f2fd', padding: '2px 6px', borderRadius: '3px' }}>
+                        /payment-result?paymentId={'{paymentId}'}&orderId={'{bookingId}'}&status={'{status}'}
+                      </code>
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" paragraph>
+                      Техническая страница для обработки возврата от платежной системы
+                    </Typography>
+                  </Box>
                 </Paper>
 
                 <Paper sx={{ p: 2 }}>

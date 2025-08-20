@@ -174,10 +174,8 @@ export default function BookingPaymentPage() {
       // ВАЖНО: Проверяем доступность слота перед созданием бронирования
       // Используем Timestamp для запроса (все даты теперь в формате Timestamp)
       const queryDate = new Date(date + 'T00:00:00')
-      const startOfDay = new Date(queryDate)
-      startOfDay.setHours(0, 0, 0, 0)
-      const endOfDay = new Date(queryDate)
-      endOfDay.setHours(23, 59, 59, 999)
+      const startOfDay = new Date(Date.UTC(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate(), 0, 0, 0))
+      const endOfDay = new Date(Date.UTC(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate(), 23, 59, 59))
       
       const bookingsQuery = query(
         collection(db, 'bookings'),

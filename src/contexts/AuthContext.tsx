@@ -39,6 +39,7 @@ interface ClubData {
   workingHours?: any
   bookingDurations?: any
   bookingSlotInterval?: number
+  timezone?: string
 }
 
 interface AuthContextType {
@@ -108,7 +109,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (adminData.venueId) {
               const clubDoc = await getDoc(doc(db, 'venues', adminData.venueId))
               if (clubDoc.exists()) {
-                setClub({ id: clubDoc.id, ...clubDoc.data() } as ClubData)
+                const clubData = clubDoc.data()
+                setClub({ 
+                  id: clubDoc.id, 
+                  ...clubData,
+                  timezone: clubData.timezone || 'Europe/Moscow'
+                } as ClubData)
               }
             } else if (adminData.role === 'superadmin') {
               // Для суперадмина клуб не загружаем
@@ -184,6 +190,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             workingHours: venueData.workingHours,
             bookingDurations: venueData.bookingDurations,
             bookingSlotInterval: venueData.bookingSlotInterval,
+            timezone: venueData.timezone || 'Europe/Moscow',
           })
         }
       } catch (error) {

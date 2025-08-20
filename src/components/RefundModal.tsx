@@ -24,10 +24,11 @@ interface RefundModalProps {
     endTime: string
   } | null
   onSuccess: () => void
+  clubTimezone?: string // Добавляем часовой пояс клуба
 }
 
 
-export default function RefundModal({ isOpen, onClose, booking, onSuccess }: RefundModalProps) {
+export default function RefundModal({ isOpen, onClose, booking, onSuccess, clubTimezone = 'Europe/Moscow' }: RefundModalProps) {
   const { admin } = useAuth()
   const [loading, setLoading] = useState(false)
   const [refundReason, setRefundReason] = useState('')
@@ -42,18 +43,35 @@ export default function RefundModal({ isOpen, onClose, booking, onSuccess }: Ref
       return
     }
 
-    // Проверяем, что день бронирования еще не прошел
+    // Проверяем, что день бронирования еще не прошел с учетом часового пояса клуба
     const bookingDate = new Date(booking.date)
-    const endOfBookingDay = new Date(
-      bookingDate.getFullYear(),
-      bookingDate.getMonth(),
-      bookingDate.getDate(),
-      23, 59, 59, 999
-    )
-    const now = new Date()
     
-    if (now > endOfBookingDay) {
-      alert(`Возврат невозможен после окончания дня бронирования (${bookingDate.toLocaleDateString('ru-RU')}). Возврат был доступен до конца этого дня.`)
+    // Получаем текущую дату в часовом поясе клуба
+    const nowInClubTZ = new Intl.DateTimeFormat('en-CA', {
+      timeZone: clubTimezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date())
+    
+    // Получаем дату бронирования в часовом поясе клуба
+    const bookingDateInClubTZ = new Intl.DateTimeFormat('en-CA', {
+      timeZone: clubTimezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(bookingDate)
+    
+    // Сравниваем даты как строки (YYYY-MM-DD)
+    if (nowInClubTZ > bookingDateInClubTZ) {
+      const bookingDateStr = new Intl.DateTimeFormat('ru-RU', {
+        timeZone: clubTimezone,
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }).format(bookingDate)
+      
+      alert(`Возврат невозможен после окончания дня бронирования (${bookingDateStr}). Возврат был доступен до конца этого дня.`)
       return
     }
 

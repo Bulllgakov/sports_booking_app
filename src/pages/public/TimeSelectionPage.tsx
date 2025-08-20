@@ -157,10 +157,8 @@ export default function TimeSelectionPage() {
       const dateString = format(currentDate, 'yyyy-MM-dd')
       
       // Используем Timestamp для запроса (все даты теперь в формате Timestamp)
-      const startOfDay = new Date(currentDate)
-      startOfDay.setHours(0, 0, 0, 0)
-      const endOfDay = new Date(currentDate)
-      endOfDay.setHours(23, 59, 59, 999)
+      const startOfDay = new Date(Date.UTC(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 0, 0, 0))
+      const endOfDay = new Date(Date.UTC(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 23, 59, 59))
       
       const bookingsQuery = query(
         collection(db, 'bookings'),

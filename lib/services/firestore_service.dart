@@ -278,8 +278,8 @@ class FirestoreService {
     required String venueId,
     required DateTime date,
   }) async {
-    final startOfDay = DateTime(date.year, date.month, date.day);
-    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
+    final startOfDay = DateTime.utc(date.year, date.month, date.day);
+    final endOfDay = DateTime.utc(date.year, date.month, date.day, 23, 59, 59);
 
     final querySnapshot = await _firestore
         .collection(_bookingsCollection)

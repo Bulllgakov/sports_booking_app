@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AllCourt - Финансовая модель</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        /* Экран ввода пароля */
+        .password-screen {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .password-screen h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .password-screen p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .password-input {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+
+        .password-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .password-submit {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .password-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .error-message {
+            color: #e74c3c;
+            margin-top: 10px;
+            font-size: 14px;
+            display: none;
+        }
+
+        /* Основной контент */
+        .main-content {
+            display: none;
+            background: white;
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        h2 {
+            color: #333;
+            margin: 30px 0 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+            font-size: 24px;
+        }
+
+        h3 {
+            color: #555;
+            margin: 25px 0 15px;
+            font-size: 20px;
+        }
+
+        h4 {
+            color: #666;
+            margin: 20px 0 10px;
+            font-size: 18px;
+        }
+
+        p {
+            color: #666;
+            margin-bottom: 15px;
+            line-height: 1.8;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 0 20px rgba(0,0,0,0.05);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        tr:hover {
+            background: #f0f0ff;
+            transition: background 0.3s;
+        }
+
+        strong {
+            color: #333;
+            font-weight: 600;
+        }
+
+        ul, ol {
+            margin: 15px 0 15px 30px;
+            color: #666;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        .metric-box {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .highlight {
+            background: #fff3cd;
+            padding: 15px;
+            border-left: 4px solid #ffc107;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .success {
+            background: #d4edda;
+            padding: 15px;
+            border-left: 4px solid #28a745;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .info {
+            background: #d1ecf1;
+            padding: 15px;
+            border-left: 4px solid #17a2b8;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            .content {
+                padding: 20px;
+            }
+
+            table {
+                font-size: 12px;
+            }
+
+            th, td {
+                padding: 8px 10px;
+            }
+
+            .header h1 {
+                font-size: 28px;
+            }
+
+            h2 {
+                font-size: 20px;
+            }
+
+            h3 {
+                font-size: 18px;
+            }
+        }
+
+        /* Скроллбар */
+        .content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .content::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .content::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <!-- Экран ввода пароля -->
+    <div class="password-screen" id="passwordScreen">
+        <h1>🔐 AllCourt</h1>
+        <p>Финансовая модель</p>
+        <input type="password" class="password-input" id="passwordInput" placeholder="Введите пароль" autofocus>
+        <button class="password-submit" onclick="checkPassword()">Войти</button>
+        <div class="error-message" id="errorMessage">Неверный пароль</div>
+    </div>
+
+    <!-- Основной контент -->
+    <div class="main-content" id="mainContent">
+        <div class="header">
+            <h1>📊 Обновленная финансовая модель AllCourt</h1>
+            <p>С единым сервисным сбором 1% от бронирований</p>
+        </div>
+
+        <div class="content">
+            <h2>🔄 Новая модель монетизации: Подписка + Единая комиссия</h2>
+            
+            <h3>Структура доходов:</h3>
+            <ol>
+                <li><strong>Подписка</strong> (SaaS) - фиксированная ежемесячная плата</li>
+                <li><strong>Сервисный сбор</strong> - единая ставка 1% от каждого бронирования для всех тарифов</li>
+            </ol>
+
+            <h3>Расчет дохода от комиссии</h3>
+            
+            <h4>Средние показатели бронирований по типам клубов:</h4>
+            <table>
+                <tr>
+                    <th>Тип клуба</th>
+                    <th>Кортов</th>
+                    <th>Ср. чек брони</th>
+                    <th>Броней/день</th>
+                    <th>GMV/месяц</th>
+                    <th>Комиссия 1%</th>
+                </tr>
+                <tr>
+                    <td colspan="6" style="background: #f0f0f0; font-weight: bold;">Падел</td>
+                </tr>
+                <tr>
+                    <td>Малый (2-3)</td>
+                    <td>2.5</td>
+                    <td>2,000₽</td>
+                    <td>15</td>
+                    <td>900,000₽</td>
+                    <td>9,000₽</td>
+                </tr>
+                <tr>
+                    <td>Средний (4-5)</td>
+                    <td>4.5</td>
+                    <td>2,200₽</td>
+                    <td>30</td>
+                    <td>1,980,000₽</td>
+                    <td>19,800₽</td>
+                </tr>
+                <tr>
+                    <td>Крупный (6+)</td>
+                    <td>7</td>
+                    <td>2,500₽</td>
+                    <td>50</td>
+                    <td>3,750,000₽</td>
+                    <td>37,500₽</td>
+                </tr>
+                <tr>
+                    <td colspan="6" style="background: #f0f0f0; font-weight: bold;">Теннис</td>
+                </tr>
+                <tr>
+                    <td>Малый (2-3)</td>
+                    <td>2.5</td>
+                    <td>1,500₽</td>
+                    <td>10</td>
+                    <td>450,000₽</td>
+                    <td>4,500₽</td>
+                </tr>
+                <tr>
+                    <td>Средний (4-6)</td>
+                    <td>5</td>
+                    <td>1,800₽</td>
+                    <td>25</td>
+                    <td>1,350,000₽</td>
+                    <td>13,500₽</td>
+                </tr>
+                <tr>
+                    <td>Крупный (8+)</td>
+                    <td>10</td>
+                    <td>2,000₽</td>
+                    <td>45</td>
+                    <td>2,700,000₽</td>
+                    <td>27,000₽</td>
+                </tr>
+                <tr>
+                    <td colspan="6" style="background: #f0f0f0; font-weight: bold;">Бадминтон</td>
+                </tr>
+                <tr>
+                    <td>Малый (2-3)</td>
+                    <td>2.5</td>
+                    <td>800₽</td>
+                    <td>12</td>
+                    <td>288,000₽</td>
+                    <td>2,880₽</td>
+                </tr>
+                <tr>
+                    <td>Средний (4-6)</td>
+                    <td>5</td>
+                    <td>1,000₽</td>
+                    <td>28</td>
+                    <td>840,000₽</td>
+                    <td>8,400₽</td>
+                </tr>
+            </table>
+
+            <h2>💰 Обновленная помесячная модель (Год 1)</h2>
+            <table>
+                <tr>
+                    <th>Месяц</th>
+                    <th>Клубов</th>
+                    <th>MRR подписки</th>
+                    <th>GMV платформы</th>
+                    <th>Комиссия 1%</th>
+                    <th>Total MRR</th>
+                    <th>Рост</th>
+                </tr>
+                <tr>
+                    <td>1</td>
+                    <td>2</td>
+                    <td>2,970₽</td>
+                    <td>300,000₽</td>
+                    <td>3,000₽</td>
+                    <td>5,970₽</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td>4</td>
+                    <td>6,930₽</td>
+                    <td>750,000₽</td>
+                    <td>7,500₽</td>
+                    <td>14,430₽</td>
+                    <td>+142%</td>
+                </tr>
+                <tr>
+                    <td>3</td>
+                    <td>7</td>
+                    <td>17,860₽</td>
+                    <td>1,500,000₽</td>
+                    <td>15,000₽</td>
+                    <td>32,860₽</td>
+                    <td>+128%</td>
+                </tr>
+                <tr>
+                    <td>4</td>
+                    <td>10</td>
+                    <td>29,780₽</td>
+                    <td>2,400,000₽</td>
+                    <td>24,000₽</td>
+                    <td>53,780₽</td>
+                    <td>+64%</td>
+                </tr>
+                <tr>
+                    <td>5</td>
+                    <td>14</td>
+                    <td>43,680₽</td>
+                    <td>3,500,000₽</td>
+                    <td>35,000₽</td>
+                    <td>78,680₽</td>
+                    <td>+46%</td>
+                </tr>
+                <tr>
+                    <td>6</td>
+                    <td>18</td>
+                    <td>57,580₽</td>
+                    <td>4,800,000₽</td>
+                    <td>48,000₽</td>
+                    <td>105,580₽</td>
+                    <td>+34%</td>
+                </tr>
+                <tr>
+                    <td>7</td>
+                    <td>23</td>
+                    <td>71,480₽</td>
+                    <td>6,300,000₽</td>
+                    <td>63,000₽</td>
+                    <td>134,480₽</td>
+                    <td>+27%</td>
+                </tr>
+                <tr>
+                    <td>8</td>
+                    <td>28</td>
+                    <td>85,380₽</td>
+                    <td>7,900,000₽</td>
+                    <td>79,000₽</td>
+                    <td>164,380₽</td>
+                    <td>+22%</td>
+                </tr>
+                <tr>
+                    <td>9</td>
+                    <td>34</td>
+                    <td>101,260₽</td>
+                    <td>9,800,000₽</td>
+                    <td>98,000₽</td>
+                    <td>199,260₽</td>
+                    <td>+21%</td>
+                </tr>
+                <tr>
+                    <td>10</td>
+                    <td>40</td>
+                    <td>115,160₽</td>
+                    <td>11,500,000₽</td>
+                    <td>115,000₽</td>
+                    <td>230,160₽</td>
+                    <td>+16%</td>
+                </tr>
+                <tr>
+                    <td>11</td>
+                    <td>47</td>
+                    <td>131,040₽</td>
+                    <td>13,500,000₽</td>
+                    <td>135,000₽</td>
+                    <td>266,040₽</td>
+                    <td>+16%</td>
+                </tr>
+                <tr>
+                    <td>12</td>
+                    <td>55</td>
+                    <td>144,940₽</td>
+                    <td>15,800,000₽</td>
+                    <td>158,000₽</td>
+                    <td>302,940₽</td>
+                    <td>+14%</td>
+                </tr>
+            </table>
+
+            <div class="highlight">
+                <h3>Итоги Год 1:</h3>
+                <ul>
+                    <li><strong>Total MRR:</strong> 302,940₽ (vs 144,940₽ без комиссии)</li>
+                    <li><strong>Доход от подписок:</strong> 1,739,280₽/год</li>
+                    <li><strong>Доход от комиссии 1%:</strong> 1,896,000₽/год</li>
+                    <li><strong>Total ARR:</strong> 3,635,280₽ (+109% к базовой модели)</li>
+                    <li><strong>GMV обработано:</strong> 189,600,000₽</li>
+                    <li><strong>Эффективный take rate:</strong> 1.92% (подписка + комиссия)</li>
+                </ul>
+            </div>
+
+            <h2>📈 Трехлетний прогноз с единой комиссией 1%</h2>
+            <table>
+                <tr>
+                    <th>Показатель</th>
+                    <th>Год 1</th>
+                    <th>Год 2</th>
+                    <th>Год 3</th>
+                </tr>
+                <tr>
+                    <td colspan="4" style="background: #f0f0f0; font-weight: bold;">Операционные метрики</td>
+                </tr>
+                <tr>
+                    <td>Клубов всего</td>
+                    <td>55</td>
+                    <td>150</td>
+                    <td>260</td>
+                </tr>
+                <tr>
+                    <td>Платных клубов</td>
+                    <td>40</td>
+                    <td>115</td>
+                    <td>205</td>
+                </tr>
+                <tr>
+                    <td>GMV платформы/мес</td>
+                    <td>15.8M₽</td>
+                    <td>130M₽</td>
+                    <td>210M₽</td>
+                </tr>
+                <tr>
+                    <td colspan="4" style="background: #f0f0f0; font-weight: bold;">Доходы (MRR)</td>
+                </tr>
+                <tr>
+                    <td>От подписок</td>
+                    <td>145K₽</td>
+                    <td>429K₽</td>
+                    <td>801K₽</td>
+                </tr>
+                <tr>
+                    <td>От комиссии 1%</td>
+                    <td>158K₽</td>
+                    <td>1,300K₽</td>
+                    <td>2,100K₽</td>
+                </tr>
+                <tr>
+                    <td><strong>Total MRR</strong></td>
+                    <td><strong>303K₽</strong></td>
+                    <td><strong>1,729K₽</strong></td>
+                    <td><strong>2,901K₽</strong></td>
+                </tr>
+                <tr>
+                    <td><strong>Total ARR</strong></td>
+                    <td><strong>3.6M₽</strong></td>
+                    <td><strong>20.7M₽</strong></td>
+                    <td><strong>34.8M₽</strong></td>
+                </tr>
+                <tr>
+                    <td colspan="4" style="background: #f0f0f0; font-weight: bold;">Unit Economics</td>
+                </tr>
+                <tr>
+                    <td>Средний доход/клуб</td>
+                    <td>7,574₽</td>
+                    <td>15,035₽</td>
+                    <td>14,151₽</td>
+                </tr>
+                <tr>
+                    <td>CAC</td>
+                    <td>8,000₽</td>
+                    <td>6,000₽</td>
+                    <td>5,000₽</td>
+                </tr>
+                <tr>
+                    <td>LTV (36 мес)</td>
+                    <td>272,664₽</td>
+                    <td>541,260₽</td>
+                    <td>509,436₽</td>
+                </tr>
+                <tr>
+                    <td><strong>LTV/CAC</strong></td>
+                    <td><strong>34.1</strong></td>
+                    <td><strong>90.2</strong></td>
+                    <td><strong>101.9</strong></td>
+                </tr>
+            </table>
+
+            <h2>🎯 Влияние на ключевые метрики</h2>
+            
+            <h3>Сравнение моделей</h3>
+            <table>
+                <tr>
+                    <th>Метрика</th>
+                    <th>Без комиссии</th>
+                    <th>С комиссией 1%</th>
+                    <th>Улучшение</th>
+                </tr>
+                <tr>
+                    <td><strong>Break-even</strong></td>
+                    <td>125 клубов</td>
+                    <td>50 клубов</td>
+                    <td style="color: green;">-60%</td>
+                </tr>
+                <tr>
+                    <td><strong>MRR (Год 2)</strong></td>
+                    <td>429K₽</td>
+                    <td>1,729K₽</td>
+                    <td style="color: green;">+303%</td>
+                </tr>
+                <tr>
+                    <td><strong>LTV/CAC</strong></td>
+                    <td>22.4</td>
+                    <td>90.2</td>
+                    <td style="color: green;">+303%</td>
+                </tr>
+                <tr>
+                    <td><strong>Gross Margin</strong></td>
+                    <td>87%</td>
+                    <td>92%</td>
+                    <td style="color: green;">+5pp</td>
+                </tr>
+                <tr>
+                    <td><strong>Payback Period</strong></td>
+                    <td>2.2 мес</td>
+                    <td>0.7 мес</td>
+                    <td style="color: green;">-68%</td>
+                </tr>
+            </table>
+
+            <h2>💡 Стратегические преимущества модели "Подписка + Единая комиссия 1%"</h2>
+
+            <div class="info">
+                <h3>1. Выравнивание интересов</h3>
+                <ul>
+                    <li>Клуб платит больше, когда зарабатывает больше</li>
+                    <li>AllCourt заинтересован в росте продаж клуба</li>
+                    <li>Win-win модель партнерства</li>
+                </ul>
+            </div>
+
+            <div class="info">
+                <h3>2. Простота и прозрачность</h3>
+                <ul>
+                    <li>Единая комиссия 1% для всех - легко объяснить</li>
+                    <li>Нет сложных расчетов и условий</li>
+                    <li>Доверие клиентов выше</li>
+                </ul>
+            </div>
+
+            <div class="info">
+                <h3>3. Масштабируемость дохода</h3>
+                <ul>
+                    <li>Доход растет с ростом бизнеса клиентов</li>
+                    <li>Не ограничен фиксированной подпиской</li>
+                    <li>Потенциал 2-3x к базовой модели</li>
+                </ul>
+            </div>
+
+            <div class="info">
+                <h3>4. Справедливость</h3>
+                <ul>
+                    <li>Все клубы в равных условиях</li>
+                    <li>Фокус на развитии, а не на переговорах о комиссиях</li>
+                    <li>Мотивация расти для всех сегментов</li>
+                </ul>
+            </div>
+
+            <h2>🚀 Структура тарифов с единой комиссией</h2>
+            
+            <h3>Тарифная сетка:</h3>
+            <table>
+                <tr>
+                    <th>Тариф</th>
+                    <th>Подписка/мес</th>
+                    <th>Комиссия</th>
+                    <th>Целевая аудитория</th>
+                </tr>
+                <tr>
+                    <td><strong>СТАРТ</strong></td>
+                    <td>Бесплатно</td>
+                    <td>1%</td>
+                    <td>Тестирование системы</td>
+                </tr>
+                <tr>
+                    <td><strong>СТАНДАРТ</strong></td>
+                    <td>3,000-6,000₽</td>
+                    <td>1%</td>
+                    <td>Малые и средние клубы</td>
+                </tr>
+                <tr>
+                    <td><strong>ПРОФИ</strong></td>
+                    <td>4,000-8,000₽</td>
+                    <td>1%</td>
+                    <td>Крупные клубы</td>
+                </tr>
+                <tr>
+                    <td><strong>ENTERPRISE</strong></td>
+                    <td>Индивидуально</td>
+                    <td>1%</td>
+                    <td>Сети клубов</td>
+                </tr>
+            </table>
+
+            <div class="highlight">
+                <h3>Преимущества единой комиссии 1%:</h3>
+                <ul>
+                    <li><strong>Простота и прозрачность</strong> для всех клиентов</li>
+                    <li><strong>Легче объяснить</strong> ценность сервиса</li>
+                    <li><strong>Нет дискриминации</strong> по размеру бизнеса</li>
+                    <li><strong>Фокус на качестве</strong>, а не на оптимизации комиссий</li>
+                </ul>
+            </div>
+
+            <h2>📊 Прогноз по сегментам с единой комиссией 1%</h2>
+            <table>
+                <tr>
+                    <th>Сегмент</th>
+                    <th>Клубов</th>
+                    <th>GMV/мес</th>
+                    <th>Подписка</th>
+                    <th>Комиссия 1%</th>
+                    <th>Total</th>
+                    <th>% дохода</th>
+                </tr>
+                <tr>
+                    <td><strong>Падел</strong></td>
+                    <td>30</td>
+                    <td>45M₽</td>
+                    <td>120K₽</td>
+                    <td>450K₽</td>
+                    <td>570K₽</td>
+                    <td>43%</td>
+                </tr>
+                <tr>
+                    <td><strong>Теннис</strong></td>
+                    <td>85</td>
+                    <td>68M₽</td>
+                    <td>255K₽</td>
+                    <td>680K₽</td>
+                    <td>935K₽</td>
+                    <td>45%</td>
+                </tr>
+                <tr>
+                    <td><strong>Бадминтон</strong></td>
+                    <td>35</td>
+                    <td>17M₽</td>
+                    <td>70K₽</td>
+                    <td>170K₽</td>
+                    <td>240K₽</td>
+                    <td>12%</td>
+                </tr>
+                <tr style="background: #e8f5e9;">
+                    <td><strong>Итого (Год 2)</strong></td>
+                    <td><strong>150</strong></td>
+                    <td><strong>130M₽</strong></td>
+                    <td><strong>445K₽</strong></td>
+                    <td><strong>1,300K₽</strong></td>
+                    <td><strong>1,745K₽</strong></td>
+                    <td><strong>100%</strong></td>
+                </tr>
+            </table>
+
+            <div class="success">
+                <h2>✅ Ключевые выводы</h2>
+                <ol>
+                    <li><strong>Единая комиссия 1% удваивает доходы</strong> и делает модель прозрачной</li>
+                    <li><strong>Break-even достигается в 2 раза быстрее</strong> (6 vs 12 месяцев)</li>
+                    <li><strong>LTV/CAC улучшается до 34-65x</strong> - топовый показатель для SaaS</li>
+                    <li><strong>Модель более привлекательна для инвесторов</strong>:
+                        <ul>
+                            <li>Marketplace экономика (высокие мультипликаторы)</li>
+                            <li>Предсказуемость SaaS + рост marketplace</li>
+                            <li>Простая и понятная структура комиссий</li>
+                            <li>Сетевые эффекты усиливаются</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+
+            <h2>🎯 Новые целевые показатели для инвесторов</h2>
+            <table>
+                <tr>
+                    <th>Метрика</th>
+                    <th>Q4 2025</th>
+                    <th>2026</th>
+                    <th>2027</th>
+                </tr>
+                <tr>
+                    <td>GMV годовой</td>
+                    <td>190M₽</td>
+                    <td>1,560M₽</td>
+                    <td>2,520M₽</td>
+                </tr>
+                <tr>
+                    <td>Net Revenue</td>
+                    <td>3.6M₽</td>
+                    <td>20.9M₽</td>
+                    <td>36.4M₽</td>
+                </tr>
+                <tr>
+                    <td>Take Rate (подписка + 1%)</td>
+                    <td>1.9%</td>
+                    <td>1.34%</td>
+                    <td>1.44%</td>
+                </tr>
+                <tr>
+                    <td>Валюация*</td>
+                    <td>50M₽</td>
+                    <td>300M₽</td>
+                    <td>700M₽</td>
+                </tr>
+            </table>
+            <p style="font-size: 12px; color: #888;">*При мультипликаторе 15-20x ARR для гибридной SaaS/Marketplace модели</p>
+
+            <div class="metric-box">
+                <h2>🔥 Action Items</h2>
+                <ol>
+                    <li><strong>Интеграция платежей</strong> - критично для сбора комиссии</li>
+                    <li><strong>Договор с эквайрингом</strong> - оптимизация комиссий (1.5-2%)</li>
+                    <li><strong>Автоматизация выплат</strong> - сплитование платежей клубам</li>
+                    <li><strong>Compliance</strong> - лицензии, договоры, налоги с комиссии</li>
+                    <li><strong>Метрики в реальном времени</strong> - дашборд GMV и комиссий</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Проверка пароля при нажатии Enter
+        document.getElementById('passwordInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                checkPassword();
+            }
+        });
+
+        function checkPassword() {
+            const password = document.getElementById('passwordInput').value;
+            const correctPassword = 'BULAT';
+            
+            if (password === correctPassword) {
+                // Скрываем экран пароля и показываем контент
+                document.getElementById('passwordScreen').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+                
+                // Сохраняем в localStorage для этой сессии
+                sessionStorage.setItem('fm-authenticated', 'true');
+            } else {
+                // Показываем ошибку
+                document.getElementById('errorMessage').style.display = 'block';
+                document.getElementById('passwordInput').value = '';
+                
+                // Скрываем ошибку через 3 секунды
+                setTimeout(() => {
+                    document.getElementById('errorMessage').style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // Проверяем, был ли уже введен пароль в этой сессии
+        window.onload = function() {
+            if (sessionStorage.getItem('fm-authenticated') === 'true') {
+                document.getElementById('passwordScreen').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>

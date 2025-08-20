@@ -64,61 +64,15 @@ export function normalizeDateInClubTZ(dateValue: any, clubTimezone?: string): Da
   
   // Firestore Timestamp с методом toDate
   if (dateValue?.toDate && typeof dateValue.toDate === 'function') {
-    const utcDate = dateValue.toDate()
-    
-    // Для старых бронирований, которые были созданы с локальным временем,
-    // нам нужно корректно интерпретировать дату
-    // Проверяем час в UTC - если это близко к полуночи, значит дата правильная
-    const utcHours = utcDate.getUTCHours()
-    
-    // Если время в UTC между 19:00 и 23:59, это означает что бронирование было создано
-    // в часовом поясе восточнее UTC (например, в России) и дата должна быть следующей
-    if (utcHours >= 19 && utcHours <= 23) {
-      // Добавляем день к UTC дате, так как это было полночь следующего дня в локальном времени
-      const adjustedDate = new Date(utcDate)
-      adjustedDate.setUTCDate(adjustedDate.getUTCDate() + 1)
-      
-      const year = adjustedDate.getUTCFullYear()
-      const month = String(adjustedDate.getUTCMonth() + 1).padStart(2, '0')
-      const day = String(adjustedDate.getUTCDate()).padStart(2, '0')
-      const dateString = `${year}-${month}-${day}`
-      
-      return stringToDateInClubTZ(dateString, clubTimezone)
-    }
-    
-    // Для остальных случаев используем дату как есть
-    const year = utcDate.getUTCFullYear()
-    const month = String(utcDate.getUTCMonth() + 1).padStart(2, '0')
-    const day = String(utcDate.getUTCDate()).padStart(2, '0')
-    const dateString = `${year}-${month}-${day}`
-    
-    return stringToDateInClubTZ(dateString, clubTimezone)
+    // Firestore Timestamp уже хранит точную дату в UTC
+    // Просто возвращаем его как есть
+    return dateValue.toDate()
   }
   
   // Firestore Timestamp объект с полем seconds
   if (dateValue?.seconds && typeof dateValue.seconds === 'number') {
-    const utcDate = new Date(dateValue.seconds * 1000)
-    const utcHours = utcDate.getUTCHours()
-    
-    // Аналогичная логика для Timestamp объектов
-    if (utcHours >= 19 && utcHours <= 23) {
-      const adjustedDate = new Date(utcDate)
-      adjustedDate.setUTCDate(adjustedDate.getUTCDate() + 1)
-      
-      const year = adjustedDate.getUTCFullYear()
-      const month = String(adjustedDate.getUTCMonth() + 1).padStart(2, '0')
-      const day = String(adjustedDate.getUTCDate()).padStart(2, '0')
-      const dateString = `${year}-${month}-${day}`
-      
-      return stringToDateInClubTZ(dateString, clubTimezone)
-    }
-    
-    const year = utcDate.getUTCFullYear()
-    const month = String(utcDate.getUTCMonth() + 1).padStart(2, '0')
-    const day = String(utcDate.getUTCDate()).padStart(2, '0')
-    const dateString = `${year}-${month}-${day}`
-    
-    return stringToDateInClubTZ(dateString, clubTimezone)
+    // Создаем Date из seconds (это уже UTC timestamp)
+    return new Date(dateValue.seconds * 1000)
   }
   
   // Уже Date объект
@@ -152,23 +106,10 @@ export function normalizeDateInClubTZ(dateValue: any, clubTimezone?: string): Da
  * @returns строка даты
  */
 export function dateToStringInClubTZ(date: Date, clubTimezone?: string): string {
-  if (!clubTimezone) {
-    // Используем UTC для консистентности
-    const year = date.getUTCFullYear()
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0')
-    const day = String(date.getUTCDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
-  
-  // Форматируем дату в часовом поясе клуба
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: clubTimezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  })
-  
-  return formatter.format(date)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 /**
@@ -188,33 +129,52 @@ export function isTodayInClubTZ(date: Date, clubTimezone?: string): boolean {
  * Создает Date для начала недели с учетом часового пояса клуба
  * @param date - дата в неделе
  * @param clubTimezone - часовой пояс клуба
- * @returns Date объект начала недели (понедельник 00:00)
+ * @returns Date объект начала недели (понедельник 00:00 UTC)
  */
 export function getWeekStartInClubTZ(date: Date, clubTimezone?: string): Date {
-  const dateStr = dateToStringInClubTZ(date, clubTimezone)
-  const weekDate = stringToDateInClubTZ(dateStr, clubTimezone)
+  const tz = clubTimezone || 'Europe/Moscow'
+  
+  // Форматируем дату в часовом поясе клуба
+  const dateStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date)
+  
+  // Парсим компоненты даты
+  const [year, month, day] = dateStr.split('-').map(Number)
+  
+  // Создаем дату в UTC
+  const tempDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0))
   
   // Получаем день недели (0 = воскресенье, 1 = понедельник, ...)
-  let dayOfWeek = weekDate.getUTCDay()
+  let dayOfWeek = tempDate.getUTCDay()
   // Преобразуем в понедельник = 0, воскресенье = 6
   dayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1
   
-  // Вычитаем дни чтобы получить понедельник
-  weekDate.setUTCDate(weekDate.getUTCDate() - dayOfWeek)
+  // Создаем дату понедельника
+  const monday = new Date(Date.UTC(year, month - 1, day - dayOfWeek, 0, 0, 0))
   
-  return weekDate
+  return monday
 }
 
 /**
  * Создает Date для конца недели с учетом часового пояса клуба
  * @param date - дата в неделе
  * @param clubTimezone - часовой пояс клуба
- * @returns Date объект конца недели (воскресенье 23:59:59)
+ * @returns Date объект конца недели (воскресенье 23:59:59 UTC)
  */
 export function getWeekEndInClubTZ(date: Date, clubTimezone?: string): Date {
   const weekStart = getWeekStartInClubTZ(date, clubTimezone)
-  const weekEnd = new Date(weekStart)
-  weekEnd.setUTCDate(weekEnd.getUTCDate() + 6)
-  weekEnd.setUTCHours(23, 59, 59, 999)
-  return weekEnd
+  
+  // Создаем воскресенье 23:59:59 UTC
+  const sunday = new Date(Date.UTC(
+    weekStart.getUTCFullYear(),
+    weekStart.getUTCMonth(),
+    weekStart.getUTCDate() + 6,
+    23, 59, 59, 999
+  ))
+  
+  return sunday
 }

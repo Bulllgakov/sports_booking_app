@@ -77,18 +77,24 @@ interface Court {
 interface Venue {
   id: string
   name: string
+  timezone?: string
 }
 
 export default function BookingsManagement() {
   const { admin, club } = useAuth()
   const { isSuperAdmin, canManageBookings, hasPermission } = usePermission()
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null)
+  const [selectedVenueTimezone, setSelectedVenueTimezone] = useState<string>('Europe/Moscow')
   const [venues, setVenues] = useState<Venue[]>([])
   const [bookings, setBookings] = useState<Booking[]>([]) // Для календаря - только занимающие корт
   const [allBookings, setAllBookings] = useState<Booking[]>([]) // Для списка - все бронирования
   const [courts, setCourts] = useState<Court[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState(() => {
+    // Инициализируем с сегодняшней датой как "чистую" UTC дату
+    const now = new Date()
+    return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0))
+  })
   
   // Для тренеров автоматически устанавливаем режим календаря по тренеру
   const isTrainer = admin?.role === 'trainer'
@@ -112,23 +118,15 @@ export default function BookingsManagement() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedSlotDate, setSelectedSlotDate] = useState<Date | null>(null)
   const [selectedSlotTime, setSelectedSlotTime] = useState<string | null>(null)
+  const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null)
   const [hoveredSlot, setHoveredSlot] = useState<{date: Date, time: string, courtId?: string} | null>(null)
   const [bookingsUnsubscribe, setBookingsUnsubscribe] = useState<(() => void) | null>(null)
 
+  // Основной useEffect для инициализации (без зависимости от selectedDate)
   useEffect(() => {
-    
     if (isSuperAdmin) {
       // Загружаем список клубов для суперадмина
-      fetchVenues()
-      const venueId = localStorage.getItem('selectedVenueId')
-      if (venueId) {
-        setSelectedVenueId(venueId)
-        fetchCourts(venueId)
-        fetchTrainers(venueId)
-        fetchBookings(venueId)
-      } else {
-        setLoading(false)
-      }
+      fetchVenuesAndInitialize()
     } else if (admin?.venueId) {
       // Загружаем данные клуба для обычного админа и тренера
       fetchVenueData(admin.venueId)
@@ -147,11 +145,25 @@ export default function BookingsManagement() {
     
     // Cleanup функция для отписки от listener при размонтировании
     return () => {
-      if (bookingsUnsubscribe) {
-        bookingsUnsubscribe()
-      }
+      // Используем функциональную форму для получения актуального значения
+      setBookingsUnsubscribe((currentUnsubscribe) => {
+        if (currentUnsubscribe) {
+          currentUnsubscribe()
+        }
+        return null
+      })
     }
-  }, [admin, selectedDate, isSuperAdmin])
+  }, [admin, isSuperAdmin])
+
+  // Отдельный useEffect для обновления бронирований при изменении даты
+  useEffect(() => {
+    // Обновляем бронирования только если есть выбранный клуб
+    if (isSuperAdmin && selectedVenueId) {
+      fetchBookings(selectedVenueId)
+    } else if (!isSuperAdmin && admin?.venueId) {
+      fetchBookings(admin.venueId)
+    }
+  }, [selectedDate, selectedVenueId, admin?.venueId, isSuperAdmin])
 
   // Обновляем доступные слоты при изменении длительности
   useEffect(() => {
@@ -197,14 +209,57 @@ export default function BookingsManagement() {
         ...doc.data()
       })) as Venue[]
       setVenues(venuesData)
+      return venuesData
     } catch (error) {
       console.error('Error fetching venues:', error)
+      return []
+    }
+  }
+
+  const fetchVenuesAndInitialize = async () => {
+    try {
+      // Сначала загружаем список клубов
+      const venuesData = await fetchVenues()
+      
+      // Проверяем сохраненный ID клуба
+      const savedVenueId = localStorage.getItem('selectedVenueId')
+      if (savedVenueId && venuesData.length > 0) {
+        const selectedVenue = venuesData.find(v => v.id === savedVenueId)
+        if (selectedVenue) {
+          setSelectedVenueId(savedVenueId)
+          // Устанавливаем часовой пояс выбранного клуба
+          const timezone = selectedVenue.timezone || 'Europe/Moscow'
+          setSelectedVenueTimezone(timezone)
+          console.log('Initialized with venue:', savedVenueId, 'timezone:', timezone)
+          
+          // Загружаем данные для выбранного клуба
+          fetchCourts(savedVenueId)
+          fetchTrainers(savedVenueId)
+          fetchBookings(savedVenueId)
+        } else {
+          setLoading(false)
+        }
+      } else {
+        setLoading(false)
+      }
+    } catch (error) {
+      console.error('Error initializing venues:', error)
+      setLoading(false)
     }
   }
 
   const handleVenueChange = (venueId: string) => {
     setSelectedVenueId(venueId)
     localStorage.setItem('selectedVenueId', venueId)
+    
+    // Находим выбранный клуб и сохраняем его часовой пояс
+    const selectedVenue = venues.find(v => v.id === venueId)
+    if (selectedVenue) {
+      const timezone = selectedVenue.timezone || 'Europe/Moscow'
+      setSelectedVenueTimezone(timezone)
+      console.log('Selected venue timezone:', timezone)
+    }
+    
     fetchCourts(venueId)
     fetchTrainers(venueId)
     fetchBookings(venueId)
@@ -272,24 +327,49 @@ export default function BookingsManagement() {
     // Отписываемся от предыдущего listener, если есть
     if (bookingsUnsubscribe) {
       bookingsUnsubscribe()
+      setBookingsUnsubscribe(null)
     }
 
     try {
       setLoading(true)
       
       // Получаем информацию о площадке для часового пояса
-      let clubTimezone = club?.timezone || 'Europe/Moscow'
-      if (isSuperAdmin && venueId) {
-        const venueDoc = await getDoc(doc(db, 'venues', venueId))
-        if (venueDoc.exists()) {
-          const venueData = venueDoc.data()
-          clubTimezone = venueData.timezone || 'Europe/Moscow'
-        }
+      let clubTimezone: string
+      if (isSuperAdmin) {
+        // Для суперадмина используем сохраненный часовой пояс выбранного клуба
+        clubTimezone = selectedVenueTimezone
+        console.log('fetchBookings for superadmin:')
+        console.log('- Using saved timezone:', clubTimezone)
+        console.log('- Selected venue ID:', venueId)
+        console.log('- Selected date:', selectedDate)
+      } else {
+        // Для обычного админа используем часовой пояс из контекста
+        clubTimezone = club?.timezone || 'Europe/Moscow'
+        console.log('fetchBookings for admin:')
+        console.log('- Using club timezone:', clubTimezone)
+        console.log('- Selected date:', selectedDate)
       }
       
       // Используем часовой пояс клуба для определения границ недели
       const startOfWeek = getWeekStartInClubTZ(selectedDate, clubTimezone)
       const endOfWeek = getWeekEndInClubTZ(selectedDate, clubTimezone)
+      
+      console.log('Week boundaries:', {
+        start: startOfWeek.toISOString(),
+        end: endOfWeek.toISOString(),
+        startFormatted: new Intl.DateTimeFormat('en-CA', {
+          timeZone: clubTimezone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).format(startOfWeek),
+        endFormatted: new Intl.DateTimeFormat('en-CA', {
+          timeZone: clubTimezone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).format(endOfWeek)
+      })
 
       // console.log('Setting up real-time listener for venue:', venueId)
       // console.log('Date range:', startOfWeek, 'to', endOfWeek)
@@ -475,8 +555,6 @@ export default function BookingsManagement() {
           return dateB.getTime() - dateA.getTime()
         })
         
-        // console.log('Calendar bookings (occupying courts):', sortedCalendarBookings.length)
-        // console.log('All bookings for list:', sortedAllBookings.length)
         
           setBookings(sortedCalendarBookings) // Для календаря
           setAllBookings(sortedAllBookings) // Для списка
@@ -491,6 +569,16 @@ export default function BookingsManagement() {
       }, (error) => {
         console.error('Error in bookings listener:', error)
         setLoading(false)
+        
+        // Если ошибка связана с потерей соединения, пробуем переподключиться через 5 секунд
+        if (error.code === 'unavailable' || error.message?.includes('transport')) {
+          console.log('Connection lost, will retry in 5 seconds...')
+          setTimeout(() => {
+            if (venueId) {
+              fetchBookings(venueId)
+            }
+          }, 5000)
+        }
       })
       
       // Сохраняем функцию отписки
@@ -561,22 +649,45 @@ export default function BookingsManagement() {
     const newDate = new Date(selectedDate)
     newDate.setDate(selectedDate.getDate() + direction * 7)
     setSelectedDate(newDate)
+    
+    // Логируем для отладки
+    console.log('Navigating week, direction:', direction)
+    console.log('New date:', newDate)
+    console.log('Selected venue ID:', selectedVenueId)
+    console.log('Selected venue timezone:', selectedVenueTimezone)
   }
 
   const getWeekDates = () => {
     if (!selectedDate) return []
     
-    // Получаем часовой пояс клуба
-    const clubTimezone = club?.timezone || 'Europe/Moscow'
+    // Берем дату из selectedDate без часового пояса
+    // selectedDate уже содержит нужную дату
+    const year = selectedDate.getFullYear()
+    const month = selectedDate.getMonth() 
+    const day = selectedDate.getDate()
     
-    const dates = []
-    const startOfWeek = getWeekStartInClubTZ(selectedDate, clubTimezone)
+    // Создаем "чистую" дату в UTC без времени для выбранного дня
+    const tempDate = new Date(Date.UTC(year, month, day, 0, 0, 0))
+    let dayOfWeek = tempDate.getUTCDay()
+    dayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1 // Понедельник = 0
     
+    // Находим понедельник текущей недели
+    const monday = new Date(Date.UTC(year, month, day - dayOfWeek, 0, 0, 0))
+    
+    const dates: Date[] = []
+    
+    // Генерируем 7 дней недели как "чистые" UTC даты
     for (let i = 0; i < 7; i++) {
-      const date = new Date(startOfWeek)
-      date.setUTCDate(startOfWeek.getUTCDate() + i)
+      const date = new Date(Date.UTC(
+        monday.getUTCFullYear(),
+        monday.getUTCMonth(),
+        monday.getUTCDate() + i,
+        0, 0, 0, 0
+      ))
       dates.push(date)
     }
+    
+    
     return dates
   }
 
@@ -591,9 +702,17 @@ export default function BookingsManagement() {
           ? booking.date 
           : (booking.date?.toDate ? booking.date.toDate() : new Date(booking.date))
           
+        // Используем часовой пояс клуба для корректного сравнения дат
+        const clubTz = selectedVenueTimezone || clubTimezone || 'Europe/Moscow'
+        
+        // Сравниваем даты как UTC без часовых поясов
+        const bookingDateStr = `${bookingDate.getUTCFullYear()}-${String(bookingDate.getUTCMonth() + 1).padStart(2, '0')}-${String(bookingDate.getUTCDate()).padStart(2, '0')}`
+        const slotDateStr = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
+        
+        
         // Проверяем, что бронирование на нужную дату и корт
         if (!bookingDate || !date || 
-            bookingDate.toDateString() !== date.toDateString() ||
+            bookingDateStr !== slotDateStr ||
             booking.courtId !== courtId) {
           return false
         }
@@ -872,7 +991,11 @@ export default function BookingsManagement() {
               <ChevronRight />
             </button>
             <button 
-              onClick={() => setSelectedDate(new Date())}
+              onClick={() => {
+                // Создаем сегодняшнюю дату как "чистую" UTC дату
+                const now = new Date()
+                setSelectedDate(new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)))
+              }}
               style={{ 
                 padding: '6px 12px',
                 border: '1px solid var(--extra-light-gray)',
@@ -1086,13 +1209,18 @@ export default function BookingsManagement() {
                       //   })
                       // }
                       
+                      // Используем часовой пояс клуба для сравнения дат
+                      const clubTz = selectedVenueTimezone || clubTimezone || 'Europe/Moscow'
+                      
                       const isSelected = selectedSlotDate && selectedSlotTime && date &&
-                        date.toDateString() === selectedSlotDate.toDateString() && 
+                        `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}` === 
+                        `${selectedSlotDate.getUTCFullYear()}-${String(selectedSlotDate.getUTCMonth() + 1).padStart(2, '0')}-${String(selectedSlotDate.getUTCDate()).padStart(2, '0')}` && 
                         time === selectedSlotTime && 
                         formData.courtId === court.id
                       
                       const isHovered = hoveredSlot && date &&
-                        date.toDateString() === hoveredSlot.date.toDateString() && 
+                        `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}` === 
+                        `${hoveredSlot.date.getUTCFullYear()}-${String(hoveredSlot.date.getUTCMonth() + 1).padStart(2, '0')}-${String(hoveredSlot.date.getUTCDate()).padStart(2, '0')}` && 
                         time === hoveredSlot.time &&
                         hoveredSlot.courtId === court.id
                       
@@ -1178,6 +1306,7 @@ export default function BookingsManagement() {
                               // Если слот пустой и в рабочее время, открываем форму создания с предвыбранным кортом
                               setSelectedSlotDate(date)
                               setSelectedSlotTime(time)
+                              setSelectedCourtId(court.id)
                               setFormData(prev => ({ ...prev, courtId: court.id }))
                               setShowCreateModal(true)
                             }
@@ -1366,7 +1495,8 @@ export default function BookingsManagement() {
                             b.trainerId === trainer.id &&
                             b.date instanceof Date && 
                             date instanceof Date &&
-                            b.date.toDateString() === date.toDateString() &&
+                            `${b.date.getUTCFullYear()}-${String(b.date.getUTCMonth() + 1).padStart(2, '0')}-${String(b.date.getUTCDate()).padStart(2, '0')}` === 
+                            `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}` &&
                             b.startTime <= time &&
                             b.endTime > time &&
                             b.status !== 'cancelled'
@@ -1378,7 +1508,8 @@ export default function BookingsManagement() {
                               b.courtId === court.id &&
                               b.date instanceof Date && 
                               date instanceof Date &&
-                              b.date.toDateString() === date.toDateString() &&
+                              `${b.date.getUTCFullYear()}-${String(b.date.getUTCMonth() + 1).padStart(2, '0')}-${String(b.date.getUTCDate()).padStart(2, '0')}` === 
+                              `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}` &&
                               b.startTime <= time &&
                               b.endTime > time &&
                               b.status !== 'cancelled'
@@ -1495,6 +1626,7 @@ export default function BookingsManagement() {
           venueId={selectedVenueId || admin?.venueId || ''} 
           bookings={allBookings}
           onRefresh={() => fetchBookings(selectedVenueId || admin?.venueId || '')}
+          clubTimezone={isSuperAdmin ? selectedVenueTimezone : (club?.timezone || 'Europe/Moscow')}
         />
       )}
       
@@ -1507,6 +1639,7 @@ export default function BookingsManagement() {
           setSelectedBooking(null)
         }}
         onUpdate={() => fetchBookings(selectedVenueId || admin?.venueId || '')}
+        clubTimezone={isSuperAdmin ? selectedVenueTimezone : (club?.timezone || 'Europe/Moscow')}
       />
       
       {/* Модальное окно создания бронирования */}
@@ -1516,10 +1649,20 @@ export default function BookingsManagement() {
           setShowCreateModal(false)
           setSelectedSlotDate(null)
           setSelectedSlotTime(null)
+          setSelectedCourtId(null)
           setFormData(prev => ({ ...prev, courtId: '' }))
         }}
         onSuccess={(createdBooking) => {
+          // Сначала закрываем модальное окно создания
+          setShowCreateModal(false)
+          setSelectedSlotDate(null)
+          setSelectedSlotTime(null)
+          setSelectedCourtId(null)
+          setFormData(prev => ({ ...prev, courtId: '' }))
+          
+          // Затем обновляем список бронирований
           fetchBookings(selectedVenueId || admin?.venueId || '')
+          
           // Открываем попап деталей созданного бронирования
           if (createdBooking) {
             setSelectedBooking(createdBooking)
@@ -1529,7 +1672,7 @@ export default function BookingsManagement() {
         venueId={selectedVenueId || admin?.venueId || ''}
         preSelectedDate={selectedSlotDate || undefined}
         preSelectedTime={selectedSlotTime || undefined}
-        preSelectedCourtId={formData.courtId || undefined}
+        preSelectedCourtId={selectedCourtId || undefined}
         preSelectedTrainerId={calendarMode === 'trainer' ? selectedTrainerId : undefined}
       />
     </div>

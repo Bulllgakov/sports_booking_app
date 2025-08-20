@@ -7,8 +7,6 @@ import { calculateCourtPrice, getPriceBreakdown } from '../utils/pricing'
 import { useAuth } from '../contexts/AuthContext'
 import { 
   dateToString, 
-  stringToDate, 
-  dateToTimestamp,
   calculateEndTime,
   hoursToMinutes,
   minutesToHours,
@@ -98,14 +96,15 @@ export default function CreateBookingModal({
   const [formData, setFormData] = useState({
     clientName: '',
     clientPhone: '+7',
-    courtId: preSelectedCourtId || '',
-    date: preSelectedDate ? formatDateToLocal(preSelectedDate) : formatDateToLocal(new Date()),
-    startTime: preSelectedTime || '10:00',
+    courtId: '',
+    date: formatDateToLocal(new Date()),
+    startTime: '10:00',
     duration: 1,
     paymentMethod: 'online' as 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card' | 'vtb_card'
   })
   const [availableSlots, setAvailableSlots] = useState<string[]>([])
   const [existingBookings, setExistingBookings] = useState<any[]>([])
+  const [bookingsLoading, setBookingsLoading] = useState(false)
   const [unsubscribe, setUnsubscribe] = useState<(() => void) | null>(null)
   const [enabledPaymentMethods, setEnabledPaymentMethods] = useState<Record<string, boolean>>({
     cash: true,
@@ -272,12 +271,17 @@ export default function CreateBookingModal({
   }
 
   // Проверка, занят ли временной слот
-  const isSlotOccupied = (startTime: string, duration: number) => {
+  const isSlotOccupied = (startTime: string, duration: number, courtId?: string) => {
     const [startHour, startMinute] = startTime.split(':').map(Number)
     const slotStart = startHour + startMinute / 60
     const slotEnd = slotStart + duration
 
-    const occupied = existingBookings.some(booking => {
+    // Фильтруем бронирования по корту, если указан courtId
+    const relevantBookings = courtId 
+      ? existingBookings.filter(booking => booking.courtId === courtId)
+      : existingBookings
+
+    const occupied = relevantBookings.some(booking => {
       const [bookingStartHour, bookingStartMinute] = booking.startTime.split(':').map(Number)
       const [bookingEndHour, bookingEndMinute] = booking.endTime.split(':').map(Number)
       const bookingStart = bookingStartHour + bookingStartMinute / 60
@@ -390,7 +394,9 @@ export default function CreateBookingModal({
 
   useEffect(() => {
     if (isOpen && venueId) {
-      fetchCourts()
+      // Передаем true в fetchCourts если есть preSelectedCourtId,
+      // чтобы не выбирать автоматически первый корт
+      fetchCourts(!!preSelectedCourtId)
       fetchTrainers()
       loadPaymentMethodsSettings()
       
@@ -417,41 +423,55 @@ export default function CreateBookingModal({
         },
         (error) => {
           console.error('Error listening to courts:', error)
+          // При ошибке подключения просто логируем, не прерываем работу
+          // Пользователь все еще может использовать последние загруженные данные
         }
       )
       
       // Обновляем форму при изменении предвыбранных значений
-      if (preSelectedDate) {
-        setFormData(prev => ({
-          ...prev,
-          date: formatDateToLocal(preSelectedDate)
-        }))
+      // ВАЖНО: preSelectedCourtId имеет приоритет над старым значением
+      const actualCourtId = preSelectedCourtId || ''
+      
+      const newFormData = {
+        ...formData,
+        date: preSelectedDate ? formatDateToLocal(preSelectedDate) : formData.date,
+        startTime: preSelectedTime || formData.startTime,
+        courtId: actualCourtId,
+        duration: formData.duration,
+        clientName: formData.clientName,
+        clientPhone: formData.clientPhone,
+        paymentMethod: formData.paymentMethod
       }
-      if (preSelectedTime) {
-        setFormData(prev => ({
-          ...prev,
-          startTime: preSelectedTime
-        }))
+      
+      setFormData(newFormData)
+      
+      // Устанавливаем тренера если он предвыбран
+      if (preSelectedTrainerId) {
+        setSelectedTrainerId(preSelectedTrainerId)
+        setIncludeTrainer(true)
+      } else {
+        // Сбрасываем тренера если он не предвыбран
+        setSelectedTrainerId('')
+        setIncludeTrainer(false)
       }
-      // Всегда обновляем courtId при открытии модального окна
-      setFormData(prev => ({
-        ...prev,
-        courtId: preSelectedCourtId || ''
-      }))
-      // Инициализируем слоты при открытии
-      const slots = generateTimeSlots(formData.duration)
+      
+      // Очищаем старые бронирования при открытии
+      setExistingBookings([])
+      
+      // Инициализируем слоты при открытии с новыми данными
+      const slots = generateTimeSlots(newFormData.duration)
       setAvailableSlots(slots)
       
       // Загружаем существующие бронирования при открытии модального окна
-      if (preSelectedDate || formData.date) {
-        const dateToUse = preSelectedDate ? formatDateToLocal(preSelectedDate) : formData.date
+      if (newFormData.date) {
+        const dateToUse = newFormData.date
         
         if (preSelectedTrainerId) {
           // Если открыто из календаря тренера, загружаем все бронирования
           fetchAllCourtsBookings(dateToUse)
-        } else if (preSelectedCourtId) {
+        } else if (actualCourtId) {
           // Если открыто из календаря кортов, загружаем для конкретного корта
-          fetchExistingBookings(preSelectedCourtId, dateToUse)
+          fetchExistingBookings(actualCourtId, dateToUse)
         }
       }
       
@@ -466,6 +486,28 @@ export default function CreateBookingModal({
       setSearchLoading(false)
       setShowNewCustomerForm(false)
       setShowDropdown(false)
+      // Очищаем бронирования при закрытии
+      setExistingBookings([])
+      setBookingsLoading(false)
+      // Отписываемся от подписки
+      if (unsubscribe) {
+        unsubscribe()
+        setUnsubscribe(null)
+      }
+      // Сбрасываем форму к начальным значениям
+      setFormData({
+        clientName: '',
+        clientPhone: '+7',
+        courtId: '',
+        date: formatDateToLocal(new Date()),
+        startTime: '10:00',
+        duration: 1,
+        paymentMethod: 'online' as 'cash' | 'card_on_site' | 'transfer' | 'online' | 'sberbank_card' | 'tbank_card' | 'vtb_card'
+      })
+      setAvailableSlots([])
+      // Сбрасываем выбранного тренера
+      setSelectedTrainerId('')
+      setIncludeTrainer(false)
     }
   }, [isOpen, venueId, preSelectedDate, preSelectedTime, preSelectedCourtId, venueSlotInterval])
 
@@ -505,72 +547,134 @@ export default function CreateBookingModal({
 
   // Загружаем бронирования при изменении корта или даты с real-time обновлениями
   useEffect(() => {
-    if (formData.date && isOpen) {
+    // Устанавливаем флаг для отмены если компонент размонтируется
+    let cancelled = false
+    
+    if (formData.date && isOpen && venueId) {
       // Отписываемся от предыдущей подписки
       if (unsubscribe) {
         unsubscribe()
         setUnsubscribe(null)
       }
 
-      // Если открыто из календаря тренера и нет выбранного корта
-      if (preSelectedTrainerId && !formData.courtId) {
-        // Загружаем начальные данные для всех кортов
-        fetchAllCourtsBookings(formData.date)
+      // Очищаем существующие бронирования перед загрузкой новых
+      setExistingBookings([])
+      setBookingsLoading(true)
 
-        // Настраиваем real-time подписку для всех кортов
-        const bookingsRef = collection(db, 'bookings')
-        
-        const startOfDay = new Date(formData.date)
-        startOfDay.setHours(0, 0, 0, 0)
-        const endOfDay = new Date(formData.date)
-        endOfDay.setHours(23, 59, 59, 999)
-        
-        const q = query(
-          bookingsRef,
-          where('venueId', '==', venueId),
-          where('date', '>=', Timestamp.fromDate(startOfDay)),
-          where('date', '<=', Timestamp.fromDate(endOfDay))
-        )
+      // Если открыто из календаря тренера
+      if (preSelectedTrainerId) {
+        if (!formData.courtId) {
+          // Если корт не выбран, загружаем все бронирования
+          fetchAllCourtsBookings(formData.date).finally(() => setBookingsLoading(false))
 
-        const unsub = onSnapshot(q, (snapshot) => {
-          const allBookings = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }))
+          // Настраиваем real-time подписку для всех кортов
+          const bookingsRef = collection(db, 'bookings')
           
-          // Фильтруем бронирования согласно ТЗ
-          const bookings = allBookings.filter(booking => {
-            const status = booking.status || 'pending'
-            const paymentStatus = booking.paymentStatus || 'awaiting_payment'
-            
-            if (status === 'cancelled') return false
-            if (['cancelled', 'refunded', 'error'].includes(paymentStatus)) return false
-            if (status === 'confirmed' || status === 'pending') return true
-            if (paymentStatus === 'paid' || paymentStatus === 'awaiting_payment') return true
-            
-            return false
-          })
+          const parsedDate = new Date(formData.date)
+          const startOfDay = new Date(Date.UTC(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate(), 0, 0, 0))
+          const endOfDay = new Date(Date.UTC(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate(), 23, 59, 59))
           
-          setExistingBookings(bookings)
-        })
+          const q = query(
+            bookingsRef,
+            where('venueId', '==', venueId),
+            where('date', '>=', Timestamp.fromDate(startOfDay)),
+            where('date', '<=', Timestamp.fromDate(endOfDay))
+          )
 
-        setUnsubscribe(() => unsub)
-        return
+          const unsub = onSnapshot(q, 
+            (snapshot) => {
+              const allBookings = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+              }))
+              
+              // Фильтруем бронирования согласно ТЗ
+              const bookings = allBookings.filter(booking => {
+                const status = booking.status || 'pending'
+                const paymentStatus = booking.paymentStatus || 'awaiting_payment'
+                
+                if (status === 'cancelled') return false
+                if (['cancelled', 'refunded', 'error'].includes(paymentStatus)) return false
+                if (status === 'confirmed' || status === 'pending') return true
+                if (paymentStatus === 'paid' || paymentStatus === 'awaiting_payment') return true
+                
+                return false
+              })
+              
+              setExistingBookings(bookings)
+            },
+            (error) => {
+              console.error('Error listening to bookings:', error)
+              setBookingsLoading(false)
+            }
+          )
+
+          if (!cancelled) {
+            setUnsubscribe(() => unsub)
+          }
+          return
+        } else {
+          // Если корт выбран при бронировании с тренером, загружаем для конкретного корта
+          fetchExistingBookings(formData.courtId, formData.date).finally(() => setBookingsLoading(false))
+          
+          // Настраиваем real-time подписку для конкретного корта
+          const bookingsRef = collection(db, 'bookings')
+          
+          const parsedDate = new Date(formData.date)
+          const startOfDay = new Date(Date.UTC(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate(), 0, 0, 0))
+          const endOfDay = new Date(Date.UTC(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate(), 23, 59, 59))
+          
+          const q = query(
+            bookingsRef,
+            where('courtId', '==', formData.courtId),
+            where('date', '>=', Timestamp.fromDate(startOfDay)),
+            where('date', '<=', Timestamp.fromDate(endOfDay))
+          )
+          
+          const unsub = onSnapshot(q, 
+            (snapshot) => {
+              const bookings = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+              })).filter(booking => {
+                const status = booking.status || 'pending'
+                const paymentStatus = booking.paymentStatus || 'awaiting_payment'
+                
+                if (status === 'cancelled') return false
+                if (['cancelled', 'refunded', 'error'].includes(paymentStatus)) return false
+                if (status === 'confirmed' || status === 'pending') return true
+                if (paymentStatus === 'paid' || paymentStatus === 'awaiting_payment') return true
+                
+                return false
+              })
+              
+              setExistingBookings(bookings)
+            },
+            (error) => {
+              console.error('Error listening to court bookings:', error)
+              setBookingsLoading(false)
+            }
+          )
+          
+          if (!cancelled) {
+            setUnsubscribe(() => unsub)
+          }
+          return
+        }
       }
 
       // Для обычного режима (календарь кортов)
       if (formData.courtId) {
         // Загружаем начальные данные
-        fetchExistingBookings(formData.courtId, formData.date)
+        fetchExistingBookings(formData.courtId, formData.date).finally(() => setBookingsLoading(false))
 
         // Настраиваем real-time подписку
         const bookingsRef = collection(db, 'bookings')
       
       // Используем только Timestamp формат (все даты теперь унифицированы)
-      const startOfDay = new Date(formData.date)
-      startOfDay.setHours(0, 0, 0, 0)
-      const endOfDay = new Date(formData.date)
-      endOfDay.setHours(23, 59, 59, 999)
+      const parsedDate = new Date(formData.date)
+      const startOfDay = new Date(Date.UTC(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate(), 0, 0, 0))
+      const endOfDay = new Date(Date.UTC(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate(), 23, 59, 59))
       
       const q = query(
         bookingsRef,
@@ -579,47 +683,58 @@ export default function CreateBookingModal({
         where('date', '<=', Timestamp.fromDate(endOfDay))
       )
 
-      const unsub = onSnapshot(q, (snapshot) => {
-        const bookings = new Map()
-        
-        snapshot.docs.forEach(doc => {
-          const data = doc.data()
-          // Фильтруем согласно ТЗ:
-          // Корт считается занятым если:
-          // - status НЕ равен 'cancelled' И
-          // - paymentStatus НЕ равен 'cancelled', 'refunded', 'error' И
-          // - (status = 'confirmed' ИЛИ 'pending' ИЛИ paymentStatus = 'paid' ИЛИ 'awaiting_payment')
-          const status = data.status || 'pending'
-          const paymentStatus = data.paymentStatus || 'awaiting_payment'
+      const unsub = onSnapshot(q, 
+        (snapshot) => {
+          const bookings = new Map()
           
-          if (status !== 'cancelled' && 
-              paymentStatus !== 'cancelled' && 
-              paymentStatus !== 'refunded' &&
-              paymentStatus !== 'error' &&
-              (status === 'confirmed' || status === 'pending' ||
-               paymentStatus === 'paid' ||
-               paymentStatus === 'awaiting_payment')) {
-            bookings.set(doc.id, { id: doc.id, ...data })
-          }
-        })
-        
-        setExistingBookings(Array.from(bookings.values()))
-      })
+          snapshot.docs.forEach(doc => {
+            const data = doc.data()
+            // Фильтруем согласно ТЗ:
+            // Корт считается занятым если:
+            // - status НЕ равен 'cancelled' И
+            // - paymentStatus НЕ равен 'cancelled', 'refunded', 'error' И
+            // - (status = 'confirmed' ИЛИ 'pending' ИЛИ paymentStatus = 'paid' ИЛИ 'awaiting_payment')
+            const status = data.status || 'pending'
+            const paymentStatus = data.paymentStatus || 'awaiting_payment'
+            
+            if (status !== 'cancelled' && 
+                paymentStatus !== 'cancelled' && 
+                paymentStatus !== 'refunded' &&
+                paymentStatus !== 'error' &&
+                (status === 'confirmed' || status === 'pending' ||
+                 paymentStatus === 'paid' ||
+                 paymentStatus === 'awaiting_payment')) {
+              bookings.set(doc.id, { id: doc.id, ...data })
+            }
+          })
+          
+          setExistingBookings(Array.from(bookings.values()))
+        },
+        (error) => {
+          console.error('Error listening to selected court bookings:', error)
+          setBookingsLoading(false)
+        }
+      )
 
-      setUnsubscribe(() => unsub)
+      if (!cancelled) {
+        setUnsubscribe(() => unsub)
+      }
       }
     }
 
     // Cleanup при размонтировании или закрытии модального окна
     return () => {
-      if (unsubscribe) {
-        unsubscribe()
-        setUnsubscribe(null)
-      }
+      cancelled = true
+      setUnsubscribe((currentUnsubscribe) => {
+        if (currentUnsubscribe) {
+          currentUnsubscribe()
+        }
+        return null
+      })
     }
   }, [formData.courtId, formData.date, isOpen, venueId, preSelectedTrainerId])
 
-  const fetchCourts = async () => {
+  const fetchCourts = async (skipAutoSelect?: boolean) => {
     if (!venueId) return
 
     try {
@@ -646,10 +761,21 @@ export default function CreateBookingModal({
       
       setCourts(courtsData)
       
-      // Автоматически выбираем первый корт, если есть
-      if (courtsData.length > 0 && !formData.courtId) {
-        setFormData(prev => ({ ...prev, courtId: courtsData[0].id }))
-      }
+      // Автоматически выбираем первый корт, только если нет предвыбранного
+      // skipAutoSelect = true когда у нас есть preSelectedCourtId
+      // Также проверяем текущее значение formData.courtId еще раз
+      setFormData(prev => {
+        // Если уже есть выбранный корт или skipAutoSelect, не меняем
+        if (prev.courtId || skipAutoSelect) {
+          return prev
+        }
+        // Если кортов нет, не меняем
+        if (courtsData.length === 0) {
+          return prev
+        }
+        // Выбираем первый корт только если действительно нужно
+        return { ...prev, courtId: courtsData[0].id }
+      })
     } catch (error) {
       console.error('Error fetching courts:', error)
     }
@@ -678,12 +804,6 @@ export default function CreateBookingModal({
       )
       
       setTrainers(trainersData)
-      
-      // Если есть предвыбранный тренер, устанавливаем его
-      if (preSelectedTrainerId) {
-        setSelectedTrainerId(preSelectedTrainerId)
-        setIncludeTrainer(true)
-      }
     } catch (error) {
       console.error('Error fetching trainers:', error)
     }
@@ -693,11 +813,10 @@ export default function CreateBookingModal({
     if (!venueId || !date) return
 
     try {
-      // Создаем даты для начала и конца дня
-      const startOfDay = new Date(date)
-      startOfDay.setHours(0, 0, 0, 0)
-      const endOfDay = new Date(date)
-      endOfDay.setHours(23, 59, 59, 999)
+      // Создаем даты для начала и конца дня в UTC
+      const parsedDate = new Date(date)
+      const startOfDay = new Date(Date.UTC(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate(), 0, 0, 0))
+      const endOfDay = new Date(Date.UTC(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate(), 23, 59, 59))
 
       // Загружаем все бронирования с тренерами на выбранную дату
       const bookingsQuery = query(
@@ -738,10 +857,9 @@ export default function CreateBookingModal({
       const bookingsRef = collection(db, 'bookings')
       
       // Используем только Timestamp формат
-      const startOfDay = new Date(date)
-      startOfDay.setHours(0, 0, 0, 0)
-      const endOfDay = new Date(date)
-      endOfDay.setHours(23, 59, 59, 999)
+      const parsedDate = new Date(date)
+      const startOfDay = new Date(Date.UTC(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate(), 0, 0, 0))
+      const endOfDay = new Date(Date.UTC(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate(), 23, 59, 59))
       
       const q = query(
         bookingsRef,
@@ -791,10 +909,9 @@ export default function CreateBookingModal({
       const bookingsRef = collection(db, 'bookings')
       
       // Используем только Timestamp формат (все даты теперь унифицированы)
-      const startOfDay = new Date(targetDate)
-      startOfDay.setHours(0, 0, 0, 0)
-      const endOfDay = new Date(targetDate)
-      endOfDay.setHours(23, 59, 59, 999)
+      const parsedDate = new Date(targetDate)
+      const startOfDay = new Date(Date.UTC(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate(), 0, 0, 0))
+      const endOfDay = new Date(Date.UTC(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate(), 23, 59, 59))
       
       const q = query(
         bookingsRef,
@@ -912,7 +1029,7 @@ export default function CreateBookingModal({
     }
     
     // Проверка что выбранный слот не занят
-    if (isSlotOccupied(formData.startTime, formData.duration)) {
+    if (isSlotOccupied(formData.startTime, formData.duration, formData.courtId)) {
       alert('Выбранное время уже занято. Пожалуйста, выберите другое время.')
       return
     }
@@ -953,10 +1070,8 @@ export default function CreateBookingModal({
       // Проверяем доступность слота непосредственно перед созданием
       // Конвертируем дату в правильный формат для запроса
       const bookingDateObj = new Date(formData.date + 'T00:00:00')
-      const startOfDay = new Date(bookingDateObj)
-      startOfDay.setHours(0, 0, 0, 0)
-      const endOfDay = new Date(bookingDateObj)
-      endOfDay.setHours(23, 59, 59, 999)
+      const startOfDay = new Date(Date.UTC(bookingDateObj.getFullYear(), bookingDateObj.getMonth(), bookingDateObj.getDate(), 0, 0, 0))
+      const endOfDay = new Date(Date.UTC(bookingDateObj.getFullYear(), bookingDateObj.getMonth(), bookingDateObj.getDate(), 23, 59, 59))
       
       // Запрашиваем все бронирования на эту дату для этого корта
       const checkQuery = query(
@@ -1051,8 +1166,11 @@ export default function CreateBookingModal({
       
       const pricePerHour = formData.duration > 0 ? courtPrice / formData.duration : 0
       
-      // Преобразуем строку даты в Date объект
-      const bookingDate = stringToDate(formData.date)
+      // Создаем Timestamp напрямую из компонентов даты
+      // Это гарантирует, что дата останется точно такой, какую выбрали
+      const [year, month, day] = formData.date.split('-').map(Number)
+      // Создаем дату в UTC чтобы она не зависела от локального времени
+      const bookingDate = Timestamp.fromDate(new Date(Date.UTC(year, month - 1, day, 0, 0, 0)))
       
       const bookingData = {
         venueId: venueId,
@@ -1061,7 +1179,7 @@ export default function CreateBookingModal({
         venueName: venueName,
         customerName: sanitizeString(formData.clientName),
         customerPhone: normalizePhone(formData.clientPhone),
-        date: dateToTimestamp(bookingDate), // Сохраняем как Timestamp
+        date: bookingDate, // Уже Timestamp
         startTime: formData.startTime,
         duration: durationMinutes, // Сохраняем в минутах
         // endTime вычисляется при необходимости
@@ -1134,7 +1252,7 @@ export default function CreateBookingModal({
             bookingId: bookingRef.id,
             amount: totalPrice,
             description: `Оплата бронирования корта ${court.name} на ${formData.date} ${formData.startTime}`,
-            returnUrl: `${baseUrl}/payment-result?bookingId=${bookingRef.id}`,
+            returnUrl: `${baseUrl}/club/${venueId}/booking-confirmation/${bookingRef.id}`,
             userId: admin.uid || '',
             customerPhone: normalizePhone(formData.clientPhone),
             customerEmail: ''
@@ -1237,6 +1355,12 @@ export default function CreateBookingModal({
       setSelectedCustomer(null)
       setShowNewCustomerForm(false)
 
+      // Очищаем подписки перед закрытием
+      if (unsubscribe) {
+        unsubscribe()
+        setUnsubscribe(null)
+      }
+      
       // Передаем данные созданного бронирования
       // Преобразуем обратно для отображения
       const createdBooking = {
@@ -1250,7 +1374,7 @@ export default function CreateBookingModal({
       }
       
       onSuccess(createdBooking)
-      onClose()
+      // Не вызываем onClose здесь, так как он будет вызван в onSuccess
     } catch (error) {
       console.error('Error creating booking:', error)
       alert('Ошибка при создании бронирования: ' + (error as Error).message)
@@ -1572,9 +1696,11 @@ export default function CreateBookingModal({
                   disabled={loading}
                   required
                 >
-                  <option value="">Выберите время</option>
-                  {availableSlots.map(time => {
-                    const occupied = isSlotOccupied(time, formData.duration)
+                  <option value="">
+                    {bookingsLoading ? 'Загрузка...' : 'Выберите время'}
+                  </option>
+                  {!bookingsLoading && availableSlots.map(time => {
+                    const occupied = isSlotOccupied(time, formData.duration, formData.courtId)
                     // Вычисляем время окончания
                     const [startHour, startMinute] = time.split(':').map(Number)
                     const endHour = startHour + Math.floor(formData.duration)

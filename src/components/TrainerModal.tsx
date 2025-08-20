@@ -199,7 +199,7 @@ const TrainerModal: React.FC<TrainerModalProps> = ({ isOpen, onClose, onSave, tr
 
     setAccountLoading(true)
     try {
-      const functions = getFunctions()
+      const functions = getFunctions(undefined, 'europe-west1')
       const createTrainerAccount = httpsCallable(functions, 'createTrainerAccount')
       
       const result = await createTrainerAccount({
@@ -239,7 +239,7 @@ const TrainerModal: React.FC<TrainerModalProps> = ({ isOpen, onClose, onSave, tr
 
     setAccountLoading(true)
     try {
-      const functions = getFunctions()
+      const functions = getFunctions(undefined, 'europe-west1')
       const deleteTrainerAccount = httpsCallable(functions, 'deleteTrainerAccount')
       
       const result = await deleteTrainerAccount({
@@ -266,7 +266,7 @@ const TrainerModal: React.FC<TrainerModalProps> = ({ isOpen, onClose, onSave, tr
 
     setAccountLoading(true)
     try {
-      const functions = getFunctions()
+      const functions = getFunctions(undefined, 'europe-west1')
       const resetTrainerPassword = httpsCallable(functions, 'resetTrainerPassword')
       
       const result = await resetTrainerPassword({
