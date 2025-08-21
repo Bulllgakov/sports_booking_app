@@ -99,6 +99,7 @@ export default function PaymentSettings() {
   const [testDialogOpen, setTestDialogOpen] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
   const [activeStep, setActiveStep] = useState(0)
+  const [moderationDialogOpen, setModerationDialogOpen] = useState(false)
   const [enabledPaymentMethods, setEnabledPaymentMethods] = useState<Record<string, boolean>>({
     cash: true,
     card_on_site: true,
@@ -109,6 +110,11 @@ export default function PaymentSettings() {
   })
 
   useEffect(() => {
+    // Проверяем статус клуба при загрузке
+    if (club?.status === 'pending' && !isSuperAdmin) {
+      setModerationDialogOpen(true)
+    }
+    
     if (isSuperAdmin) {
       const venueId = localStorage.getItem('selectedVenueId')
       if (venueId) {
@@ -120,7 +126,7 @@ export default function PaymentSettings() {
     } else if (admin?.venueId) {
       loadPaymentSettings(admin.venueId)
     }
-  }, [admin, isSuperAdmin])
+  }, [admin, isSuperAdmin, club])
 
   const handleVenueChange = (venueId: string) => {
     setSelectedVenueId(venueId)
@@ -762,6 +768,66 @@ export default function PaymentSettings() {
               Активировать платежи
             </Button>
           )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Модальное окно для клубов на модерации */}
+      <Dialog
+        open={moderationDialogOpen}
+        onClose={() => setModerationDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Warning color="warning" />
+            Клуб на модерации
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Для подключения платежной системы необходимо пройти модерацию.
+          </Alert>
+          <Typography variant="body1" paragraph>
+            Для успешной модерации необходимо:
+          </Typography>
+          <List>
+            <ListItem>
+              <ListItemIcon>
+                <Check color="action" />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Заполнить реквизиты компании"
+                secondary="Перейдите в раздел 'Настройки клуба' и заполните все реквизиты"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemIcon>
+                <Check color="action" />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Добавить корты"
+                secondary="Создайте хотя бы один корт в разделе 'Корты'"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemIcon>
+                <Check color="action" />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Настроить расписание работы"
+                secondary="Укажите часы работы клуба в настройках"
+              />
+            </ListItem>
+          </List>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            После выполнения всех условий модерация будет пройдена автоматически, и вы сможете подключить платежную систему.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setModerationDialogOpen(false)} variant="contained">
+            Понятно
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

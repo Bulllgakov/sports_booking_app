@@ -33,7 +33,8 @@ import {
   CalendarToday,
   Receipt,
   Upgrade,
-  Cancel
+  Cancel,
+  Warning
 } from '@mui/icons-material'
 import { useAuth } from '../../contexts/AuthContext'
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
@@ -51,6 +52,7 @@ export default function Subscription() {
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null)
   const [paymentHistory, setPaymentHistory] = useState<any[]>([])
+  const [moderationDialogOpen, setModerationDialogOpen] = useState(false)
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -142,6 +144,11 @@ export default function Subscription() {
   }
 
   const handleUpgrade = (plan: SubscriptionPlan) => {
+    // Проверяем статус клуба
+    if (club?.status === 'pending' && !isSuperAdmin) {
+      setModerationDialogOpen(true)
+      return
+    }
     setSelectedPlan(plan)
     setUpgradeDialogOpen(true)
   }
@@ -508,6 +515,66 @@ export default function Subscription() {
           </Button>
           <Button variant="contained" onClick={handleConfirmUpgrade}>
             Подтвердить
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Модальное окно для клубов на модерации */}
+      <Dialog
+        open={moderationDialogOpen}
+        onClose={() => setModerationDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Warning color="warning" />
+            Клуб на модерации
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Для смены тарифного плана необходимо пройти модерацию.
+          </Alert>
+          <Typography variant="body1" paragraph>
+            Для успешной модерации необходимо:
+          </Typography>
+          <List>
+            <ListItem>
+              <ListItemIcon>
+                <Check color="action" />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Заполнить реквизиты компании"
+                secondary="Перейдите в раздел 'Настройки клуба' и заполните все реквизиты"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemIcon>
+                <Check color="action" />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Добавить корты"
+                secondary="Создайте хотя бы один корт в разделе 'Корты'"
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemIcon>
+                <Check color="action" />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Настроить расписание работы"
+                secondary="Укажите часы работы клуба в настройках"
+              />
+            </ListItem>
+          </List>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            После выполнения всех условий модерация будет пройдена автоматически, и вы сможете изменить тарифный план.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setModerationDialogOpen(false)} variant="contained">
+            Понятно
           </Button>
         </DialogActions>
       </Dialog>
