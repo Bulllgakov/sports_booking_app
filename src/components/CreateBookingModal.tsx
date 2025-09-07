@@ -552,11 +552,9 @@ export default function CreateBookingModal({
       setIncludeTrainer(false)
       // Сбрасываем тип бронирования и связанные состояния групповой тренировки
       setBookingType('individual')
-      setIsPublicGroup(false)
-      setMaxParticipants(8)
-      setCurrentParticipants(0)
-      setGroupDescription('')
-      setParticipants([])
+      setIsPublicGroup(true)
+      setMaxParticipants(10)
+      setGroupParticipants([])
     }
   }, [isOpen, venueId, preSelectedDate, preSelectedTime, preSelectedCourtId, venueSlotInterval])
 
