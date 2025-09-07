@@ -868,6 +868,13 @@ export {getSMSTemplates, updateSMSTemplates} from "./admin/smsTemplates";
 export {createTrainerAccount, deleteTrainerAccount, resetTrainerPassword} from "./admin/trainerAccountManager";
 // SMS Auth functions - TEMPORARILY COMMENTED DUE TO DEPLOYMENT ISSUES
 // export {sendAuthSMSCode, verifyAuthSMSCode, cleanupExpiredAuthCodes} from "./auth/smsAuth";
+
+// Backup functions
+export { 
+  scheduledFirestoreBackup,
+  manualFirestoreBackup,
+  cleanupOldBackups
+} from './backup/scheduledBackup';
 // SMS Reminders - TEMPORARILY COMMENTED DUE TO DEPLOYMENT ISSUES
 // export {sendBookingReminders, sendBookingReminderManual} from "./booking/smsReminders";
 
