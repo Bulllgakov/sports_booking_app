@@ -17,7 +17,7 @@ import {
   onSnapshot
 } from 'firebase/firestore'
 import { db } from '../../services/firebase'
-import { ChevronLeft, ChevronRight } from '@mui/icons-material'
+import { ChevronLeft, ChevronRight, Groups } from '@mui/icons-material'
 import { Alert } from '@mui/material'
 import BookingsList from '../../components/BookingsList'
 import BookingDetailsModal from '../../components/BookingDetailsModal'
@@ -64,6 +64,12 @@ interface Booking {
   trainerPrice?: number
   trainerCommission?: number
   totalAmount?: number
+  
+  // Поля для групповых тренировок
+  bookingType?: 'individual' | 'group'
+  maxParticipants?: number
+  currentParticipants?: number
+  visibility?: 'public' | 'private'
 }
 
 interface Court {
@@ -95,6 +101,7 @@ export default function BookingsManagement() {
     const now = new Date()
     return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0))
   })
+  const [viewMode, setViewMode] = useState<'week' | 'day'>('week')
   
   // Для тренеров автоматически устанавливаем режим календаря по тренеру
   const isTrainer = admin?.role === 'trainer'
@@ -646,13 +653,21 @@ export default function BookingsManagement() {
 
 
   const navigateWeek = (direction: number) => {
-    const newDate = new Date(selectedDate)
-    newDate.setDate(selectedDate.getDate() + direction * 7)
-    setSelectedDate(newDate)
+    if (viewMode === 'day') {
+      // В режиме "День" переключаем по дням
+      const newDate = new Date(selectedDate)
+      newDate.setUTCDate(newDate.getUTCDate() + direction)
+      setSelectedDate(newDate)
+    } else {
+      // В режиме "Неделя" переключаем по неделям
+      const newDate = new Date(selectedDate)
+      newDate.setDate(selectedDate.getDate() + direction * 7)
+      setSelectedDate(newDate)
+    }
     
     // Логируем для отладки
-    console.log('Navigating week, direction:', direction)
-    console.log('New date:', newDate)
+    console.log('Navigating:', viewMode === 'day' ? 'day' : 'week', 'direction:', direction)
+    console.log('New date:', selectedDate)
     console.log('Selected venue ID:', selectedVenueId)
     console.log('Selected venue timezone:', selectedVenueTimezone)
   }
@@ -953,7 +968,29 @@ export default function BookingsManagement() {
 
       <div className="section-card">
         <div className="calendar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <h2 className="section-title">Календарь бронирований</h2>
+          <h2 className="section-title">
+            {viewMode === 'day' 
+              ? `${selectedDate.getDate()} ${monthNames[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`
+              : (() => {
+                  const dates = getWeekDates()
+                  if (dates.length > 0) {
+                    const firstDate = dates[0]
+                    const lastDate = dates[dates.length - 1]
+                    // Если неделя в пределах одного месяца
+                    if (firstDate.getMonth() === lastDate.getMonth()) {
+                      return `${firstDate.getDate()}-${lastDate.getDate()} ${monthNames[firstDate.getMonth()]} ${firstDate.getFullYear()}`
+                    } else if (firstDate.getFullYear() === lastDate.getFullYear()) {
+                      // Если неделя переходит на другой месяц, но в пределах года
+                      return `${firstDate.getDate()} ${monthNames[firstDate.getMonth()]} - ${lastDate.getDate()} ${monthNames[lastDate.getMonth()]} ${firstDate.getFullYear()}`
+                    } else {
+                      // Если неделя переходит на другой год
+                      return `${firstDate.getDate()} ${monthNames[firstDate.getMonth()]} ${firstDate.getFullYear()} - ${lastDate.getDate()} ${monthNames[lastDate.getMonth()]} ${lastDate.getFullYear()}`
+                    }
+                  }
+                  return 'Календарь бронирований'
+                })()
+            }
+          </h2>
           <div className="calendar-nav" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <button 
               onClick={() => navigateWeek(-1)}
@@ -990,24 +1027,49 @@ export default function BookingsManagement() {
             >
               <ChevronRight />
             </button>
-            <button 
-              onClick={() => {
-                // Создаем сегодняшнюю дату как "чистую" UTC дату
-                const now = new Date()
-                setSelectedDate(new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)))
-              }}
-              style={{ 
-                padding: '6px 12px',
-                border: '1px solid var(--extra-light-gray)',
-                background: 'var(--white)',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                marginLeft: '16px'
-              }}
-            >
-              Сегодня
-            </button>
+            {/* Переключатель вида Неделя/День */}
+            <div style={{
+              display: 'flex',
+              marginLeft: '16px',
+              border: '1px solid var(--extra-light-gray)',
+              borderRadius: '6px',
+              overflow: 'hidden'
+            }}>
+              <button
+                onClick={() => setViewMode('week')}
+                style={{
+                  padding: '8px 16px',
+                  background: viewMode === 'week' ? 'var(--primary)' : 'white',
+                  color: viewMode === 'week' ? 'white' : 'var(--dark)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: viewMode === 'week' ? '600' : '400'
+                }}
+              >
+                Неделя
+              </button>
+              <button
+                onClick={() => {
+                  setViewMode('day')
+                  // При переключении на день всегда показываем по кортам
+                  setCalendarMode('courts')
+                  setSelectedTrainerId('')
+                }}
+                style={{
+                  padding: '8px 16px',
+                  background: viewMode === 'day' ? 'var(--primary)' : 'white',
+                  color: viewMode === 'day' ? 'white' : 'var(--dark)',
+                  border: 'none',
+                  borderLeft: '1px solid var(--extra-light-gray)',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: viewMode === 'day' ? '600' : '400'
+                }}
+              >
+                День
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1016,8 +1078,7 @@ export default function BookingsManagement() {
           <div style={{ 
             display: 'flex', 
             alignItems: 'center', 
-            gap: '16px', 
-            marginBottom: '16px',
+            gap: '16px',
             padding: '12px',
             background: '#f9fafb',
             borderRadius: '8px'
@@ -1042,22 +1103,24 @@ export default function BookingsManagement() {
               >
                 По кортам
               </button>
-              <button
-                onClick={() => setCalendarMode('trainer')}
-                style={{
-                  padding: '8px 16px',
-                  border: '1px solid',
-                  borderColor: calendarMode === 'trainer' ? 'var(--primary)' : 'var(--extra-light-gray)',
-                  background: calendarMode === 'trainer' ? 'var(--primary)' : 'white',
-                  color: calendarMode === 'trainer' ? 'white' : 'var(--text-secondary)',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: calendarMode === 'trainer' ? '600' : '400'
-                }}
-              >
-                По тренеру
-              </button>
+              {viewMode === 'week' && (
+                <button
+                  onClick={() => setCalendarMode('trainer')}
+                  style={{
+                    padding: '8px 16px',
+                    border: '1px solid',
+                    borderColor: calendarMode === 'trainer' ? 'var(--primary)' : 'var(--extra-light-gray)',
+                    background: calendarMode === 'trainer' ? 'var(--primary)' : 'white',
+                    color: calendarMode === 'trainer' ? 'white' : 'var(--text-secondary)',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: calendarMode === 'trainer' ? '600' : '400'
+                  }}
+                >
+                  По тренеру
+                </button>
+              )}
             </div>
 
             {/* Выбор тренера */}
@@ -1146,26 +1209,65 @@ export default function BookingsManagement() {
         {calendarMode === 'courts' && (
           <div className="calendar-grid" style={{
             display: 'grid',
-            gridTemplateColumns: '60px repeat(7, 1fr)',
+            gridTemplateColumns: viewMode === 'day' ? `60px repeat(${courts.length}, minmax(80px, 120px))` : '60px repeat(7, 1fr)',
             gap: '1px',
-            background: 'var(--extra-light-gray)',
-            border: '1px solid var(--extra-light-gray)',
+            background: '#d1d5db',
+            border: '1px solid #d1d5db',
             borderRadius: '8px',
             overflow: 'hidden'
           }}>
-            <div style={{ background: 'var(--white)', padding: '12px' }}></div>
-            {(weekDates || []).map((date, index) => (
-            <div key={index} className="day-header" style={{ 
-              fontWeight: '600', 
-              textAlign: 'center',
-              background: 'var(--background)',
-              padding: '12px'
-            }}>
-              {dayNames[index]} {date ? date.getDate() : ''}
-            </div>
-          ))}
-          
-          {(timeSlots || []).map(time => (
+            <div style={{ background: 'var(--background)', padding: '12px', height: '44px', boxSizing: 'border-box' }}></div>
+            {viewMode === 'day' ? (
+              // В режиме "День" показываем корты как заголовки колонок
+              courts.map(court => (
+                <div key={court.id} className="court-header" style={{ 
+                  fontWeight: '600', 
+                  textAlign: 'center',
+                  background: 'var(--background)',
+                  padding: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  height: '44px',
+                  overflow: 'hidden',
+                  boxSizing: 'border-box'
+                }}>
+                  {court.color && (
+                    <div style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '3px',
+                      backgroundColor: court.color,
+                      flexShrink: 0
+                    }} />
+                  )}
+                  <span style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>{court.name}</span>
+                </div>
+              ))
+            ) : (
+              // В режиме "Неделя" показываем дни недели
+              (weekDates || []).map((date, index) => (
+                <div key={index} className="day-header" style={{ 
+                  fontWeight: '600', 
+                  textAlign: 'center',
+                  background: 'var(--background)',
+                  padding: '12px',
+                  height: '44px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxSizing: 'border-box'
+                }}>
+                  {dayNames[index]} {date ? date.getDate() : ''}
+                </div>
+              ))
+            )}
+            {(timeSlots || []).map(time => (
             <React.Fragment key={time}>
               <div className="time-slot" style={{ 
                 fontSize: '12px',
@@ -1176,26 +1278,13 @@ export default function BookingsManagement() {
               }}>
                 {time || ''}
               </div>
-              {(weekDates || []).map((date, dateIndex) => {
-                return (
-                  <div 
-                    key={`${time || 'unknown'}-${dateIndex}`}
-                    className="booking-slot-container"
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      minHeight: `${Math.max(60, courts.length * 40)}px`,
-                      background: 'var(--white)',
-                      border: '1px solid var(--extra-light-gray)',
-                      borderRadius: '4px',
-                      overflow: 'hidden'
-                    }}
-                  >
-                    {/* Разделяем ячейку на корты */}
-                    {(courts || []).map((court, courtIndex) => {
-                      const bookingForCourt = date && time && court?.id 
-                        ? getBookingsForSlot(date, time, court.id)[0]
-                        : null
+              {viewMode === 'day' ? (
+                // В режиме "День" каждая колонка - это корт
+                courts.map((court, courtIndex) => {
+                  const date = selectedDate // Используем выбранную дату
+                  const bookingForCourt = date && time && court?.id 
+                    ? getBookingsForSlot(date, time, court.id)[0]
+                    : null
                       
                       // Debug log for awaiting_payment bookings - commented out
                       // if (bookingForCourt?.paymentStatus === 'awaiting_payment') {
@@ -1270,7 +1359,7 @@ export default function BookingsManagement() {
                                 ? 'rgba(0, 168, 107, 0.2)'
                                 : isHovered
                                   ? 'rgba(0, 168, 107, 0.05)'
-                                  : 'transparent',
+                                  : 'var(--white)',
                             padding: '4px 8px',
                             borderTop: courtIndex > 0 ? '1px solid var(--extra-light-gray)' : 'none',
                             transition: 'all 0.2s ease',
@@ -1352,18 +1441,35 @@ export default function BookingsManagement() {
                                 alignItems: 'center',
                                 gap: '4px'
                               }}>
-                                {court?.color && (
-                                  <div style={{
-                                    width: '6px',
-                                    height: '6px',
-                                    borderRadius: '2px',
-                                    backgroundColor: court.color,
+                                {/* Для групповых тренировок показываем иконку группы, для обычных - точку корта */}
+                                {(bookingForCourt?.bookingType === 'group' || bookingForCourt?.clientName === 'Групповая тренировка') ? (
+                                  <Groups style={{
+                                    width: '14px',
+                                    height: '14px',
+                                    color: court?.color || 'var(--primary)',
                                     flexShrink: 0
                                   }} />
+                                ) : (
+                                  court?.color && (
+                                    <div style={{
+                                      width: '6px',
+                                      height: '6px',
+                                      borderRadius: '2px',
+                                      backgroundColor: court.color,
+                                      flexShrink: 0
+                                    }} />
+                                  )
                                 )}
-                                {bookingForCourt?.clientName || bookingForCourt?.customerName || 'Клиент'}
+                                {/* Для групповых тренировок показываем количество участников, для обычных - имя клиента */}
+                                {(bookingForCourt?.bookingType === 'group' || bookingForCourt?.clientName === 'Групповая тренировка') ? (
+                                  `${bookingForCourt.currentParticipants || 0}/${bookingForCourt.maxParticipants || 8}`
+                                ) : (
+                                  bookingForCourt?.clientName || bookingForCourt?.customerName || 'Клиент'
+                                )}
                               </div>
-                              {(bookingForCourt?.clientPhone || bookingForCourt?.customerPhone) && (
+                              {/* Для обычных бронирований показываем телефон */}
+                              {!(bookingForCourt?.bookingType === 'group' || bookingForCourt?.clientName === 'Групповая тренировка') && 
+                               (bookingForCourt?.clientPhone || bookingForCourt?.customerPhone) && (
                                 <div style={{ 
                                   color: 'var(--gray)', 
                                   fontSize: '9px',
@@ -1390,10 +1496,233 @@ export default function BookingsManagement() {
                           )}
                         </div>
                       )
-                    })}
-                  </div>
-                )
-              })}
+                    })
+                ) : (
+                  // В режиме "Неделя" показываем дни недели
+                  (weekDates || []).map((date, dateIndex) => {
+                    return (
+                      <div 
+                        key={`${time || 'unknown'}-${dateIndex}`}
+                        className="booking-slot-container"
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          minHeight: `${Math.max(60, courts.length * 40)}px`,
+                          background: 'var(--white)',
+                          border: '1px solid var(--extra-light-gray)',
+                          borderRadius: '4px',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        {/* Разделяем ячейку на корты */}
+                        {(courts || []).map((court, courtIndex) => {
+                          const bookingForCourt = date && time && court?.id 
+                            ? getBookingsForSlot(date, time, court.id)[0]
+                            : null
+                          
+                          // Используем часовой пояс клуба для сравнения дат
+                          const clubTz = selectedVenueTimezone || clubTimezone || 'Europe/Moscow'
+                          
+                          const isSelected = selectedSlotDate && selectedSlotTime && date &&
+                            `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}` === 
+                            `${selectedSlotDate.getUTCFullYear()}-${String(selectedSlotDate.getUTCMonth() + 1).padStart(2, '0')}-${String(selectedSlotDate.getUTCDate()).padStart(2, '0')}` && 
+                            time === selectedSlotTime && 
+                            formData.courtId === court.id
+                          
+                          const isHovered = hoveredSlot && date &&
+                            `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}` === 
+                            `${hoveredSlot.date.getUTCFullYear()}-${String(hoveredSlot.date.getUTCMonth() + 1).padStart(2, '0')}-${String(hoveredSlot.date.getUTCDate()).padStart(2, '0')}` && 
+                            time === hoveredSlot.time &&
+                            hoveredSlot.courtId === court.id
+                          
+                          // Проверяем, находится ли слот в рабочих часах
+                          const currentVenue = venues.find(v => v.id === (selectedVenueId || admin?.venueId))
+                          const { startHour, endHour } = getWorkingHoursForDate(date, currentVenue)
+                          const slotHour = parseInt(time.split(':')[0])
+                          const isOutsideWorkingHours = slotHour < startHour || slotHour >= endHour
+                          
+                          return (
+                            <div
+                              key={court.id}
+                              className="court-slot"
+                              style={{
+                                flex: 1,
+                                position: 'relative',
+                                cursor: isOutsideWorkingHours && !bookingForCourt ? 'not-allowed' : 'pointer',
+                                minHeight: '40px',
+                                background: isOutsideWorkingHours && !bookingForCourt
+                                  ? 'repeating-linear-gradient(45deg, #f3f4f6, #f3f4f6 10px, #e5e7eb 10px, #e5e7eb 20px)'
+                                  : bookingForCourt
+                                  ? (() => {
+                                      // Определяем цвет по статусу оплаты
+                                      const paymentStatus = bookingForCourt.paymentStatus || 'awaiting_payment'
+                                      let statusColor = '#9CA3AF' // светло-серый для неизвестных статусов
+                                      
+                                      if (paymentStatus === 'awaiting_payment') {
+                                        statusColor = '#F59E0B' // оранжевый
+                                      } else if (paymentStatus === 'paid') {
+                                        statusColor = '#10B981' // зеленый
+                                      } else if (paymentStatus === 'cancelled' || paymentStatus === 'refunded') {
+                                        statusColor = '#EF4444' // красный
+                                      } else if (paymentStatus === 'error') {
+                                        statusColor = '#DC2626' // темно-красный
+                                      } else if (paymentStatus === 'not_required') {
+                                        statusColor = '#6B7280' // серый
+                                      } else if (paymentStatus === 'expired') {
+                                        statusColor = '#374151' // темно-серый
+                                      }
+                                      
+                                      const r = parseInt(statusColor.slice(1, 3), 16)
+                                      const g = parseInt(statusColor.slice(3, 5), 16)
+                                      const b = parseInt(statusColor.slice(5, 7), 16)
+                                      return `rgba(${r}, ${g}, ${b}, 0.15)`
+                                    })()
+                                  : isSelected
+                                    ? 'rgba(0, 168, 107, 0.2)'
+                                    : isHovered
+                                      ? 'rgba(0, 168, 107, 0.05)'
+                                      : 'transparent',
+                                padding: '4px 8px',
+                                borderTop: courtIndex > 0 ? '1px solid var(--extra-light-gray)' : 'none',
+                                transition: 'all 0.2s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                              onMouseEnter={() => {
+                                if (!bookingForCourt && !isOutsideWorkingHours) {
+                                  setHoveredSlot({date, time, courtId: court.id})
+                                }
+                              }}
+                              onMouseLeave={() => {
+                                setHoveredSlot(null)
+                              }}
+                              onClick={() => {
+                                if (bookingForCourt) {
+                                  // Если есть бронирование, показываем детали
+                                  setSelectedBooking(bookingForCourt)
+                                  setShowDetailsModal(true)
+                                } else {
+                                  // Проверяем, что время находится в рабочих часах для этого дня
+                                  const currentVenue = venues.find(v => v.id === (selectedVenueId || admin?.venueId))
+                                  const { startHour, endHour } = getWorkingHoursForDate(date, currentVenue)
+                                  const slotHour = parseInt(time.split(':')[0])
+                                  
+                                  if (slotHour < startHour || slotHour >= endHour) {
+                                    // Время вне рабочих часов
+                                    alert(`Клуб не работает в это время. Режим работы: ${startHour}:00 - ${endHour}:00`)
+                                    return
+                                  }
+                                  
+                                  // Если слот пустой и в рабочее время, открываем форму создания с предвыбранным кортом
+                                  setSelectedSlotDate(date)
+                                  setSelectedSlotTime(time)
+                                  setSelectedCourtId(court.id)
+                                  setFormData(prev => ({ ...prev, courtId: court.id }))
+                                  setShowCreateModal(true)
+                                }
+                              }}
+                            >
+                              {/* Показываем контент для каждого корта */}
+                              {!bookingForCourt && (isHovered || isSelected) && (
+                                <div style={{
+                                  fontSize: '11px',
+                                  color: court.color || 'var(--primary)',
+                                  fontWeight: '600',
+                                  textAlign: 'center',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  justifyContent: 'center'
+                                }}>
+                                  {court.color && (
+                                    <div style={{
+                                      width: '8px',
+                                      height: '8px',
+                                      borderRadius: '2px',
+                                      backgroundColor: court.color,
+                                      flexShrink: 0
+                                    }} />
+                                  )}
+                                  {court.name}
+                                </div>
+                              )}
+                              
+                              {bookingForCourt && (
+                                <div style={{
+                                  fontSize: '10px',
+                                  width: '100%',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis'
+                                }}>
+                                  <div style={{
+                                    fontWeight: '600',
+                                    color: 'var(--dark)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}>
+                                    {/* Для групповых тренировок показываем иконку группы, для обычных - точку корта */}
+                                    {(bookingForCourt?.bookingType === 'group' || bookingForCourt?.clientName === 'Групповая тренировка') ? (
+                                      <Groups style={{
+                                        width: '14px',
+                                        height: '14px',
+                                        color: court?.color || 'var(--primary)',
+                                        flexShrink: 0
+                                      }} />
+                                    ) : (
+                                      court?.color && (
+                                        <div style={{
+                                          width: '6px',
+                                          height: '6px',
+                                          borderRadius: '2px',
+                                          backgroundColor: court.color,
+                                          flexShrink: 0
+                                        }} />
+                                      )
+                                    )}
+                                    {/* Для групповых тренировок показываем количество участников, для обычных - имя клиента */}
+                                    {(bookingForCourt?.bookingType === 'group' || bookingForCourt?.clientName === 'Групповая тренировка') ? (
+                                      `${bookingForCourt.currentParticipants || 0}/${bookingForCourt.maxParticipants || 8}`
+                                    ) : (
+                                      bookingForCourt?.clientName || bookingForCourt?.customerName || 'Клиент'
+                                    )}
+                                  </div>
+                                  {/* Для обычных бронирований показываем телефон */}
+                                  {!(bookingForCourt?.bookingType === 'group' || bookingForCourt?.clientName === 'Групповая тренировка') && 
+                                   (bookingForCourt?.clientPhone || bookingForCourt?.customerPhone) && (
+                                    <div style={{ 
+                                      color: 'var(--gray)', 
+                                      fontSize: '9px',
+                                      marginTop: '1px'
+                                    }}>
+                                      {bookingForCourt.clientPhone || bookingForCourt.customerPhone}
+                                    </div>
+                                  )}
+                                  {bookingForCourt?.trainerName && (
+                                    <div style={{ 
+                                      color: (() => {
+                                        // Находим тренера по ID, чтобы получить его цвет
+                                        const trainer = trainers.find(t => t.id === bookingForCourt.trainerId)
+                                        return trainer?.color || 'var(--primary)'
+                                      })(), 
+                                      fontSize: '9px',
+                                      marginTop: '1px',
+                                      fontWeight: '500'
+                                    }}>
+                                      Тренер: {bookingForCourt.trainerName}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })
+                )}
             </React.Fragment>
           ))}
           </div>

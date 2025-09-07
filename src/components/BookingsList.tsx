@@ -58,6 +58,12 @@ interface Booking {
   trainerPrice?: number
   trainerCommission?: number
   totalAmount?: number
+  
+  // Поля для групповых тренировок
+  bookingType?: 'individual' | 'group'
+  maxParticipants?: number
+  currentParticipants?: number
+  visibility?: 'public' | 'private'
 }
 
 interface BookingsListProps {
@@ -568,7 +574,20 @@ export default function BookingsList({ venueId, bookings: propsBookings, onRefre
                       {booking.clientPhone || booking.customerPhone}
                     </div>
                   </td>
-                  <td style={{ fontWeight: '600' }}>{formatAmount(booking.totalAmount || booking.amount)}</td>
+                  <td style={{ fontWeight: '600' }}>
+                    {formatAmount((() => {
+                      // Для групповых тренировок показываем полную сумму при максимальной заполненности
+                      if (booking.bookingType === 'group' && booking.maxParticipants) {
+                        // Рассчитываем полную стоимость группы
+                        const courtPrice = booking.amount || 0
+                        const trainerTotalPrice = booking.trainerPrice || 0
+                        // Итоговая сумма = цена корта + полная стоимость тренера
+                        return courtPrice + trainerTotalPrice
+                      }
+                      // Для обычных бронирований
+                      return booking.totalAmount || booking.amount
+                    })())}
+                  </td>
                   <td>{getPaymentMethodName(booking.paymentMethod)}</td>
                   <td>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>

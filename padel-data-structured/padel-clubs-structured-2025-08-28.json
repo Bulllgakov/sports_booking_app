@@ -1,0 +1,148 @@
+{
+  "summary": {
+    "totalLegalEntities": 1,
+    "totalClubs": 5,
+    "parsedAt": "2025-08-28T07:09:33.247Z"
+  },
+  "legalEntities": [
+    {
+      "inn": "1685017558",
+      "ogrn": "1241600035852",
+      "legalName": "ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ \"АРТЕНН\"",
+      "legalAddress": "г Казань, пр-кт Ямашева, д 92, кв 91",
+      "kpp": "168501001",
+      "okved": "68.20",
+      "managementName": "Ильин Дмитрий Владиславович",
+      "managementPost": "ДИРЕКТОР",
+      "foundedDate": 1722556800000,
+      "capital": 15000,
+      "phones": [],
+      "emails": [
+        "fotorama@2x.png",
+        "flags@2x.png",
+        "quarrazzella@ya.ru"
+      ],
+      "website": "https://artennis.ru",
+      "clubs": [
+        "club_1756364973137_f0j22v60e"
+      ]
+    }
+  ],
+  "clubs": [
+    {
+      "id": "club_1756364939504_easuhubft",
+      "name": "Padel Friends Казань",
+      "brand": "Padel Friends",
+      "address": "Казань, проспект Альберта Камалеева, 27М",
+      "coordinates": {
+        "latitude": 55.787138,
+        "longitude": 49.190424,
+        "formattedAddress": "г Казань, пр-кт Альберта Камалеева, д 27М",
+        "postalCode": "420081",
+        "fiasId": "4e849f34-cae4-4756-a345-18ef115e80ca",
+        "source": "dadata"
+      },
+      "phone": "+7 (843) 212-23-23",
+      "email": "padelfriends@mail.ru",
+      "website": "https://padelfriends.ru",
+      "description": "6 панорамных кортов Drop Shot",
+      "workingHours": "",
+      "courtsCount": null,
+      "courtType": "",
+      "inn": "770402151123",
+      "parsedAt": "2025-08-28T07:08:59.504Z"
+    },
+    {
+      "id": "club_1756364950408_zfvqpvfep",
+      "name": "LUNDA Padel Москва - Ленинградский",
+      "brand": "LUNDA Padel",
+      "address": "Москва, Ленинградский проспект, 36с33",
+      "coordinates": {
+        "latitude": 55.787189,
+        "longitude": 37.566386,
+        "formattedAddress": "г Москва, Ленинградский пр-кт, д 36 стр 33",
+        "postalCode": "125167",
+        "fiasId": "8edb6af0-3e2f-478f-bbfb-9fa9637dfcc9",
+        "source": "dadata"
+      },
+      "phone": "+7 (800) 234-50-50",
+      "email": "info@lundapadel.ru",
+      "website": "https://lundapadel.ru",
+      "description": "Крупнейшая сеть падел клубов",
+      "workingHours": "",
+      "courtsCount": null,
+      "courtType": "",
+      "inn": "",
+      "parsedAt": "2025-08-28T07:09:10.408Z"
+    },
+    {
+      "id": "club_1756364957352_5e2wfy55y",
+      "name": "LUNDA Padel Москва - Кутузовский",
+      "brand": "LUNDA Padel",
+      "address": "Москва, Кутузовский проспект, 36",
+      "coordinates": {
+        "latitude": 55.741085,
+        "longitude": 37.524228,
+        "formattedAddress": "г Москва, Кутузовский пр-кт, д 36",
+        "postalCode": "121170",
+        "fiasId": "b7608924-1932-4536-aa7b-7908156c2f95",
+        "source": "dadata"
+      },
+      "phone": "+7 (800) 234-50-50",
+      "email": "info@lundapadel.ru",
+      "website": "https://lundapadel.ru",
+      "description": "Крупнейшая сеть падел клубов",
+      "workingHours": "",
+      "courtsCount": null,
+      "courtType": "",
+      "inn": "",
+      "parsedAt": "2025-08-28T07:09:17.352Z"
+    },
+    {
+      "id": "club_1756364964479_k9wos9ykn",
+      "name": "LUNDA Padel Санкт-Петербург",
+      "brand": "LUNDA Padel",
+      "address": "Санкт-Петербург, Крестовский остров",
+      "coordinates": {
+        "latitude": 59.971821,
+        "longitude": 30.259436,
+        "formattedAddress": "г Санкт-Петербург, метро Крестовский остров",
+        "postalCode": null,
+        "fiasId": "c2deb16a-0330-4f05-821f-1d09c93331e6",
+        "source": "dadata"
+      },
+      "phone": "+7 (800) 234-50-50",
+      "email": "info@lundapadel.ru",
+      "website": "https://lundapadel.ru",
+      "description": "Крупнейшая сеть падел клубов",
+      "workingHours": "",
+      "courtsCount": null,
+      "courtType": "",
+      "inn": "",
+      "parsedAt": "2025-08-28T07:09:24.479Z"
+    },
+    {
+      "id": "club_1756364973137_f0j22v60e",
+      "name": "АРТЕН - Арена тенниса",
+      "brand": "АРТЕН",
+      "address": "Казань, ул. Адоратского, 34",
+      "coordinates": {
+        "latitude": 55.839057,
+        "longitude": 49.149623,
+        "formattedAddress": "г Казань, ул Адоратского, д 34",
+        "postalCode": "420137",
+        "fiasId": "ff7ed7f1-0cc0-43de-a034-8b05ca54e163",
+        "source": "dadata"
+      },
+      "phone": "+7 (843) 212-10-10",
+      "email": "fotorama@2x.png",
+      "website": "https://artennis.ru",
+      "description": "Падел, сквош и настольный теннис",
+      "workingHours": "",
+      "courtsCount": null,
+      "courtType": "",
+      "inn": "1685017558",
+      "parsedAt": "2025-08-28T07:09:33.137Z"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
-export type SubscriptionPlan = 'start' | 'standard' | 'pro'
+export type SubscriptionPlan = 'basic' | 'crm' | 'pro'
 
 export interface SubscriptionLimits {
-  maxCourts: number
+  maxClients: number // Лимит на количество клиентов в базе
   maxBookingsPerMonth: number
   smsEmailNotifications: number
   customDesign: boolean
@@ -11,6 +11,12 @@ export interface SubscriptionLimits {
   abTesting: boolean
   trainersModule: boolean
   personalManager: boolean
+  crmAccess: boolean // Доступ к CRM функционалу
+  advancedAnalytics: boolean // Расширенная аналитика
+  marketingTools: boolean // Маркетинговые инструменты
+  salaryCalculation: boolean // Расчет зарплат и премий
+  subscriptionsModule: boolean // Модуль абонементов и пакетов
+  financialModule: boolean // Модуль финансового учета
 }
 
 export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan | 'premium', {
@@ -19,30 +25,41 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan | 'premium', {
   pricePerCourt?: number
   limits: SubscriptionLimits
   features: string[]
+  additionalFees?: {
+    smsPrice?: number
+    acquiringCommission?: number
+  }
 }> = {
-  start: {
-    name: 'СТАРТ',
+  basic: {
+    name: 'БАЗОВЫЙ',
     price: 0,
     pricePerCourt: 0,
     limits: {
-      maxCourts: 2,
+      maxClients: 1000, // Лимит 1000 клиентов
       maxBookingsPerMonth: -1, // unlimited
-      smsEmailNotifications: -1, // unlimited email, SMS paid separately
+      smsEmailNotifications: 0, // SMS оплачиваются отдельно
       customDesign: false,
       apiAccess: false,
       multiVenue: false,
       searchPriority: 0,
       abTesting: false,
       trainersModule: true, // включены тренеры
-      personalManager: false
+      personalManager: false,
+      crmAccess: false,
+      advancedAnalytics: false,
+      marketingTools: false,
+      salaryCalculation: false,
+      subscriptionsModule: false,
+      financialModule: false
     },
     features: [
-      'До 2 кортов бесплатно',
+      'Корты без ограничений',
       'Неограниченные бронирования',
+      'До 1000 клиентов в базе',
       'Email-уведомления без ограничений',
-      'SMS-уведомления от 6₽ за сообщение',
       'Управление расписанием',
-      'Онлайн-оплата (свой эквайринг)',
+      'Онлайн-оплата (эквайринг)',
+      'Онлайн касса встроенная',
       'Белый лейбл (логотип клуба)',
       'Push-уведомления в приложении',
       'Мобильное приложение для клиентов',
@@ -50,72 +67,94 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan | 'premium', {
       'QR-коды для бронирований',
       'Аккаунты для тренеров с расписанием',
       'Персональный менеджер на 3 месяца'
-    ]
+    ],
+    additionalFees: {
+      smsPrice: 6, // 6 руб за SMS
+      acquiringCommission: 3.5 // 3.5% комиссия эквайринга и онлайн кассы
+    }
   },
-  standard: {
-    name: 'СТАНДАРТ',
+  crm: {
+    name: 'CRM',
     price: 990,
     pricePerCourt: 990,
     limits: {
-      maxCourts: -1, // unlimited
+      maxClients: -1, // unlimited
       maxBookingsPerMonth: -1, // unlimited
-      smsEmailNotifications: 500, // total per club
+      smsEmailNotifications: 0, // SMS оплачиваются отдельно
       customDesign: false,
       apiAccess: false,
       multiVenue: false,
       searchPriority: 10,
       abTesting: false,
       trainersModule: true,
-      personalManager: false
+      personalManager: false,
+      crmAccess: true,
+      advancedAnalytics: true,
+      marketingTools: true,
+      salaryCalculation: true,
+      subscriptionsModule: false,
+      financialModule: false
     },
     features: [
       '990₽ за корт в месяц',
-      'От 1 корта (без ограничений)',
-      '🎁 Первые 3 месяца бесплатно',
+      'Корты без ограничений',
       'Неограниченные бронирования',
-      'SMS/Email уведомления (500 шт/месяц на клуб)',
+      'Количество клиентов без ограничений',
+      'Email-уведомления без ограничений',
+      'CRM система для работы с клиентской базой',
       'Расширенная аналитика и отчеты',
       'Управление ценами и скидками',
       'Маркетинг - промокоды, акции и рассылки',
-      'CRM система для работы с клиентской базой',
       'Экспорт данных в Excel и PDF',
-      'Приоритет в поиске (+10%)'
-    ]
+      'Расчет зарплат и премий',
+      'Все функции тарифа БАЗОВЫЙ'
+    ],
+    additionalFees: {
+      smsPrice: 6, // 6 руб за SMS
+      acquiringCommission: 3.5 // 3.5% комиссия
+    }
   },
   pro: {
     name: 'ПРОФИ',
     price: 1990,
     pricePerCourt: 1990,
     limits: {
-      maxCourts: -1, // unlimited
+      maxClients: -1, // unlimited
       maxBookingsPerMonth: -1,
-      smsEmailNotifications: -1, // unlimited for club
+      smsEmailNotifications: -1, // unlimited SMS включены
       customDesign: true,
       apiAccess: true,
       multiVenue: true,
       searchPriority: 30,
-      abTesting: false, // убрали A/B тестирование
+      abTesting: false,
       trainersModule: true,
-      personalManager: true
+      personalManager: true,
+      crmAccess: true,
+      advancedAnalytics: true,
+      marketingTools: true,
+      salaryCalculation: true,
+      subscriptionsModule: true,
+      financialModule: true
     },
     features: [
       '1,990₽ за корт в месяц',
-      'От 1 корта (без ограничений)',
+      'Корты без ограничений',
       'SMS/Email уведомления без ограничений',
       'Белый лейбл PRO (кастомизация дизайна приложения)',
       'API доступ для интеграций',
       'Мультиплощадки (управление сетью)',
-      'Приоритет в поиске (+30%)',
       'Модуль абонементов и пакетов',
       'Модуль тренеров и расписания',
-      'Персональный менеджер навсегда'
+      'Модуль финансового учета',
+      'Персональный менеджер навсегда',
+      'Все функции тарифа CRM'
     ]
   },
   premium: {
     name: 'ПРЕМИУМ',
     price: -1, // по запросу
     limits: {
-      maxCourts: -1,
+      maxClients: -1,
       maxBookingsPerMonth: -1,
       smsEmailNotifications: -1,
       customDesign: true,
@@ -124,7 +163,13 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan | 'premium', {
       searchPriority: 50,
       abTesting: true,
       trainersModule: true,
-      personalManager: true
+      personalManager: true,
+      crmAccess: true,
+      advancedAnalytics: true,
+      marketingTools: true,
+      salaryCalculation: true,
+      subscriptionsModule: true,
+      financialModule: true
     },
     features: [
       'Все функции ПРОФИ',
@@ -141,10 +186,19 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan | 'premium', {
 // Тарификация SMS
 export const SMS_PRICE = 6 // рублей за SMS
 
+// Маппинг старых названий тарифов на новые
+export const PLAN_MAPPING: Record<string, SubscriptionPlan> = {
+  'start': 'basic',
+  'standard': 'crm',
+  'pro': 'pro',
+  'basic': 'basic',
+  'crm': 'crm'
+}
+
 export interface ClubSubscription {
   id: string
   venueId: string
-  plan: SubscriptionPlan
+  plan: SubscriptionPlan | 'start' | 'standard' // Поддержка старых названий
   status: 'active' | 'inactive' | 'trial' | 'expired'
   startDate: Date
   endDate?: Date
@@ -153,6 +207,7 @@ export interface ClubSubscription {
     courtsCount: number
     bookingsThisMonth: number
     smsEmailsSent: number
+    clientsCount?: number // Новое поле для количества клиентов
     lastUpdated: Date
   }
   paymentMethod?: {

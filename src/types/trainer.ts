@@ -24,9 +24,7 @@ export interface Trainer {
   
   // Ограничения
   maxDailyHours: number
-  minBreakMinutes: number
   advanceBookingDays: number
-  cancellationHours: number
   availableCourts: string[]
   
   // Визуализация

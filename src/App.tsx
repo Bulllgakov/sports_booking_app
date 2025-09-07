@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
+import './styles/flutter-theme.css'
 import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminLayout from './layouts/AdminLayout'
@@ -15,10 +16,9 @@ import Home from './pages/Home'
 import AdminsManagement from './pages/admin/AdminsManagement'
 import VenuesManagement from './pages/admin/VenuesManagement'
 import Subscription from './pages/admin/Subscription'
-import SubscriptionManagement from './pages/admin/SubscriptionManagement'
 import PaymentSettings from './pages/admin/PaymentSettings'
 import BillingSettings from './pages/admin/BillingSettings'
-import Finance from './pages/admin/Finance'
+import FinanceWithTabs from './pages/admin/FinanceWithTabs'
 import Marketing from './pages/admin/Marketing'
 import Settings from './pages/admin/Settings'
 import Debug from './pages/admin/Debug'
@@ -29,7 +29,11 @@ import FixPermissions from './pages/admin/FixPermissions'
 import TrainersManagement from './pages/admin/TrainersManagement'
 import TrainerProfile from './pages/admin/TrainerProfile'
 import CompanySettings from './pages/admin/CompanySettings'
+import MigrationTools from './pages/admin/MigrationTools'
+import Parser from './pages/admin/Parser'
+import PlatformAnalytics from './pages/admin/PlatformAnalytics'
 import ErrorBoundary from './components/ErrorBoundary'
+import TrainerRedirect from './components/TrainerRedirect'
 // Public pages
 import ClubPage from './pages/public/ClubPage'
 import DateSelectionPage from './pages/public/DateSelectionPage'
@@ -43,6 +47,7 @@ import UnifiedBookingPage from './pages/public/UnifiedBookingPage'
 import UserAgreement from './pages/public/UserAgreement'
 import PublicOffer from './pages/public/PublicOffer'
 import PrivacyPolicy from './pages/public/PrivacyPolicy'
+import GroupTrainingPage from './pages/public/GroupTrainingPage'
 
 const theme = createTheme({
   palette: {
@@ -92,6 +97,7 @@ function App() {
             <Route path="/club/:clubId/court/:courtId/game-type" element={<GameTypeSelectionPage />} />
             <Route path="/club/:clubId/court/:courtId/payment" element={<BookingPaymentPage />} />
             <Route path="/club/:clubId/booking-confirmation/:bookingId" element={<BookingConfirmationPage />} />
+            <Route path="/club/:clubId/group/:trainingId" element={<GroupTrainingPage />} />
             <Route path="/payment-result" element={<PaymentResultPage />} />
             <Route path="/club/:clubId/payment-error" element={<PaymentErrorPage />} />
             <Route path="/club/:clubId/user-agreement" element={<UserAgreement />} />
@@ -118,18 +124,19 @@ function App() {
               }
             >
               <Route index element={<Navigate to="/admin/dashboard" replace />} />
-              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="dashboard" element={<TrainerRedirect><Dashboard /></TrainerRedirect>} />
               <Route path="venues" element={<VenuesManagement />} />
               <Route path="billing-settings" element={<BillingSettings />} />
               <Route path="admins" element={<AdminsManagement />} />
               <Route path="club" element={<ClubManagement />} />
-              <Route path="subscription" element={<SubscriptionManagement />} />
+              <Route path="subscription" element={<Subscription />} />
               <Route path="payment-settings" element={<PaymentSettings />} />
               <Route path="courts" element={<CourtsManagement />} />
               <Route path="trainers" element={<TrainersManagement />} />
               <Route path="trainer-profile" element={<TrainerProfile />} />
               <Route path="bookings" element={<BookingsManagement />} />
-              <Route path="finance" element={<Finance />} />
+              <Route path="finance" element={<FinanceWithTabs />} />
+              <Route path="platform-analytics" element={<PlatformAnalytics />} />
               <Route path="customers" element={<CustomersManagement />} />
               <Route path="marketing" element={<Marketing />} />
               <Route path="settings" element={<Settings />} />
@@ -139,6 +146,8 @@ function App() {
               <Route path="fix-booking-dates-advanced" element={<FixBookingDatesAdvanced />} />
               <Route path="find-august18-bookings" element={<FindAugust18Bookings />} />
               <Route path="fix-permissions" element={<FixPermissions />} />
+              <Route path="migration-tools" element={<MigrationTools />} />
+              <Route path="parser" element={<Parser />} />
             </Route>
           </Routes>
         </Router>

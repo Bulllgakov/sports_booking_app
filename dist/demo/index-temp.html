@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AllCourt - Бронирование спортивных кортов онлайн</title>
+    <meta name="description" content="Найдите и забронируйте теннисный корт, падел или бадминтон онлайн. 500+ спортивных клубов по всей России.">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e8eaed 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            text-align: center;
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+        }
+
+        h1 {
+            font-size: 48px;
+            color: #1a1f36;
+            margin-bottom: 16px;
+            line-height: 1.2;
+        }
+
+        .subtitle {
+            font-size: 20px;
+            color: #6b7280;
+            margin-bottom: 48px;
+        }
+
+        .coming-soon {
+            display: inline-block;
+            padding: 8px 24px;
+            background: linear-gradient(135deg, #00D632 0%, #00A527 100%);
+            color: white;
+            border-radius: 24px;
+            font-weight: 600;
+            margin-bottom: 48px;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 16px 32px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: #00D632;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #00C02E;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 209, 50, 0.3);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #1a1f36;
+            border: 2px solid #e5e7eb;
+        }
+
+        .btn-secondary:hover {
+            background: #f8f9fa;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+            margin-top: 60px;
+        }
+
+        .feature {
+            padding: 24px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .feature-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+
+        .feature-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1f36;
+            margin-bottom: 8px;
+        }
+
+        .feature-desc {
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 32px;
+            }
+
+            .subtitle {
+                font-size: 18px;
+            }
+
+            .buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="/logo/allcourts_logo.svg" alt="AllCourt" class="logo">
+        
+        <h1>AllCourt</h1>
+        
+        <p class="subtitle">Бронирование спортивных кортов онлайн</p>
+        
+        <div class="coming-soon">
+            🚀 Витрина клубов скоро откроется!
+        </div>
+        
+        <div class="buttons">
+            <a href="/business" class="btn btn-secondary">
+                💼 Для владельцев клубов
+            </a>
+            <a href="/admin" class="btn btn-primary">
+                🔐 Вход в админ-панель
+            </a>
+        </div>
+        
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🎾</div>
+                <div class="feature-title">500+ клубов</div>
+                <div class="feature-desc">Теннис, падел, бадминтон</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📱</div>
+                <div class="feature-title">Онлайн бронирование</div>
+                <div class="feature-desc">24/7 без звонков</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">💰</div>
+                <div class="feature-title">Лучшие цены</div>
+                <div class="feature-desc">Без наценок и комиссий</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -91,13 +91,26 @@ export function calculateCourtPrice(
       if (dayPricing) {
         let slotPrice = dayPricing.basePrice
         
-        // Проверяем специальные интервалы для текущего часа
+        // Проверяем специальные интервалы для текущего времени
         if (dayPricing.intervals) {
           for (const interval of dayPricing.intervals) {
-            const intervalStart = parseInt(interval.from.split(':')[0])
-            const intervalEnd = parseInt(interval.to.split(':')[0])
+            // Преобразуем время интервала в минуты для точного сравнения
+            const [intervalStartHour, intervalStartMinute = 0] = interval.from.split(':').map(Number)
+            const [intervalEndHour, intervalEndMinute = 0] = interval.to.split(':').map(Number)
             
-            if (currentHour >= intervalStart && currentHour < intervalEnd) {
+            const intervalStartTime = intervalStartHour * 60 + intervalStartMinute
+            let intervalEndTime = intervalEndHour * 60 + intervalEndMinute
+            
+            // Если конец 00:00 или 24:00, это полночь
+            if (intervalEndTime === 0) {
+              intervalEndTime = 24 * 60
+            }
+            
+            // Текущее время слота в минутах
+            const currentTimeInMinutes = currentHour * 60 + currentMinute
+            
+            // Проверяем, попадает ли текущее время в интервал
+            if (currentTimeInMinutes >= intervalStartTime && currentTimeInMinutes < intervalEndTime) {
               slotPrice = interval.price
               break
             }
@@ -210,10 +223,23 @@ export function getPriceBreakdown(
         
         if (dayPricing.intervals) {
           for (const interval of dayPricing.intervals) {
-            const intervalStart = parseInt(interval.from.split(':')[0])
-            const intervalEnd = parseInt(interval.to.split(':')[0])
+            // Преобразуем время интервала в минуты для точного сравнения
+            const [intervalStartHour, intervalStartMinute = 0] = interval.from.split(':').map(Number)
+            const [intervalEndHour, intervalEndMinute = 0] = interval.to.split(':').map(Number)
             
-            if (currentHour >= intervalStart && currentHour < intervalEnd) {
+            const intervalStartTime = intervalStartHour * 60 + intervalStartMinute
+            let intervalEndTime = intervalEndHour * 60 + intervalEndMinute
+            
+            // Если конец 00:00 или 24:00, это полночь
+            if (intervalEndTime === 0) {
+              intervalEndTime = 24 * 60
+            }
+            
+            // Текущее время слота в минутах
+            const currentTimeInMinutes = currentHour * 60 + currentMinute
+            
+            // Проверяем, попадает ли текущее время в интервал
+            if (currentTimeInMinutes >= intervalStartTime && currentTimeInMinutes < intervalEndTime) {
               hourlyPrice = interval.price
               break
             }

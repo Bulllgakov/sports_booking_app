@@ -129,6 +129,16 @@ export default function CreateBookingModal({
   const [includeTrainer, setIncludeTrainer] = useState(!!preSelectedTrainerId)
   const [selectedTrainerId, setSelectedTrainerId] = useState(preSelectedTrainerId || '')
   const [trainerBookings, setTrainerBookings] = useState<any[]>([])
+  
+  // Состояния для групповых тренировок
+  const [bookingType, setBookingType] = useState<'individual' | 'group'>('individual')
+  const [maxParticipants, setMaxParticipants] = useState(10)
+  const [isPublicGroup, setIsPublicGroup] = useState(true)
+  const [groupParticipants, setGroupParticipants] = useState<Array<{
+    name: string
+    phone: string
+    email?: string
+  }>>([])
 
   // Функция поиска клиентов
   const searchCustomers = async (searchText: string) => {
@@ -271,25 +281,50 @@ export default function CreateBookingModal({
   }
 
   // Проверка, занят ли временной слот
-  const isSlotOccupied = (startTime: string, duration: number, courtId?: string) => {
+  const isSlotOccupied = (startTime: string, duration: number, courtId?: string, trainerId?: string) => {
     const [startHour, startMinute] = startTime.split(':').map(Number)
     const slotStart = startHour + startMinute / 60
     const slotEnd = slotStart + duration
 
-    // Фильтруем бронирования по корту, если указан courtId
-    const relevantBookings = courtId 
-      ? existingBookings.filter(booking => booking.courtId === courtId)
-      : existingBookings
+
+    // Для проверки занятости тренера нужно смотреть ВСЕ его бронирования, а не только на этом корте
+    const relevantBookings = trainerId
+      ? existingBookings // Если есть тренер, проверяем все бронирования
+      : courtId 
+        ? existingBookings.filter(booking => booking.courtId === courtId) // Иначе только по корту
+        : existingBookings
 
     const occupied = relevantBookings.some(booking => {
       const [bookingStartHour, bookingStartMinute] = booking.startTime.split(':').map(Number)
-      const [bookingEndHour, bookingEndMinute] = booking.endTime.split(':').map(Number)
       const bookingStart = bookingStartHour + bookingStartMinute / 60
-      const bookingEnd = bookingEndHour + bookingEndMinute / 60
+      
+      // Вычисляем endTime если его нет
+      let bookingEnd: number
+      if (booking.endTime) {
+        const [bookingEndHour, bookingEndMinute] = booking.endTime.split(':').map(Number)
+        bookingEnd = bookingEndHour + bookingEndMinute / 60
+      } else {
+        // Если нет endTime, используем duration (в минутах)
+        const durationInHours = (booking.duration || 60) / 60
+        bookingEnd = bookingStart + durationInHours
+      }
 
-      // Проверяем пересечение временных интервалов
-      const hasConflict = (slotStart < bookingEnd && slotEnd > bookingStart)
-      return hasConflict
+      // Проверка для тренера
+      if (trainerId && booking.trainerId === trainerId) {
+        // Стандартная проверка пересечения для занятий тренера
+        // Смежные слоты (где конец одного = начало другого) не считаются пересекающимися
+        if (slotStart < bookingEnd && slotEnd > bookingStart) {
+          return true // Время пересекается с другим занятием тренера
+        }
+      }
+      
+      // Проверка занятости корта (только если проверяем конкретный корт и бронирование на том же корте)
+      if (courtId && booking.courtId === courtId) {
+        const hasConflict = (slotStart < bookingEnd && slotEnd > bookingStart)
+        return hasConflict
+      }
+      
+      return false
     })
     
     return occupied
@@ -375,6 +410,13 @@ export default function CreateBookingModal({
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [])
+  
+  // Автоматически устанавливаем онлайн оплату для открытых групповых тренировок
+  useEffect(() => {
+    if (bookingType === 'group' && isPublicGroup) {
+      setFormData(prev => ({ ...prev, paymentMethod: 'online' }))
+    }
+  }, [bookingType, isPublicGroup])
 
   const loadPaymentMethodsSettings = async () => {
     if (!venueId) return
@@ -969,25 +1011,27 @@ export default function CreateBookingModal({
     // Блокируем повторное нажатие
     if (loading) return
     
-    // Валидация данных
-    if (!formData.clientName) {
-      alert('Пожалуйста, укажите имя клиента')
-      return
-    }
-    
-    if (!formData.clientPhone) {
-      alert('Пожалуйста, укажите телефон клиента')
-      return
-    }
-    
-    if (!isValidName(formData.clientName)) {
-      alert('Имя должно быть от 2 до 100 символов')
-      return
-    }
-    
-    if (!isValidPhone(formData.clientPhone)) {
-      alert('Некорректный номер телефона')
-      return
+    // Валидация данных (только для индивидуальных бронирований)
+    if (bookingType !== 'group') {
+      if (!formData.clientName) {
+        alert('Пожалуйста, укажите имя клиента')
+        return
+      }
+      
+      if (!formData.clientPhone) {
+        alert('Пожалуйста, укажите телефон клиента')
+        return
+      }
+      
+      if (!isValidName(formData.clientName)) {
+        alert('Имя должно быть от 2 до 100 символов')
+        return
+      }
+      
+      if (!isValidPhone(formData.clientPhone)) {
+        alert('Некорректный номер телефона')
+        return
+      }
     }
     
     // Если открыто из календаря тренера, проверяем доступность кортов
@@ -1029,7 +1073,7 @@ export default function CreateBookingModal({
     }
     
     // Проверка что выбранный слот не занят
-    if (isSlotOccupied(formData.startTime, formData.duration, formData.courtId)) {
+    if (isSlotOccupied(formData.startTime, formData.duration, formData.courtId, selectedTrainerId)) {
       alert('Выбранное время уже занято. Пожалуйста, выберите другое время.')
       return
     }
@@ -1147,7 +1191,11 @@ export default function CreateBookingModal({
       if (includeTrainer && selectedTrainerId) {
         const selectedTrainer = trainers.find((t: any) => t.id === selectedTrainerId)
         if (selectedTrainer) {
-          const trainerCost = Math.round(selectedTrainer.pricePerHour * formData.duration)
+          // Для групповых тренировок используем groupPrice * количество участников, для индивидуальных - pricePerHour
+          const trainerCost = bookingType === 'group' 
+            ? (selectedTrainer.groupPrice || 0) * maxParticipants // Для групповых - цена с человека * количество участников
+            : Math.round(selectedTrainer.pricePerHour * formData.duration) // Для индивидуальных - почасовая
+          
           const commission = selectedTrainer.commissionType === 'percent'
             ? Math.round(trainerCost * (selectedTrainer.commissionValue / 100))
             : selectedTrainer.commissionValue
@@ -1160,7 +1208,9 @@ export default function CreateBookingModal({
             courtPrice: courtPrice
           }
           
-          totalPrice = courtPrice + trainerCost
+          // Для групповых тренировок общая цена = цена корта (покрывается клубом)
+          // Участники будут платить отдельно через страницу записи
+          totalPrice = bookingType === 'group' ? courtPrice : courtPrice + trainerCost
         }
       }
       
@@ -1177,27 +1227,35 @@ export default function CreateBookingModal({
         courtId: formData.courtId,
         courtName: court.name,
         venueName: venueName,
-        customerName: sanitizeString(formData.clientName),
-        customerPhone: normalizePhone(formData.clientPhone),
+        customerName: bookingType === 'group' ? 'Групповая тренировка' : sanitizeString(formData.clientName),
+        customerPhone: bookingType === 'group' ? admin?.phone || '' : normalizePhone(formData.clientPhone),
         date: bookingDate, // Уже Timestamp
         startTime: formData.startTime,
         duration: durationMinutes, // Сохраняем в минутах
         // endTime вычисляется при необходимости
         gameType: 'single',
         status: bookingStatus,
-        amount: totalPrice,
+        amount: totalPrice, // Общая стоимость
         price: pricePerHour,
         paymentMethod: formData.paymentMethod,
         paymentStatus: paymentStatus,
         source: 'admin',
         ...trainerData, // Добавляем данные тренера если есть
-        totalAmount: totalPrice, // Общая стоимость
+        
+        // Поля для групповых тренировок
+        ...(bookingType === 'group' && {
+          bookingType: 'group',
+          maxParticipants: maxParticipants,
+          currentParticipants: 0,
+          visibility: isPublicGroup ? 'public' : 'private',
+          groupRegistrationUrl: '' // Будет сгенерирован после создания
+        }),
         
         // Для обратной совместимости (постепенно удалить)
         time: formData.startTime,
         endTime: calculateEndTime(formData.startTime, durationMinutes),
-        clientName: sanitizeString(formData.clientName),
-        clientPhone: normalizePhone(formData.clientPhone),
+        clientName: bookingType === 'group' ? 'Групповая тренировка' : sanitizeString(formData.clientName),
+        clientPhone: bookingType === 'group' ? admin?.phone || '' : normalizePhone(formData.clientPhone),
         paymentHistory: [{
           timestamp: Timestamp.now(),
           action: 'created',
@@ -1213,9 +1271,78 @@ export default function CreateBookingModal({
       }
       
       const bookingRef = await addDoc(collection(db, 'bookings'), bookingData)
+      
+      // Для групповых тренировок генерируем и обновляем URL для записи
+      if (bookingType === 'group') {
+        const groupUrl = `https://allcourt.ru/club/${venueId}/group/${bookingRef.id}`
+        await updateDoc(bookingRef, {
+          groupRegistrationUrl: groupUrl
+        })
+        
+        // Для закрытых групп с участниками - добавляем их в базу
+        if (!isPublicGroup && groupParticipants.length > 0) {
+          // Рассчитываем полную стоимость с человека для групповой тренировки
+          // Включаем: стоимость корта / количество участников + стоимость тренера
+          let pricePerPerson = 0
+          
+          // Стоимость корта делится на максимальное количество участников
+          const courtPricePerPerson = Math.round(courtPrice / maxParticipants)
+          pricePerPerson += courtPricePerPerson
+          
+          // Добавляем стоимость тренера с человека
+          if (includeTrainer && selectedTrainerId) {
+            const trainer = trainers.find((t: any) => t.id === selectedTrainerId)
+            const trainerPricePerPerson = trainer?.groupPrice || 0
+            pricePerPerson += trainerPricePerPerson
+          }
+          
+          for (const participant of groupParticipants) {
+            await addDoc(collection(db, 'groupParticipants'), {
+              groupTrainingId: bookingRef.id,
+              name: participant.name,
+              phone: participant.phone,
+              email: participant.email || '',
+              registrationType: 'admin',
+              registeredBy: admin.uid || '',
+              // Для всех способов оплаты изначально ставим статус "ожидает"
+              // Статус "оплачен" может быть установлен только:
+              // 1. Автоматически после успешной онлайн оплаты
+              // 2. Вручную администратором (с записью в историю)
+              paymentStatus: 'pending',
+              paymentMethod: formData.paymentMethod,
+              paymentAmount: pricePerPerson,
+              // Детализация стоимости
+              priceBreakdown: {
+                courtPrice: courtPricePerPerson,
+                trainerPrice: includeTrainer && selectedTrainerId ? (pricePerPerson - courtPricePerPerson) : 0,
+                total: pricePerPerson
+              },
+              registeredAt: Timestamp.now(),
+              // История изменений статуса платежа
+              paymentHistory: [{
+                timestamp: Timestamp.now(),
+                action: 'created',
+                status: 'pending',
+                userId: admin.uid || '',
+                userName: admin.email || 'Система',
+                note: 'Участник добавлен администратором'
+              }]
+            })
+          }
+          
+          // Обновляем счетчик участников
+          await updateDoc(bookingRef, { 
+            currentParticipants: groupParticipants.length 
+          })
+        }
+        
+        // Показываем ссылку пользователю
+        alert(`Групповая тренировка создана!\n\nСсылка для записи участников:\n${groupUrl}\n\nСкопируйте и отправьте эту ссылку участникам.`)
+      }
 
-      // Если выбрана онлайн оплата, инициализируем платеж
-      if (formData.paymentMethod === 'online') {
+      // Если выбрана онлайн оплата и это НЕ групповая тренировка, инициализируем платеж
+      // Для групповых тренировок платежи идут через участников
+      if (formData.paymentMethod === 'online' && bookingType !== 'group') {
         console.log('Инициализация онлайн платежа для бронирования:', bookingRef.id)
         try {
           // Сначала проверяем настройки платежей для venue
@@ -1405,232 +1532,6 @@ export default function CreateBookingModal({
 
         <div className="modal-body">
           <form onSubmit={handleSubmit}>
-            {/* Блок выбора/создания клиента */}
-            <div style={{ marginBottom: '24px', padding: '16px', background: '#f8f9fa', borderRadius: '8px' }}>
-              {selectedCustomer ? (
-                // Выбран клиент
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '50%',
-                      background: 'var(--primary)',
-                      color: 'white',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: '600'
-                    }}>
-                      {selectedCustomer.name.substring(0, 2).toUpperCase()}
-                    </div>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontWeight: '600' }}>{selectedCustomer.name}</span>
-                        <Check style={{ fontSize: '16px', color: 'var(--success)' }} />
-                      </div>
-                      <div style={{ fontSize: '14px', color: '#6b7280' }}>{selectedCustomer.phone}</div>
-                      <div style={{ fontSize: '12px', color: '#9ca3af' }}>
-                        {selectedCustomer.bookingsCount} бронирований
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={handleResetCustomer}
-                  >
-                    Изменить
-                  </button>
-                </div>
-              ) : showNewCustomerForm ? (
-                // Форма создания нового клиента
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>Новый клиент</h3>
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-icon"
-                      onClick={() => {
-                        setShowNewCustomerForm(false)
-                        // Очищаем данные формы при отмене
-                        setFormData(prev => ({ ...prev, clientName: '', clientPhone: '+7' }))
-                        setSearchQuery('')
-                      }}
-                      style={{ padding: '4px 8px', fontSize: '14px' }}
-                    >
-                      Отмена
-                    </button>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div className="form-group">
-                      <label className="form-label">Имя клиента</label>
-                      <input 
-                        type="text" 
-                        className="form-input" 
-                        name="clientName"
-                        value={formData.clientName}
-                        onChange={handleInputChange}
-                        disabled={loading}
-                        placeholder="Введите имя"
-                        required
-                      />
-                    </div>
-                    
-                    <div className="form-group">
-                      <label className="form-label">Телефон</label>
-                      <input 
-                        type="tel" 
-                        className="form-input" 
-                        name="clientPhone"
-                        value={formData.clientPhone}
-                        onChange={handleInputChange}
-                        disabled={loading}
-                        placeholder="+7 (___) ___-__-__"
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                // Режим поиска
-                <div>
-                  <div className="form-group" style={{ marginBottom: 0, position: 'relative' }} ref={searchRef}>
-                      <label className="form-label">Поиск клиента</label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder="Введите имя или телефон..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        disabled={loading}
-                        onFocus={() => searchQuery && setShowDropdown(true)}
-                      />
-                      
-                      {/* Dropdown с результатами поиска */}
-                      {(searchLoading || searchResults.length > 0) && searchQuery && showDropdown && (
-                        <div style={{
-                          position: 'absolute',
-                          top: '100%',
-                          left: 0,
-                          right: 0,
-                          zIndex: 1000,
-                          marginTop: '4px',
-                          background: 'white',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                          maxHeight: '240px',
-                          overflowY: 'auto'
-                        }}>
-                          {searchLoading ? (
-                            <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
-                              Поиск...
-                            </div>
-                          ) : (
-                            searchResults.map(customer => (
-                              <div
-                                key={customer.id}
-                                style={{
-                                  padding: '12px',
-                                  borderBottom: '1px solid #f3f4f6',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.2s',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '12px'
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = '#f9fafb'
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = 'white'
-                                }}
-                                onClick={() => handleSelectCustomer(customer)}
-                              >
-                                <div style={{
-                                  width: '32px',
-                                  height: '32px',
-                                  borderRadius: '50%',
-                                  background: '#e5e7eb',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontSize: '12px',
-                                  fontWeight: '600',
-                                  flexShrink: 0
-                                }}>
-                                  {customer.name.substring(0, 2).toUpperCase()}
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div>
-                                      <div style={{ fontWeight: '600', fontSize: '14px' }}>{customer.name}</div>
-                                      <div style={{ fontSize: '13px', color: '#6b7280' }}>{customer.phone}</div>
-                                    </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                      <div style={{ fontSize: '12px', color: '#9ca3af' }}>
-                                        {customer.bookingsCount} брон.
-                                      </div>
-                                      {customer.lastVisit && (
-                                        <div style={{ fontSize: '11px', color: '#9ca3af' }}>
-                                          {new Date(customer.lastVisit).toLocaleDateString('ru-RU')}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      )}
-                      
-                      {/* Кнопка "Новый клиент" внутри dropdown */}
-                      {searchQuery && searchResults.length === 0 && !searchLoading && showDropdown && (
-                        <div style={{
-                          position: 'absolute',
-                          top: '100%',
-                          left: 0,
-                          right: 0,
-                          zIndex: 1000,
-                          marginTop: '4px',
-                          background: 'white',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                          padding: '16px',
-                          textAlign: 'center'
-                        }}>
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={() => {
-                              setShowNewCustomerForm(true)
-                              setShowDropdown(false)
-                              // Определяем, что ввел пользователь - телефон или имя
-                              const cleanedQuery = searchQuery.trim()
-                              // Проверяем, является ли это телефоном (начинается с +7, 8, 7 или содержит только цифры и телефонные символы)
-                              const isPhone = /^[+]?[78]?[\d\s\-\(\)]+$/.test(cleanedQuery) && /\d/.test(cleanedQuery) && cleanedQuery.replace(/\D/g, '').length >= 6
-                              
-                              if (isPhone) {
-                                setFormData(prev => ({ ...prev, clientPhone: cleanedQuery }))
-                              } else {
-                                setFormData(prev => ({ ...prev, clientName: cleanedQuery }))
-                              }
-                            }}
-                            style={{ width: '100%' }}
-                          >
-                            <PersonAdd fontSize="small" />
-                            Создать нового клиента
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                </div>
-              )}
-            </div>
-            
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>
               <div className="form-group">
                 <label className="form-label">Корт</label>
@@ -1700,7 +1601,7 @@ export default function CreateBookingModal({
                     {bookingsLoading ? 'Загрузка...' : 'Выберите время'}
                   </option>
                   {!bookingsLoading && availableSlots.map(time => {
-                    const occupied = isSlotOccupied(time, formData.duration, formData.courtId)
+                    const occupied = isSlotOccupied(time, formData.duration, formData.courtId, selectedTrainerId)
                     // Вычисляем время окончания
                     const [startHour, startMinute] = time.split(':').map(Number)
                     const endHour = startHour + Math.floor(formData.duration)
@@ -1773,22 +1674,23 @@ export default function CreateBookingModal({
                 </label>
                 
                 {includeTrainer && (
-                  <select
-                    className="form-select"
-                    value={selectedTrainerId}
-                    onChange={(e) => setSelectedTrainerId(e.target.value)}
-                    disabled={!!preSelectedTrainerId || loading}
-                    required={includeTrainer}
-                  >
-                    <option value="">Выберите тренера</option>
-                    {trainers
-                      .filter((trainer: any) => {
-                        // Фильтруем тренеров по типу корта
-                        const court = courts.find(c => c.id === formData.courtId)
-                        if (!court) return false
-                        
-                        // Мапинг типов кортов на специализации тренеров
-                        const courtTypeToSport: Record<string, string[]> = {
+                  <>
+                    <select
+                      className="form-select"
+                      value={selectedTrainerId}
+                      onChange={(e) => setSelectedTrainerId(e.target.value)}
+                      disabled={!!preSelectedTrainerId || loading}
+                      required={includeTrainer}
+                    >
+                      <option value="">Выберите тренера</option>
+                      {trainers
+                        .filter((trainer: any) => {
+                          // Фильтруем тренеров по типу корта
+                          const court = courts.find(c => c.id === formData.courtId)
+                          if (!court) return false
+                          
+                          // Мапинг типов кортов на специализации тренеров
+                          const courtTypeToSport: Record<string, string[]> = {
                           'tennis': ['tennis'],
                           'padel': ['padel'],
                           'badminton': ['badminton'],
@@ -1871,22 +1773,20 @@ export default function CreateBookingModal({
                             )
                             
                             for (const booking of trainerBookingsForThisTrainer) {
-                              const bookingTime = booking.time || ''
-                              const bookingDuration = parseFloat(booking.duration) || 1
+                              const bookingTime = booking.startTime || booking.time || ''
+                              // duration уже в минутах в базе данных
+                              const bookingDurationMinutes = parseFloat(booking.duration) || 60
                               
                               const [bookingHour, bookingMinute] = bookingTime.split(':').map(Number)
                               const bookingStartMinutes = bookingHour * 60 + bookingMinute
-                              const bookingEndMinutes = bookingStartMinutes + (bookingDuration * 60)
+                              const bookingEndMinutes = bookingStartMinutes + bookingDurationMinutes
                               
                               const slotStartMinutes = slotTimeMinutes
                               const slotEndMinutes = slotTimeMinutes + (formData.duration * 60)
                               
                               // Проверяем пересечение времени
-                              if (
-                                (slotStartMinutes >= bookingStartMinutes && slotStartMinutes < bookingEndMinutes) ||
-                                (slotEndMinutes > bookingStartMinutes && slotEndMinutes <= bookingEndMinutes) ||
-                                (slotStartMinutes <= bookingStartMinutes && slotEndMinutes >= bookingEndMinutes)
-                              ) {
+                              // Смежные слоты (где конец одного = начало другого) не считаются пересекающимися
+                              if (slotStartMinutes < bookingEndMinutes && slotEndMinutes > bookingStartMinutes) {
                                 isAvailable = false
                                 unavailableReason = 'Занят'
                                 break
@@ -1909,9 +1809,572 @@ export default function CreateBookingModal({
                       })
                     }
                   </select>
+                  
+                  {/* UI для групповых тренировок */}
+                  {selectedTrainerId && (
+                    <div style={{ marginTop: '16px' }}>
+                      {/* Переключатель типа тренировки */}
+                      <div style={{ 
+                        display: 'flex', 
+                        gap: '16px', 
+                        marginBottom: '16px',
+                        padding: '12px',
+                        background: '#f3f4f6',
+                        borderRadius: '8px'
+                      }}>
+                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                          <input
+                            type="radio"
+                            name="bookingType"
+                            value="individual"
+                            checked={bookingType === 'individual'}
+                            onChange={() => setBookingType('individual')}
+                            style={{ marginRight: '8px' }}
+                          />
+                          <span>Индивидуальная</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                          <input
+                            type="radio"
+                            name="bookingType"
+                            value="group"
+                            checked={bookingType === 'group'}
+                            onChange={() => setBookingType('group')}
+                            style={{ marginRight: '8px' }}
+                          />
+                          <span>Групповая</span>
+                        </label>
+                      </div>
+                      
+                      {/* Поля для групповой тренировки */}
+                      {bookingType === 'group' && (
+                        <div style={{ 
+                          padding: '16px',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '8px',
+                          background: '#fafafa'
+                        }}>
+                          <div className="form-group">
+                            <label className="form-label">Максимум участников</label>
+                            <input
+                              type="number"
+                              className="form-input"
+                              value={maxParticipants}
+                              onChange={(e) => setMaxParticipants(Math.max(2, parseInt(e.target.value) || 2))}
+                              min="2"
+                              max="30"
+                              disabled={loading}
+                            />
+                          </div>
+                          
+                          <div className="form-group" style={{ marginTop: '12px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                              <input
+                                type="checkbox"
+                                checked={isPublicGroup}
+                                onChange={(e) => setIsPublicGroup(e.target.checked)}
+                                style={{ marginRight: '8px' }}
+                                disabled={loading}
+                              />
+                              <span className="form-label" style={{ marginBottom: 0 }}>
+                                Открытая тренировка
+                              </span>
+                            </label>
+                            <div style={{ 
+                              fontSize: '12px', 
+                              color: '#6B7280', 
+                              marginTop: '4px',
+                              marginLeft: '24px'
+                            }}>
+                              {isPublicGroup 
+                                ? 'Тренировка будет видна всем на странице клуба' 
+                                : 'Запись только по прямой ссылке'}
+                            </div>
+                          </div>
+                          
+                          {/* Показываем цену за участника */}
+                          {(() => {
+                            const selectedTrainer = trainers.find((t: any) => t.id === selectedTrainerId)
+                            if (selectedTrainer?.groupPrice) {
+                              return (
+                                <div style={{ 
+                                  marginTop: '12px',
+                                  padding: '12px',
+                                  background: '#e0f2fe',
+                                  borderRadius: '6px',
+                                  fontSize: '14px',
+                                  color: '#0369a1'
+                                }}>
+                                  Стоимость участия: <strong>{selectedTrainer.groupPrice} ₽</strong> с человека
+                                </div>
+                              )
+                            }
+                            return null
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
                 )}
               </div>
             )}
+            
+            {/* Блок выбора/создания клиента - теперь работает для всех типов бронирований */}
+            <div style={{ marginBottom: '24px', padding: '16px', background: '#f8f9fa', borderRadius: '8px' }}>
+              {bookingType === 'group' ? (
+                // Для групповых тренировок - управление участниками
+                <div>
+                  <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>
+                    {isPublicGroup ? 'Участники будут записываться самостоятельно' : 'Выбрать участников тренировки'}
+                  </h3>
+                  {isPublicGroup ? (
+                    <p style={{ fontSize: '14px', color: '#6B7280' }}>
+                      После создания тренировки вы получите ссылку для записи участников.
+                      Участники смогут самостоятельно записаться и оплатить участие.
+                    </p>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: '14px', color: '#6B7280', marginBottom: '16px' }}>
+                        Вы можете добавить участников сейчас или они смогут записаться по ссылке
+                      </p>
+                      
+                      {/* Поиск клиента для групповых тренировок */}
+                      <div className="form-group" style={{ position: 'relative', marginBottom: '16px' }} ref={searchRef}>
+                        <label className="form-label">Поиск участника</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Введите имя или телефон..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          disabled={loading || groupParticipants.length >= maxParticipants}
+                          onFocus={() => searchQuery && setShowDropdown(true)}
+                        />
+                        
+                        {/* Dropdown с результатами поиска */}
+                        {(searchLoading || searchResults.length > 0) && searchQuery && showDropdown && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            zIndex: 1000,
+                            marginTop: '4px',
+                            background: 'white',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                            maxHeight: '240px',
+                            overflowY: 'auto'
+                          }}>
+                            {searchLoading ? (
+                              <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
+                                Поиск...
+                              </div>
+                            ) : (
+                              searchResults.map(customer => (
+                                <div
+                                  key={customer.id}
+                                  style={{
+                                    padding: '12px',
+                                    borderBottom: '1px solid #f3f4f6',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#f9fafb'
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'white'
+                                  }}
+                                  onClick={() => {
+                                    if (groupParticipants.length < maxParticipants) {
+                                      // Проверяем, не добавлен ли уже этот участник
+                                      const alreadyAdded = groupParticipants.some(p => p.phone === customer.phone)
+                                      if (!alreadyAdded) {
+                                        setGroupParticipants(prev => [...prev, { name: customer.name, phone: customer.phone }])
+                                        setSearchQuery('')
+                                        setShowDropdown(false)
+                                      } else {
+                                        alert('Этот участник уже добавлен')
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <div style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '50%',
+                                    background: '#e5e7eb',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '12px',
+                                    fontWeight: '600',
+                                    flexShrink: 0
+                                  }}>
+                                    {customer.name.substring(0, 2).toUpperCase()}
+                                  </div>
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                      <div>
+                                        <div style={{ fontWeight: '600', fontSize: '14px' }}>{customer.name}</div>
+                                        <div style={{ fontSize: '13px', color: '#6b7280' }}>{customer.phone}</div>
+                                      </div>
+                                      <div style={{ textAlign: 'right' }}>
+                                        <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                                          {customer.bookingsCount} брон.
+                                        </div>
+                                        {customer.lastVisit && (
+                                          <div style={{ fontSize: '11px', color: '#9ca3af' }}>
+                                            {new Date(customer.lastVisit).toLocaleDateString('ru-RU')}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Кнопка "Новый участник" */}
+                        {searchQuery && searchResults.length === 0 && !searchLoading && showDropdown && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            zIndex: 1000,
+                            marginTop: '4px',
+                            background: 'white',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                            padding: '16px',
+                            textAlign: 'center'
+                          }}>
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              onClick={() => {
+                                if (groupParticipants.length < maxParticipants) {
+                                  const cleanedQuery = searchQuery.trim()
+                                  const isPhone = /^[+]?[78]?[\d\s\-\(\)]+$/.test(cleanedQuery) && /\d/.test(cleanedQuery) && cleanedQuery.replace(/\D/g, '').length >= 6
+                                  
+                                  if (isPhone) {
+                                    const name = prompt('Имя участника:')
+                                    if (name) {
+                                      setGroupParticipants(prev => [...prev, { name, phone: cleanedQuery }])
+                                      setSearchQuery('')
+                                      setShowDropdown(false)
+                                    }
+                                  } else {
+                                    const phone = prompt('Телефон участника:')
+                                    if (phone) {
+                                      setGroupParticipants(prev => [...prev, { name: cleanedQuery, phone }])
+                                      setSearchQuery('')
+                                      setShowDropdown(false)
+                                    }
+                                  }
+                                }
+                              }}
+                              style={{ width: '100%' }}
+                            >
+                              <PersonAdd fontSize="small" />
+                              Добавить нового участника
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        marginBottom: '12px'
+                      }}>
+                        <span style={{ fontSize: '14px', fontWeight: '500' }}>
+                          Добавлено: {groupParticipants.length} из {maxParticipants}
+                        </span>
+                      </div>
+                      
+                      {groupParticipants.length > 0 && (
+                        <div style={{ 
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '8px',
+                          padding: '8px'
+                        }}>
+                          {groupParticipants.map((participant, idx) => (
+                            <div 
+                              key={idx}
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                padding: '8px',
+                                borderBottom: idx < groupParticipants.length - 1 ? '1px solid #f3f4f6' : 'none'
+                              }}
+                            >
+                              <div>
+                                <div style={{ fontWeight: '500', fontSize: '14px' }}>{participant.name}</div>
+                                <div style={{ color: '#6B7280', fontSize: '13px' }}>{participant.phone}</div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setGroupParticipants(prev => prev.filter((_, i) => i !== idx))
+                                }}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: '#ef4444',
+                                  cursor: 'pointer',
+                                  fontSize: '18px'
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              ) : (
+                // Для индивидуальных тренировок - старая логика выбора клиента
+                <>
+                  {selectedCustomer ? (
+                    // Выбран клиент
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '50%',
+                          background: 'var(--primary)',
+                          color: 'white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: '600'
+                        }}>
+                          {selectedCustomer.name.substring(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontWeight: '600' }}>{selectedCustomer.name}</span>
+                            <Check style={{ fontSize: '16px', color: 'var(--success)' }} />
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#6b7280' }}>{selectedCustomer.phone}</div>
+                          <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                            {selectedCustomer.bookingsCount} бронирований
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={handleResetCustomer}
+                      >
+                        Изменить
+                      </button>
+                    </div>
+                  ) : showNewCustomerForm ? (
+                    // Форма создания нового клиента
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                        <h3 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>Новый клиент</h3>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-icon"
+                          onClick={() => {
+                            setShowNewCustomerForm(false)
+                            // Очищаем данные формы при отмене
+                            setFormData(prev => ({ ...prev, clientName: '', clientPhone: '+7' }))
+                            setSearchQuery('')
+                          }}
+                          style={{ padding: '4px 8px', fontSize: '14px' }}
+                        >
+                          Отмена
+                        </button>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div className="form-group">
+                          <label className="form-label">Имя клиента</label>
+                          <input 
+                            type="text" 
+                            className="form-input" 
+                            name="clientName"
+                            value={formData.clientName}
+                            onChange={handleInputChange}
+                            disabled={loading}
+                            placeholder="Введите имя"
+                            required
+                          />
+                        </div>
+                        
+                        <div className="form-group">
+                          <label className="form-label">Телефон</label>
+                          <input 
+                            type="tel" 
+                            className="form-input" 
+                            name="clientPhone"
+                            value={formData.clientPhone}
+                            onChange={handleInputChange}
+                            disabled={loading}
+                            placeholder="+7 (___) ___-__-__"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    // Режим поиска
+                    <div>
+                      <div className="form-group" style={{ marginBottom: 0, position: 'relative' }} ref={searchRef}>
+                        <label className="form-label">Поиск клиента</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Введите имя или телефон..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          disabled={loading}
+                          onFocus={() => searchQuery && setShowDropdown(true)}
+                        />
+                        
+                        {/* Dropdown с результатами поиска */}
+                        {(searchLoading || searchResults.length > 0) && searchQuery && showDropdown && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            zIndex: 1000,
+                            marginTop: '4px',
+                            background: 'white',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                            maxHeight: '240px',
+                            overflowY: 'auto'
+                          }}>
+                            {searchLoading ? (
+                              <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
+                                Поиск...
+                              </div>
+                            ) : (
+                              searchResults.map(customer => (
+                                <div
+                                  key={customer.id}
+                                  style={{
+                                    padding: '12px',
+                                    borderBottom: '1px solid #f3f4f6',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#f9fafb'
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'white'
+                                  }}
+                                  onClick={() => handleSelectCustomer(customer)}
+                                >
+                                  <div style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '50%',
+                                    background: '#e5e7eb',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '12px',
+                                    fontWeight: '600',
+                                    flexShrink: 0
+                                  }}>
+                                    {customer.name.substring(0, 2).toUpperCase()}
+                                  </div>
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                      <div>
+                                        <div style={{ fontWeight: '600', fontSize: '14px' }}>{customer.name}</div>
+                                        <div style={{ fontSize: '13px', color: '#6b7280' }}>{customer.phone}</div>
+                                      </div>
+                                      <div style={{ textAlign: 'right' }}>
+                                        <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                                          {customer.bookingsCount} брон.
+                                        </div>
+                                        {customer.lastVisit && (
+                                          <div style={{ fontSize: '11px', color: '#9ca3af' }}>
+                                            {new Date(customer.lastVisit).toLocaleDateString('ru-RU')}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Кнопка "Новый клиент" внутри dropdown */}
+                        {searchQuery && searchResults.length === 0 && !searchLoading && showDropdown && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            zIndex: 1000,
+                            marginTop: '4px',
+                            background: 'white',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                            padding: '16px',
+                            textAlign: 'center'
+                          }}>
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              onClick={() => {
+                                setShowNewCustomerForm(true)
+                                setShowDropdown(false)
+                                // Определяем, что ввел пользователь - телефон или имя
+                                const cleanedQuery = searchQuery.trim()
+                                // Проверяем, является ли это телефоном (начинается с +7, 8, 7 или содержит только цифры и телефонные символы)
+                                const isPhone = /^[+]?[78]?[\d\s\-\(\)]+$/.test(cleanedQuery) && /\d/.test(cleanedQuery) && cleanedQuery.replace(/\D/g, '').length >= 6
+                                
+                                if (isPhone) {
+                                  setFormData(prev => ({ ...prev, clientPhone: cleanedQuery }))
+                                } else {
+                                  setFormData(prev => ({ ...prev, clientName: cleanedQuery }))
+                                }
+                              }}
+                              style={{ width: '100%' }}
+                            >
+                              <PersonAdd fontSize="small" />
+                              Создать нового клиента
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
             
             <div className="form-group" style={{ marginTop: '20px' }}>
               <label className="form-label">Способ оплаты</label>
@@ -1920,7 +2383,7 @@ export default function CreateBookingModal({
                 name="paymentMethod"
                 value={formData.paymentMethod}
                 onChange={handleInputChange}
-                disabled={loading}
+                disabled={loading || (bookingType === 'group' && isPublicGroup)}
               >
                 {enabledPaymentMethods.cash && <option value="cash">Оплата в клубе наличными</option>}
                 {enabledPaymentMethods.card_on_site && <option value="card_on_site">Оплата в клубе картой</option>}
@@ -1930,6 +2393,20 @@ export default function CreateBookingModal({
                 {enabledPaymentMethods.vtb_card && <option value="vtb_card">На карту ВТБ</option>}
                 <option value="online">Онлайн оплата (Автоматическое подтверждение оплаты, ссылка на оплату в смс и в МП)</option>
               </select>
+              
+              {/* Информация для открытых групповых тренировок */}
+              {bookingType === 'group' && isPublicGroup && (
+                <div style={{ 
+                  marginTop: '8px',
+                  padding: '8px 12px',
+                  background: '#fef3c7',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  color: '#92400e'
+                }}>
+                  Для открытых групповых тренировок доступна только онлайн оплата
+                </div>
+              )}
               
               {/* Информация об ограничениях по времени */}
               {formData.paymentMethod && (
@@ -2030,66 +2507,125 @@ export default function CreateBookingModal({
                   
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {formData.duration > 1 && priceBreakdown.length > 0 ? (
-                        // Показываем детализацию по часам для длительности > 1 часа
-                        <>
-                          <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--gray)' }}>
-                            Детализация по часам:
-                          </div>
-                          {priceBreakdown.map((item, index) => (
-                            <div key={index} style={{ 
-                              display: 'flex', 
-                              justifyContent: 'space-between', 
-                              alignItems: 'center',
-                              fontSize: '14px'
-                            }}>
-                              <span style={{ color: 'var(--gray)' }}>{item.time}</span>
-                              <span style={{ fontWeight: '500' }}>{item.price.toLocaleString('ru-RU')} ₽</span>
+                      {/* Не показываем блок с ценой корта для групповых тренировок с тренером */}
+                      {!(bookingType === 'group' && includeTrainer && selectedTrainerId) && (
+                        formData.duration > 1 && priceBreakdown.length > 0 ? (
+                          // Показываем детализацию по часам для длительности > 1 часа
+                          <>
+                            <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--gray)' }}>
+                              Детализация по часам:
                             </div>
-                          ))}
-                        </>
-                      ) : (
-                        // Показываем простую цену за час для длительности = 1 час
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ color: 'var(--gray)' }}>
-                            {specialInterval ? (
-                              specialInterval.isHoliday ? (
-                                <>Праздничный день:</>
+                            {priceBreakdown.map((item, index) => (
+                              <div key={index} style={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                alignItems: 'center',
+                                fontSize: '14px'
+                              }}>
+                                <span style={{ color: 'var(--gray)' }}>{item.time}</span>
+                                <span style={{ fontWeight: '500' }}>{item.price.toLocaleString('ru-RU')} ₽</span>
+                              </div>
+                            ))}
+                          </>
+                        ) : (
+                          // Показываем простую цену за час для длительности = 1 час
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--gray)' }}>
+                              {specialInterval ? (
+                                specialInterval.isHoliday ? (
+                                  <>Праздничный день:</>
+                                ) : (
+                                  <>Особый тариф ({specialInterval.from} - {specialInterval.to}):</>
+                                )
                               ) : (
-                                <>Особый тариф ({specialInterval.from} - {specialInterval.to}):</>
-                              )
-                            ) : (
-                              <>Стоимость за час:</>
-                            )}
-                          </span>
-                          <span style={{ fontWeight: '500' }}>{pricePerHour.toLocaleString('ru-RU')} ₽</span>
-                        </div>
+                                <>Стоимость за час:</>
+                              )}
+                            </span>
+                            <span style={{ fontWeight: '500' }}>{pricePerHour.toLocaleString('ru-RU')} ₽</span>
+                          </div>
+                        )
                       )}
                       
                       {/* Добавляем информацию о тренере если выбран */}
                       {includeTrainer && selectedTrainerId && (() => {
                         const selectedTrainer = trainers.find((t: any) => t.id === selectedTrainerId)
-                        const trainerCost = selectedTrainer ? 
-                          Math.round(selectedTrainer.pricePerHour * formData.duration) : 0
-                        
                         if (!selectedTrainer) return null
                         
-                        return (
-                          <>
-                            <div style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              marginTop: '12px',
-                              fontSize: '14px'
-                            }}>
-                              <span style={{ color: 'var(--gray)' }}>
-                                Тренер ({selectedTrainer.firstName} {selectedTrainer.lastName}, {formData.duration}ч):
-                              </span>
-                              <span style={{ fontWeight: '500' }}>{trainerCost.toLocaleString('ru-RU')} ₽</span>
-                            </div>
-                          </>
-                        )
+                        // Для групповых тренировок показываем другую логику
+                        if (bookingType === 'group') {
+                          const trainerPricePerPerson = selectedTrainer.groupPrice || 0
+                          const courtPricePerPerson = Math.round(totalPrice / maxParticipants)
+                          const totalPricePerPerson = courtPricePerPerson + trainerPricePerPerson
+                          const totalGroupRevenue = totalPricePerPerson * maxParticipants
+                          
+                          return (
+                            <>
+                              <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginTop: '12px',
+                                fontSize: '14px'
+                              }}>
+                                <span style={{ color: 'var(--gray)' }}>
+                                  Корт ({maxParticipants} чел × {courtPricePerPerson} ₽):
+                                </span>
+                                <span style={{ fontWeight: '500' }}>
+                                  {totalPrice.toLocaleString('ru-RU')} ₽
+                                </span>
+                              </div>
+                              <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                fontSize: '14px'
+                              }}>
+                                <span style={{ color: 'var(--gray)' }}>
+                                  Тренер ({maxParticipants} чел × {trainerPricePerPerson} ₽):
+                                </span>
+                                <span style={{ fontWeight: '500' }}>
+                                  {(trainerPricePerPerson * maxParticipants).toLocaleString('ru-RU')} ₽
+                                </span>
+                              </div>
+                              <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                fontSize: '14px',
+                                marginTop: '8px',
+                                paddingTop: '8px',
+                                borderTop: '1px solid #e5e7eb'
+                              }}>
+                                <span style={{ color: 'var(--gray)', fontWeight: '600' }}>
+                                  С каждого участника:
+                                </span>
+                                <span style={{ fontWeight: '600', color: 'var(--primary)' }}>
+                                  {totalPricePerPerson.toLocaleString('ru-RU')} ₽
+                                </span>
+                              </div>
+                            </>
+                          )
+                        } else {
+                          // Для индивидуальных тренировок - старая логика
+                          const trainerCost = Math.round(selectedTrainer.pricePerHour * formData.duration)
+                          
+                          return (
+                            <>
+                              <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginTop: '12px',
+                                fontSize: '14px'
+                              }}>
+                                <span style={{ color: 'var(--gray)' }}>
+                                  Тренер ({selectedTrainer.firstName} {selectedTrainer.lastName}, {formData.duration}ч):
+                                </span>
+                                <span style={{ fontWeight: '500' }}>{trainerCost.toLocaleString('ru-RU')} ₽</span>
+                              </div>
+                            </>
+                          )
+                        }
                       })()}
                       
                       <div style={{
@@ -2100,16 +2636,28 @@ export default function CreateBookingModal({
                         borderTop: '1px solid var(--extra-light-gray)',
                         marginTop: '4px'
                       }}>
-                        <span style={{ fontWeight: '600', fontSize: '18px' }}>Итого:</span>
+                        <span style={{ fontWeight: '600', fontSize: '18px' }}>
+                          {bookingType === 'group' ? 'Итого (при полной группе):' : 'Итого:'}
+                        </span>
                         <span style={{ fontWeight: '700', fontSize: '20px', color: 'var(--primary)' }}>
                           {(() => {
                             const courtPrice = totalPrice
                             const selectedTrainer = includeTrainer && selectedTrainerId ? 
                               trainers.find((t: any) => t.id === selectedTrainerId) : null
-                            const trainerCost = selectedTrainer ? 
-                              Math.round(selectedTrainer.pricePerHour * formData.duration) : 0
-                            const finalTotal = courtPrice + trainerCost
-                            return finalTotal.toLocaleString('ru-RU')
+                            
+                            if (bookingType === 'group') {
+                              // Для групповых: корт + (цена с человека × количество участников)
+                              const groupPrice = selectedTrainer?.groupPrice || 0
+                              const totalGroupRevenue = groupPrice * maxParticipants
+                              const finalTotal = courtPrice + totalGroupRevenue
+                              return finalTotal.toLocaleString('ru-RU')
+                            } else {
+                              // Для индивидуальных: корт + тренер почасовой
+                              const trainerCost = selectedTrainer ? 
+                                Math.round(selectedTrainer.pricePerHour * formData.duration) : 0
+                              const finalTotal = courtPrice + trainerCost
+                              return finalTotal.toLocaleString('ru-RU')
+                            }
                           })()} ₽
                         </span>
                       </div>

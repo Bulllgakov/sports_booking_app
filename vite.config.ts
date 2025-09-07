@@ -14,14 +14,6 @@ export default defineConfig({
         {
           src: 'public/favicon.svg',
           dest: '.'
-        },
-        {
-          src: 'public/robots.txt',
-          dest: '../'
-        },
-        {
-          src: 'public/sitemap.xml',
-          dest: '../'
         }
       ]
     })
@@ -45,7 +37,7 @@ export default defineConfig({
         }
       }
     },
-    sourcemap: false,
+    sourcemap: true,
     minify: 'esbuild'
   },
   resolve: {

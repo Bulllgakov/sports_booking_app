@@ -1,0 +1,49 @@
+[
+  {
+    "name": "Падел Клуб Воронеж",
+    "address": "ул. Алматинская, дом 36, Отрадное, Воронежская обл., Россия, 396335",
+    "latitude": 51.67239499999999,
+    "longitude": 39.3297891,
+    "phone": "8 (920) 431-48-28",
+    "website": "",
+    "openTime": "10:00",
+    "closeTime": "23:00",
+    "workingDays": [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday"
+    ],
+    "rating": 4.7,
+    "reviewsCount": 54,
+    "priceLevel": null,
+    "businessStatus": "OPERATIONAL",
+    "googlePlaceId": "ChIJFzX5cqo6O0ER9orC1guTZgQ",
+    "googleMapsUrl": "https://maps.google.com/?cid=317102502833195766",
+    "photos": [
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpcyR7j15rDZd4biOgf_f-U8dy2rtIVLUUSsdMYfbLaEOMrb-xzgua7k-YZ3TZmoJexynbfEvq3qqQadhRXPlngZfartSq09K-wPi1i3RJVFMrpLVWNghje8fAy6Qm7BpczCQXrvBX7WwyipezVFvSU1HuOQQlpwkBD-2ANiaj2qVbaJLzROte4MNFBqPJ6x9ukbiwyQxZEoc-MkYKNGg6-6sjJogjeNBh27wEF2KYeUsjKYBiB6UeGYMUcfFslnxnkLT_Du60opB7-A8QoGU_bIYQkTm9thk3ZrPQXT0a9Pfg&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpfjttBHL1STbueui5aN-QASSfe0RbUASRea6ABELhFAbmUqUXZEP12fDp8ZXgze5jiUWDrYfvNoJwpp1CAxX65v9qTLNNYFK6ItgQKxD-THWLjwG6imllTGwe5TA-fqdh7bIpVFe9kLxUDB_0lXVlpYzRrom6HmpmAKOaTs_T6VPIRhLGJNEO6a96sfQStSz5ime1H2cfjvbr-GZJY0Jhqm6BXdabb76AOEkNuiL0mxdhL1vH6Eo4hOmIIJNmUoQjpMO6ogjW3SbKlZZfGDLm5OQEu46OXtVVeKKwqV1Oy-rmnQhHPxEBFRGkxXE5xAiJjMMXD2Zwha0LnmZ9k68nKItcjMaboFnTG23G_JHdE1fED-xeq2LMpdsXlvc0SNCkfXb30bDTiPO64uaPHMSnpnTBsfy0rV4KUhIR38LNjTgA&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpfnFNozQ4sBwgtjF7UCMWtakNfWMVVfLBrsptywYkGfPwaPxNQyn7GVJdIMQP_pjTvvJkjJSGcEz5kQwuv3Whm8VVPwmZ3ndF3MuSxY1pBecW1puJOh22nzYBD3aKP4aLZTzoKx_dtnqppEuedlHP5Pv5PaxOsLLRRVydpr5fG2RxBKdNfrSrCysRYsQ8lu4vdsX6r_Jbrq6lV9CQBazGAtmKFBc3JzgucRxKH3MLkiKPC9BNJnfxazF_ofG0JZQdiJAAKe4e0-Vp5Pn8U7cVqOWapWu73nQQH5ehkAdecc4hDlfaZW1GEdBfBDnggier8Ri8oeYeQjIbOee5VypdZboaXSa09ESRgHY7WtCQNjfXXl7UYpnVT1pa1BxwQW_T79fRy2405YgZBRkzR_fxvBEGhXT-JWUGL2BlLBiPI&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpfIDTyV0tSkzJmswrItgVI62ckXn5FR6VRJtAhyxO8U-q_zHalRhK8TpOh4NInr9fTlqczjwS6PaXYWof9qpHMduDqvm0kILgUYzRR-mgwtD0y4nG3InMqlbtY0gGGjGdWQRBkIJIvb_VNIPbI_zYYiwhFfzLzUogxFXf0p215R2vM12KSl48V8xotQrv-6yXpKsa35hDhopBBuELp-rBCWxHM1PKTKHjKUMCS2tIdBRWVb4hFufYYYl-1QchtHlnVPjNVZGVkFzjdmBWQHYJerhbM7K_6uHbdfVcZWBZKGmMsnRajhf_G3sDkT1UUSf5mqv7yFrO0GYlukYl_GalvGbxXvVxp5X0KFvFe1M0TbiD3eKF9npkokiLQHu1PaOmpd8I0hU9-zmS-a_G8M8JO7uYGOj0i33sk-9OZkDLI06A&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpdpg8XGmOlU-QqFxiqsJxn04SwMXXWsc8tpV4HOtquxWXriEFc5xeZwHKesD4a9Gk_evNdFZxMq-V98B5QH2F5zNiMdt9pnYMnmrxA8UU8YoObKrTbipDQtiFF1oQkYIh0cv0CbqxU3HCGYJsGd3lNP1Ex9ry79tKfHu7OWB8Fn2q9lid49rTQOPDNmw_Q4lT_vsgzamD73Q3kJcawhaKJxPBUwUL0WPYJ8YMh7Bu3sRUt80ZBVYdMKPSRpqB8D9InXyEPn0kCu_GXY8__sDkyHJ_J-jNdhEa3kD76CjD_KTQ&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpfbyr4p0WTHKzVJC48DvBAZoXL5yFoFmd_T517b-c6G9Flb92YOy-Vd0NP1zTupWMkEmvtlE6bkAm55EDs06SPvGWwc-mrONvrhNX29JWghMKElIB_ewU-N3lpZYdvRHxJw3hyyJ_-bLdRrkXtfIdZ1bKZUnJ1x85ItK3vlwAVLMaP8eQi3Hw-X4LU4mjtSXwGUrlO6AJD2_ZzRdcjOOWbR6qzfMImHd9rI8XUlVxFWqXS12CDBXPhMn4DrzsfUuL8YStGm1xXUsSd-1S5klncpIFls8HdyIaLOeZyYOYKJQaHYrBHAN0F25CDlehFEYCBL6m5xgXNoa8wuHM-uWOs7wZhkRW6EzqHYBwFdjXJDLBLfzD5NRVrJ2JlfkYhkg5BVKFXMUXlGxf1e-eVjn4trpmDh2nQsx4dGU4MYiFlHZiO1&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpcLYt4LHuY14Xn5-rJp7lw_N24-wXCe7JeWtuZsr9iTJpVyrCoDOk3JaPO6Coi-E7uCtdGz3l9E-h_aBokOy9-_WR5awERxl8R6RrKNk6v0cacsCB172EwitX_Mrqx-0GW3cVJL97nPB9KJagUyNkaw6mVTwikKBHuJE7l7Gm8EyyRZyZFy70pU90bOofgKrremAMBdBBJclObo4wBcjCt0LPtd-r11EgaLVm4lypZ0kr2C91uRDRgKcSJ9vLc5MmTfPWdqS0XwFW07E3cs58Oz717oNUQPa0_WInHWtxx05w&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpdpUiXa8K8M9EupKAYNKI5u6du3tj58k3qPcmbC1vgfvk0tSU6pDG8XGvQV4Fz7jmBlf4kPmEyuM6WC3XX2mTrhI2a6OLo4KYXG-tU77OvHCdof231HbMW_jdjFItsQZ_8Z3RgQVBNKp2PVkyctmQ1mJ5Oks7Qb6pb167cdWMILAWtNLbljSbInHQ_E3NWistkV8Rf2bSZ3VEUKF627-4G3Dd9OpsaqW6sldiS0LH1BIt75yKzwpUr5TIbueVzJc-9Ba_0NXzXDQVPNAZaBvr-xgDx0t25QiRE3ZGc1TRMnpvX9lOYDMtgcMls-XPBV-CrOBg9YshJIWODC29FfLeBzc8ex07uX_5jzTB6C0cHtUea-9drmoh2AxUykVDVAKPeDCyljyoxsGzICCCpUEWn2Z3Mwmt5SpUtZ7L1vhJ0uAGfC&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpcmLPTXz76l4gL53o1Vyu44NHVG-mD5s7NvvafDFVXK3ho7qr4GfgAiXqv31xKyFpL2pyClM6mt0U9JYeS5qJb1eTf1nUjKq0NNzMO1mflu9lT68FXMhX_iLHu0Y8fgiTNlOscgJBQYOI3HzzV8AIi94FsdIWuT_684b6ioArrht-U3-s1S2ajXveL4-9UMXCIVJCHBlUPGPpEQYrvVPfSZSkwa0A8hJoqetHrpFa1NU0q5UkqlMuXB2aC_YxdY8PIrqD-ogqQFcJOSHU-EhMQYj9ShLn9Hi8MGhsut_2xZgLD22R61FyPidFbSFab0rhkAM6mwjFUDQ4GNc6xPAn2RxHIih8vQVqX_6hnEdRLTj4A2VeCbAqPxlfOaqjGi2imyRymZCozkGo2THU1ItKH2PfqpTjRxC6eywFXEvvrwMg&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpda21rY-gNpR3pvSvQ6Y6jjFU_m-OfKYavaBNaw6-hbAeyXxVvMUlaLv0hLlB-7N09zE-6Cr9gfPMmGRq9kBU_NaKc0Hpg6l9xVoqIQU3VaiGCJ9o9bhgaA62MHW-xr6au1mzqBgjVkiC_EfgetVo_TVLwuggMb0oj3ZGX6OBNNiKYDcnC1OylvZmKqTWnykfYyMHPdukRQDdKV7AATnEbbwGYNTvXVyL-kYMasrnsLF6KOmcPNCgEtu_vVcJcIDmFyWr8AIMogjaXxbiBU4B-bz2gGBIlZcOqDahOtzAqGrPnll4l7ZiDgitiiNP4Z0T5NrJQdZAi5zY2K02iqj30-mJLC_QXXYzsPPWJtGRw3k3xfu57sN_DyRvXJ9LCJDuBqyzIWoO2uqqc7oL7Jsc548F43I68wulMUlUlyMrLWkw&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4"
+    ],
+    "sports": [
+      "padel"
+    ],
+    "city": "Воронеж",
+    "types": [
+      "point_of_interest",
+      "establishment"
+    ],
+    "source": "Google Places API",
+    "parsedAt": "2025-08-27T10:33:04.667Z"
+  }
+]

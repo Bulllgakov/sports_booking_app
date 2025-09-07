@@ -2,7 +2,9 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import {sendEmail} from "./services/emailService";
 
-admin.initializeApp();
+admin.initializeApp({
+  storageBucket: "sports-booking-app-1d7e5.firebasestorage.app"
+});
 
 // Устанавливаем регион для всех функций
 const region = "europe-west1";
@@ -585,7 +587,7 @@ export const createClubAfterRegistration = functions.region(region).auth.user()
       // Создаем бесплатную подписку
       await admin.firestore().collection("subscriptions").add({
         venueId: venueRef.id,
-        plan: "start",
+        plan: "basic", // Используем новое название тарифа БАЗОВЫЙ
         status: "active",
         startDate: admin.firestore.FieldValue.serverTimestamp(),
         endDate: null,
@@ -665,7 +667,7 @@ export const createClub = functions.region(region).runWith({
     // Создаем подписку
     await admin.firestore().collection("subscriptions").add({
       venueId: venueRef.id,
-      plan: "start",
+      plan: "basic", // Используем новое название тарифа БАЗОВЫЙ
       status: "active",
       startDate: admin.firestore.FieldValue.serverTimestamp(),
       endDate: null,
@@ -686,7 +688,8 @@ export const createClub = functions.region(region).runWith({
       role: "admin",
       venueId: venueRef.id,
       permissions: [
-        "manage_bookings", "manage_courts", "manage_clients", "manage_settings",
+        "manage_bookings", "manage_courts", "manage_club", "manage_finance",
+        "view_reports", "create_bookings", "manage_admins"
       ],
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -752,7 +755,7 @@ export const createClubHttp = functions.region(region).https.onRequest(async (re
     // Создаем подписку
     await admin.firestore().collection("subscriptions").add({
       venueId: venueRef.id,
-      plan: "start",
+      plan: "basic", // Используем новое название тарифа БАЗОВЫЙ
       status: "active",
       startDate: admin.firestore.FieldValue.serverTimestamp(),
       endDate: null,
@@ -773,7 +776,8 @@ export const createClubHttp = functions.region(region).https.onRequest(async (re
       role: "admin",
       venueId: venueRef.id,
       permissions: [
-        "manage_bookings", "manage_courts", "manage_clients", "manage_settings",
+        "manage_bookings", "manage_courts", "manage_club", "manage_finance",
+        "view_reports", "create_bookings", "manage_admins"
       ],
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -829,6 +833,7 @@ export {testEmailSending} from "./test/testEmail";
 
 // Экспорт функции для исправления доступа админов
 export {fixAdminAccess} from "./test/fixAdminAccess";
+export {fixPendingClubAdmin} from "./admin/fixPendingClubAdmin";
 
 // Экспорт функции для создания тестовых открытых игр
 export {createTestOpenGames} from "./test/createTestOpenGames";
@@ -851,6 +856,7 @@ export const processEmailQueueManual = functions
 // Admin functions
 export {fixRefundStatus} from "./admin/fixRefundStatus";
 export {manualRefundUpdate} from "./admin/manualRefundUpdate";
+export {createMissingSubscriptions} from "./admin/createMissingSubscriptions";
 
 // Auth functions
 export {sendSMSCode, verifySMSCode} from "./auth/sendSMSCode";
@@ -871,5 +877,21 @@ export {forceFixCreatedAt} from "./migrations/forceFixCreatedAt";
 export {fixBookingStatuses} from "./migrations/fixBookingStatuses";
 export {unifyDateFormats} from "./migrations/unifyDateFormats";
 export {migratePaymentStatuses, checkPaymentStatuses} from "./migrations/migratePaymentStatus";
+
+// Parser functions
+export {parseClubs, registerClubFromParser} from "./parser/clubParser";
+
 // Booking update with SMS - TEMPORARILY COMMENTED DUE TO DEPLOYMENT ISSUES
 // export {updateBooking} from "./booking/updateBooking";
+
+// Multiaccounts functions
+export {
+  registerClubInMultiaccounts,
+  checkMultiaccountsStatus
+} from "./multiaccounts/registerClubInMultiaccounts";
+export {processDailyPayouts} from "./multiaccounts/processDailyPayouts";
+export {processMultiaccountsRefund} from "./multiaccounts/processRefund";
+export {tbankMultiaccountsWebhook} from "./multiaccounts/tbankWebhook";
+
+// Test functions
+export {testTbankConnection} from "./test/testTbankConnection";

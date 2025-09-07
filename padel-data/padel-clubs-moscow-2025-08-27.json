@@ -1,0 +1,66 @@
+[
+  {
+    "name": "Результаты",
+    "address": "",
+    "phone": "",
+    "website": "",
+    "rating": 0,
+    "latitude": 55.755826,
+    "longitude": 37.6173,
+    "city": "Москва",
+    "region": "Москва",
+    "sports": [
+      "padel"
+    ],
+    "source": "Google Maps",
+    "parsedAt": "2025-08-27T07:24:20.964Z"
+  },
+  {
+    "name": "Результаты",
+    "address": "",
+    "phone": "",
+    "website": "",
+    "rating": 0,
+    "latitude": 55.755826,
+    "longitude": 37.6173,
+    "city": "Москва",
+    "region": "Москва",
+    "sports": [
+      "padel"
+    ],
+    "source": "Google Maps",
+    "parsedAt": "2025-08-27T07:24:41.828Z"
+  },
+  {
+    "name": "Результаты",
+    "address": "",
+    "phone": "",
+    "website": "",
+    "rating": 0,
+    "latitude": 55.755826,
+    "longitude": 37.6173,
+    "city": "Москва",
+    "region": "Москва",
+    "sports": [
+      "padel"
+    ],
+    "source": "Google Maps",
+    "parsedAt": "2025-08-27T07:25:02.026Z"
+  },
+  {
+    "name": "Результаты",
+    "address": "",
+    "phone": "",
+    "website": "",
+    "rating": 0,
+    "latitude": 55.755826,
+    "longitude": 37.6173,
+    "city": "Москва",
+    "region": "Москва",
+    "sports": [
+      "padel"
+    ],
+    "source": "Google Maps",
+    "parsedAt": "2025-08-27T07:25:11.795Z"
+  }
+]

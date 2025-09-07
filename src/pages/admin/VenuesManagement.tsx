@@ -250,80 +250,98 @@ export default function VenuesManagement() {
             Клубы не найдены. Создайте первый клуб для начала работы.
           </Alert>
         ) : (
-          <Grid container spacing={3}>
+          <Grid container spacing={2}>
             {venues.map((venue) => (
-              <Grid item xs={12} md={6} lg={4} key={venue.id}>
-                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                      <Typography variant="h6" component="h3">
-                        {venue.name}
-                      </Typography>
-                      <Chip
-                        label={venue.status === 'active' ? 'Активен' : 'Неактивен'}
-                        color={venue.status === 'active' ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </Box>
-
-                    <Box display="flex" alignItems="center" gap={1} mb={1}>
-                      <LocationOn fontSize="small" color="action" />
-                      <Typography variant="body2" color="text.secondary">
-                        {venue.address}
-                      </Typography>
-                    </Box>
-
-                    {venue.city && (
-                      <Box display="flex" alignItems="center" gap={1} mb={1}>
-                        <Typography variant="body2" color="text.secondary" sx={{ ml: 3 }}>
-                          {venue.city}
+              <Grid item xs={12} key={venue.id}>
+                <Card sx={{ p: 2 }}>
+                  <Box display="flex" alignItems="center" justifyContent="space-between" 
+                    sx={{ 
+                      flexDirection: { xs: 'column', md: 'row' },
+                      gap: { xs: 2, md: 0 }
+                    }}
+                  >
+                    {/* Левая часть с основной информацией */}
+                    <Box display="flex" alignItems="center" gap={3} flex={1}
+                      sx={{ 
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        alignItems: { xs: 'flex-start', sm: 'center' },
+                        width: { xs: '100%', md: 'auto' }
+                      }}
+                    >
+                      {/* Название и статус */}
+                      <Box sx={{ minWidth: { xs: '100%', sm: '200px' } }}>
+                        <Typography variant="subtitle1" fontWeight="600">
+                          {venue.name}
                         </Typography>
-                      </Box>
-                    )}
-
-                    {venue.location ? (
-                      <Box display="flex" alignItems="center" gap={1} mb={1}>
-                        <Typography variant="body2" color="text.secondary" sx={{ ml: 3, fontSize: '0.75rem' }}>
-                          📍 {venue.location.latitude?.toFixed(6)}, {venue.location.longitude?.toFixed(6)}
-                        </Typography>
-                      </Box>
-                    ) : (
-                      <Box display="flex" alignItems="center" gap={1} mb={1}>
-                        <Typography variant="body2" color="warning.main" sx={{ ml: 3, fontSize: '0.75rem', fontStyle: 'italic' }}>
-                          ⚠️ Координаты не указаны
-                        </Typography>
-                      </Box>
-                    )}
-
-                    <Box display="flex" alignItems="center" gap={1} mb={1}>
-                      <Phone fontSize="small" color="action" />
-                      <Typography variant="body2" color="text.secondary">
-                        {venue.phone}
-                      </Typography>
-                    </Box>
-
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Email fontSize="small" color="action" />
-                      <Typography variant="body2" color="text.secondary">
-                        {venue.email}
-                      </Typography>
-                    </Box>
-
-                    {venue.description && (
-                      <Typography variant="body2" color="text.secondary" mt={2}>
-                        {venue.description}
-                      </Typography>
-                    )}
-
-                    {/* Статус модерации */}
-                    {venue.status === 'pending' && (
-                      <Box sx={{ mt: 2, p: 1.5, bgcolor: 'warning.light', borderRadius: 1 }}>
-                        <Box display="flex" alignItems="center" gap={1} mb={1}>
-                          <Warning fontSize="small" color="warning" />
-                          <Typography variant="subtitle2" color="warning.dark">
-                            Ожидает модерации
-                          </Typography>
+                        <Box display="flex" gap={1} mt={0.5}>
+                          <Chip
+                            label={venue.status === 'active' ? 'Активен' : venue.status === 'pending' ? 'На модерации' : 'Неактивен'}
+                            color={venue.status === 'active' ? 'success' : venue.status === 'pending' ? 'warning' : 'default'}
+                            size="small"
+                          />
+                          {venue.subscription && SUBSCRIPTION_PLANS[venue.subscription.plan] && (
+                            <Chip
+                              label={SUBSCRIPTION_PLANS[venue.subscription.plan].name}
+                              color="primary"
+                              size="small"
+                              variant="outlined"
+                            />
+                          )}
                         </Box>
+                      </Box>
+
+                      {/* Адрес и координаты */}
+                      <Box sx={{ 
+                        flex: { xs: 'none', sm: 1 }, 
+                        maxWidth: { xs: '100%', sm: '300px' },
+                        width: { xs: '100%', sm: 'auto' }
+                      }}>
+                        <Typography variant="body2" color="text.secondary" noWrap>
+                          {venue.address}
+                        </Typography>
+                        {venue.city && (
+                          <Typography variant="body2" color="text.secondary">
+                            {venue.city}
+                          </Typography>
+                        )}
+                        {(venue.latitude && venue.longitude) || venue.location ? (
+                          <Typography variant="caption" color="text.secondary">
+                            📍 {(venue.latitude || venue.location?.latitude)?.toFixed(4)}, {(venue.longitude || venue.location?.longitude)?.toFixed(4)}
+                          </Typography>
+                        ) : venue.coordinates ? (
+                          <Typography variant="caption" color="text.secondary">
+                            📍 {venue.coordinates.latitude?.toFixed(4)}, {venue.coordinates.longitude?.toFixed(4)}
+                          </Typography>
+                        ) : (
+                          <Typography variant="caption" color="warning.main">
+                            ⚠️ Координаты не указаны
+                          </Typography>
+                        )}
+                      </Box>
+
+                      {/* Контакты */}
+                      <Box sx={{ 
+                        minWidth: { xs: '100%', sm: '200px' },
+                        display: { xs: 'none', md: 'block' }
+                      }}>
+                        <Typography variant="body2" color="text.secondary">
+                          {venue.phone}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" noWrap>
+                          {venue.email}
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    {/* Правая часть с действиями */}
+                    <Box display="flex" alignItems="center" gap={1}
+                      sx={{ 
+                        width: { xs: '100%', md: 'auto' },
+                        justifyContent: { xs: 'flex-end', md: 'flex-start' }
+                      }}
+                    >
+                      {/* Кнопки модерации */}
+                      {venue.status === 'pending' && (
                         <Button
                           variant="contained"
                           size="small"
@@ -341,26 +359,17 @@ export default function VenuesManagement() {
                             }
                           }}
                         >
-                          Активировать клуб
+                          Активировать
                         </Button>
-                      </Box>
-                    )}
-
-                    {/* Статус активного клуба - только для суперадмина */}
-                    {venue.status === 'active' && isSuperAdmin && (
-                      <Box sx={{ mt: 2, p: 1.5, bgcolor: 'success.light', borderRadius: 1 }}>
-                        <Box display="flex" alignItems="center" gap={1} mb={1}>
-                          <CheckCircle fontSize="small" color="success" />
-                          <Typography variant="subtitle2" color="success.dark">
-                            Активный клуб
-                          </Typography>
-                        </Box>
+                      )}
+                      
+                      {venue.status === 'active' && isSuperAdmin && (
                         <Button
                           variant="outlined"
                           size="small"
                           color="warning"
                           onClick={async () => {
-                            if (window.confirm('Вы уверены, что хотите отправить клуб на модерацию? Это заблокирует возможность бронирования.')) {
+                            if (window.confirm('Отправить клуб на модерацию?')) {
                               try {
                                 await updateDoc(doc(db, 'venues', venue.id), {
                                   status: 'pending',
@@ -374,101 +383,47 @@ export default function VenuesManagement() {
                             }
                           }}
                         >
-                          Отправить на модерацию
+                          На модерацию
                         </Button>
-                      </Box>
-                    )}
-
-                    {/* Информация о подписке */}
-                    <Box sx={{ mt: 2, p: 1.5, bgcolor: 'background.default', borderRadius: 1 }}>
-                      <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-                        <CardMembership fontSize="small" color="primary" />
-                        <Typography variant="subtitle2" color="primary">
-                          Тариф: {venue.subscription && SUBSCRIPTION_PLANS[venue.subscription.plan] ? SUBSCRIPTION_PLANS[venue.subscription.plan].name : 'Не определен'}
-                        </Typography>
-                      </Box>
-                      {venue.subscription && SUBSCRIPTION_PLANS[venue.subscription.plan] && (
-                        <Typography variant="caption" color="text.secondary">
-                          {SUBSCRIPTION_PLANS[venue.subscription.plan].price === 0 
-                            ? 'Бесплатный' 
-                            : SUBSCRIPTION_PLANS[venue.subscription.plan].pricePerCourt 
-                              ? `${SUBSCRIPTION_PLANS[venue.subscription.plan].pricePerCourt!.toLocaleString('ru-RU')} ₽/корт в месяц`
-                              : `${SUBSCRIPTION_PLANS[venue.subscription.plan].price.toLocaleString('ru-RU')} ₽/мес`}
-                        </Typography>
                       )}
-                      {!venue.subscription && (
-                        <Typography variant="caption" color="warning.main">
-                          <Warning fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
-                          Требуется настройка подписки
-                        </Typography>
-                      )}
-                    </Box>
 
-                    {/* Ссылка для бронирования */}
-                    <Box sx={{ mt: 2, p: 1.5, bgcolor: 'background.default', borderRadius: 1 }}>
-                      <Box display="flex" alignItems="center" gap={1} mb={1}>
-                        <Link fontSize="small" color="action" />
-                        <Typography variant="caption" color="text.secondary">
-                          Ссылка для клиентов:
-                        </Typography>
-                      </Box>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            flex: 1, 
-                            fontFamily: 'monospace',
-                            wordBreak: 'break-all',
-                            p: 0.5,
-                            bgcolor: 'white',
-                            borderRadius: 0.5
-                          }}
+                      {/* Основные действия */}
+                      <IconButton
+                        size="small"
+                        onClick={() => handleSelectVenue(venue)}
+                        color="primary"
+                      >
+                        <Edit fontSize="small" />
+                      </IconButton>
+                      
+                      <Tooltip title={copiedVenueId === venue.id ? "Скопировано!" : "Копировать ссылку"}>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleCopyLink(venue.id)}
+                          color={copiedVenueId === venue.id ? "success" : "default"}
                         >
-                          {getBookingUrl(venue.id)}
-                        </Typography>
-                        <Tooltip title={copiedVenueId === venue.id ? "Скопировано!" : "Копировать ссылку"}>
-                          <IconButton 
-                            size="small" 
-                            onClick={() => handleCopyLink(venue.id)}
-                            color={copiedVenueId === venue.id ? "success" : "default"}
-                          >
-                            {copiedVenueId === venue.id ? <Check fontSize="small" /> : <ContentCopy fontSize="small" />}
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Показать QR код">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => handleShowQR(venue)}
-                          >
-                            <QrCode2 fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
+                          {copiedVenueId === venue.id ? <Check fontSize="small" /> : <ContentCopy fontSize="small" />}
+                        </IconButton>
+                      </Tooltip>
+                      
+                      <Tooltip title="Показать QR код">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleShowQR(venue)}
+                        >
+                          <QrCode2 fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleDelete(venue.id)}
+                      >
+                        <Delete fontSize="small" />
+                      </IconButton>
                     </Box>
-                  </CardContent>
-
-                  <CardActions sx={{ flexWrap: 'wrap', gap: 0.5 }}>
-                    <Button
-                      size="small"
-                      onClick={() => handleSelectVenue(venue)}
-                      startIcon={<Edit fontSize="small" />}
-                    >
-                      Редактировать
-                    </Button>
-                    <Button
-                      size="small"
-                      onClick={() => handleStatusToggle(venue)}
-                    >
-                      {venue.status === 'active' ? 'Деактивировать' : 'Активировать'}
-                    </Button>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleDelete(venue.id)}
-                    >
-                      <Delete />
-                    </IconButton>
-                  </CardActions>
+                  </Box>
                 </Card>
               </Grid>
             ))}

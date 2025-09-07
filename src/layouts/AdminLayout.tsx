@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   Dashboard,
@@ -20,10 +20,14 @@ import {
   CardMembership,
   Payment,
   School,
+  HelpOutline,
+  Search,
+  Assessment
 } from '@mui/icons-material'
 import { useAuth } from '../contexts/AuthContext'
 import { usePermission } from '../hooks/usePermission'
 import AllCourtsLogo from '../components/AllCourtsLogo'
+import OnboardingTour from '../components/OnboardingTour'
 import '../styles/admin.css'
 
 interface NavItem {
@@ -40,6 +44,7 @@ export default function AdminLayout() {
   const { club, logout, admin } = useAuth()
   const { hasPermission, hasRole, isSuperAdmin, canViewFinance, canManageClub } = usePermission()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
 
   // Для тренеров показываем профиль и календарь
   if (admin?.role === 'trainer') {
@@ -201,6 +206,7 @@ export default function AdminLayout() {
       { path: '/admin/venues', label: 'Все клубы', icon: <Store /> },
       { path: '/admin/billing-settings', label: 'Настройки биллинга', icon: <Payment /> },
       { path: '/admin/company-settings', label: 'Реквизиты компании', icon: <Business /> },
+      { path: '/admin/parser', label: 'Парсер клубов', icon: <Search /> },
       { path: '/admin/admins', label: 'Администраторы', icon: <SupervisorAccount /> },
     ] : []),
     ...(canManageClub() ? [
@@ -232,6 +238,9 @@ export default function AdminLayout() {
     },
     ...(canViewFinance() ? [
       { path: '/admin/finance', label: 'Финансы', icon: <AttachMoney /> },
+    ] : []),
+    ...(isSuperAdmin ? [
+      { path: '/admin/platform-analytics', label: 'Аналитика платформы', icon: <Assessment /> },
     ] : []),
     { 
       path: '/admin/marketing', 
@@ -270,6 +279,14 @@ export default function AdminLayout() {
 
   return (
     <>
+      {/* Onboarding Tour for new admins */}
+      {admin?.role === 'admin' && (
+        <OnboardingTour 
+          forceShow={showOnboarding} 
+          onClose={() => setShowOnboarding(false)}
+        />
+      )}
+      
       {/* Sidebar Overlay */}
       <div 
         className={`sidebar-overlay ${sidebarOpen ? 'active' : ''}`} 
@@ -315,6 +332,17 @@ export default function AdminLayout() {
           </div>
           
           <div className="header-actions">
+            {/* Help button for admins */}
+            {admin?.role === 'admin' && (
+              <button 
+                className="notification-btn" 
+                onClick={() => setShowOnboarding(true)}
+                title="Помощь в настройке"
+              >
+                <HelpOutline fontSize="small" />
+              </button>
+            )}
+            
             <button className="notification-btn">
               <Notifications fontSize="small" />
             </button>

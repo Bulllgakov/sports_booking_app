@@ -1,0 +1,49 @@
+[
+  {
+    "name": "Padel PRO",
+    "address": "пр. Стачек, 45к2, Санкт-Петербург, Россия, 198095",
+    "latitude": 59.8874089,
+    "longitude": 30.2586865,
+    "phone": "8 (812) 220-20-08",
+    "website": "https://padel-pro.ru/",
+    "openTime": "10:00",
+    "closeTime": "23:00",
+    "workingDays": [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday"
+    ],
+    "rating": 4.6,
+    "reviewsCount": 9,
+    "priceLevel": null,
+    "businessStatus": "OPERATIONAL",
+    "googlePlaceId": "ChIJGQYPquU7lkYRre-PQ-AJv2A",
+    "googleMapsUrl": "https://maps.google.com/?cid=6971301607003647917",
+    "photos": [
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpf-xNJaIBESlcfPFXOY7jDGQcgHnxX9unaxFgdYvpIrIM4HATjl5zCdSKsMI0V34oYugggmHLKZM-z-XmbY0nCU9wCU9LX6sgUrOIlbD_GgsPLtvOjqInq_N7VIIK51cy9_aKI5YYsicIdYmaxMuABwDjJQbZCAbJHpUzl0piH-Om87iA1N0hHPioYB5XjdQhZOIBoKajBUt37HjCSHjbwjnMPsAXBYbWimXdc1b0ttpG0EGDz3wt1afH9GAZR3iBi0Eo26aVi3a35NWVjBVEZqb3kBBi_nKwWNjhDnAbEqzA&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpd7WsGmkGs_U1XqufUS0KtajR4jNxZHkui0AIR7j7HfKIY2O4L2eXnZckzKda9gO3e52UDDcG7IgxyuKQEAQqx-6TvScTUDE_zzrF77qlCE8IHN1jkLYiL3qGz0cKOtzaecNdvV8VFr06cTNeEv1I90uO8En5NIv9nDIPneN86KOQtvdff8JcyTNoR3MOWReDoDojjdXFCRg_TJn3PbnGIXBIRjyGTDChqG9Kym5AWKcCOavU8QRRXUFQFhmvnmY7Txm2F59SQCmuDHhaWp7svYz4gBC-ArJ569GcHb9fOW3A&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpc0lkyluGCSTHyLrzDgQ0az2RLPx1Xk2mJyABqfVL84S_E2jG0vBQmgwIcLgEwA7UTttqAFKelHbTUFEaQ8bQArdvCvNOR0TzXqHzI31BkQ16FHNJIs_AsnCepIoLIh4E79sYTD-pBpCtY6m0gBaXx8xFyyP5n6jGcw4-4ygSFg9_IKJJYRFqSmEFKqSWr1AZeHKdEd41lchnbDiqJIUMZkfgP5cpZlF59JZkMb2HqP9DIygDvHAcNbVjj1QqqULVEsbRu7Waf9NjJoNh-O7kjG1cK7vVRSll8ok73AS7YIHg&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpcaR6iKay_B0ECTJjCZTl4J8a0m_zwgaHEfkq083e9mL1wz9jb7h_FE4dbsgzWyS843x8Xo2T0QHBRfpn9o_O0pCn2jz4I3w5QNddlpPq8Sbv2QIbfUEdEbGJqVNGqXuvo4Xe2Iz0XB0O00G112Fdu2HvhBuarZoJfaXQLM5fhhMOZU674K2QrpQg_sG4iy2H1cnk2Ek8NxpNHSJI1AVf3vHWc7MiX3N8lWyx8rNJ_N5UVjXAYOxd1sRbFMWmCKdXkZJtdLuC0rlPnkMfNTmYMNiZCTOC4WMHpMBTMlWzTbAA&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpcFvinmKz61ds1AnHUzFeGvObGuqj4q0ecj1PYw_p-r7h13Mfpy54jzx0CxDz4Fgi6oNkxmV5SELp2L-r2mpN9V0hdUNzspuXaeJ83XLCJwP-xV38NOYcXjgrAx7K-S2FH8puRZsd8j_awe_PkTj4NF6WXN2zosytc_cZZn8v0GgZe4VMskf44wLW7NmRsX6xLM7TgSwE1-yxuYQvUzIRlq-1arjo-p2SOpMklcc_PjKBTyLmmcNZJjuEdTheeYF2k6lF_a-gTYM_sh8XZ0fAharOhQID0rWtJ_CmEQuVf9EA&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpfoch2FUlr7a4H-yp1DzZ8xWHCCrf5HgMRcA3g5myYHC9c-YuiuHn_ZJOuB7NeA4TWxXfK8pQp7ltmdZJBcqxmfC_ys1DkHVJA7Yxahh6VK5AAos1bMpNFUajNIkeMGQTtmAmvmHbKzH3Ns4-xbIw-s3hMfU1UUcVEMxTWjtk83Hy_z7iCEB3LjQfxurx2PQ2hDd-e55hd-TfJM3mbwnb66dnt5TsHm_OgEaQynjxofBoL_2nrm9ZisNr38aYT8MCr1W9nN3MQQb0x3oARTfbbUgasLjkXaR08f3zadf2p-GA&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpdUFFohlFXQwlVU_7h00zem_sXS0AA2ultraMwC3bQE-wxNV41vBQA50KGUgXitv3Bk8rhSj8LPo9Lj_8ZXK8Njlfy3nHNtZq7eQc4rcXtxn278DY4ZWE6yPHw8A_EOk1XQFxSxRYdIvrIZyUxx37TzVuhLyF9mQ4FrsxeCqQDUiQpNbHXJZgrJIxTyuR7lyoGtob1kd_AX1Zi6x6BoizuJi0-tc7cBpHRYi0H_Pg2qe-9w8iU8iL4RPvIOoyPsmuFTztzlK1C5paSSG-y_mvmZcGT93y4OrR4Ac6oljKpm3Q&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpfh9b4wkdxGVXlxm1rZFhgCvakopEvqjkV_l4KgKHvY_0DRIuwh5DCLrSb1DEuos9EblHTFdM5ZiqYgAAvhRZso62ommYIlhaHUUWa-deVCSn9B-vKdMBNDM2xkP8hzL34RTyfZRtfD2jXo3pn_XZJNOACvPBn22GAEo6n5Am6cXdMODhaHnvnEI3Z5EG1jmNR1r82A2BRXEkOfeEx5pQQP6HFSB9N60foQm__inVODSPqD__b9soQI7xAgc5CTyfQ7Qrl5Qdx4AwPMMoeKAW1f0srX0gDSigdsa_1_QBtOBw&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpfijYzzV3RQ00ODduz0E-CgwhTT9hSSIqV11As9lnrGqLxX2O6LFcH7yxIzOPhAvNOLcfmJ0Nbmrx4WxjMttDfhockRl7wfz8f5ahx2IHb0u2cyo3KTYNb95OI8Wh4prhzV6DxQUJuyEcp3PhKIEvQr_ONG9jVJOyOtNAYWMvlsK4L5fqHvrGEsfMAzPGPyU-qZjOmXDzTYk_kxTncnUR_gX66S2Qj-eA--JTbofaRSpwr25z6CQeWdOC3SzVsnk_nA9ugGlwtrTS0jiSHg9YGSM8ULeYvgCc8hyyB44cri_8L2AZXFCykPvV9bGYOU3_CpF0Sq0dgeH5veylRcJPIrAuhow-PeiJkfVZnHx-mO_KbmjbW7igAJd77FYlu_llJxX9zwlmjzd5z2ftlfkdtPuDx_WNXuUYv7pl6XAZCd8HY&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpeTbyRDASwxpqUgCdUB8jp8aHg1XXl2NQTWSg100Um6gk0cxReYeMTmQ98HRJqWGXJVnly6pbWPSJmy_QUMZRjvL7WzhQsYZ0MblXSeCz_qzAU4KF5kp6RHqPOyrdACRccQNEFDlv85SoeTTibZ0KZ1yx-tFjVJs9fQjEKDhlbDle0ze8gI6iMrzqCP4NxBZ9CWkDHLOVT6Lmse52dvBAPONBjIpUIIODBqx9fMAfy-3KOu7eEbn3tNvUOGSzMxM0TS_1eG9PP7XdMcIKlJJnhtcOxNTsd0EqRn4KQ_-V2wpA&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4"
+    ],
+    "sports": [
+      "padel"
+    ],
+    "city": "Санкт-Петербург",
+    "types": [
+      "point_of_interest",
+      "establishment"
+    ],
+    "source": "Google Places API",
+    "parsedAt": "2025-08-27T10:31:26.957Z"
+  }
+]

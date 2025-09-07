@@ -11,6 +11,11 @@ class PricingUtils {
     int? priceWeekday,
     int? priceWeekend,
   }) {
+    // Парсим время начала
+    final timeParts = startTime.split(':');
+    final startHour = int.parse(timeParts[0]);
+    final startMinute = int.parse(timeParts[1]);
+    
     // Проверяем праздничные дни (приоритет 1)
     if (holidayPricing != null && holidayPricing.isNotEmpty) {
       final dateStr = DateFormat('MM-dd').format(date);
@@ -24,88 +29,74 @@ class PricingUtils {
       }
     }
     
-    // Проверяем временные интервалы (приоритет 2)
-    if (pricing != null && pricing['intervals'] != null) {
-      final intervals = pricing['intervals'] as List<dynamic>;
+    // Получаем день недели для pricing
+    final days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    final dayOfWeek = days[date.weekday == 7 ? 0 : date.weekday];
+    
+    // Проверяем новую систему pricing с интервалами
+    if (pricing != null && pricing[dayOfWeek] != null) {
+      final dayPricing = pricing[dayOfWeek] as Map<String, dynamic>;
+      final basePrice = dayPricing['basePrice'] as int? ?? 2000;
+      final intervals = dayPricing['intervals'] as List<dynamic>?;
       
-      if (intervals.isNotEmpty) {
-        // Парсим время начала
-        final timeParts = startTime.split(':');
-        final startHour = int.parse(timeParts[0]);
-        final startMinute = int.parse(timeParts[1]);
-        final startTotalMinutes = startHour * 60 + startMinute;
-        final endTotalMinutes = startTotalMinutes + durationMinutes;
+      // Разбиваем бронирование на слоты и суммируем цены
+      int totalPrice = 0;
+      int currentHour = startHour;
+      int currentMinute = startMinute;
+      int remainingMinutes = durationMinutes;
+      
+      while (remainingMinutes > 0) {
+        // Определяем продолжительность текущего слота (не более часа и не более оставшихся минут)
+        final slotDuration = (60 - currentMinute).clamp(0, remainingMinutes);
+        final slotHours = slotDuration / 60;
         
-        int totalPrice = 0;
-        int currentMinute = startTotalMinutes;
+        // Определяем цену для текущего слота
+        int slotPrice = basePrice;
         
-        while (currentMinute < endTotalMinutes) {
-          // Находим интервал для текущей минуты
-          int? intervalPrice;
+        // Проверяем специальные интервалы
+        if (intervals != null && intervals.isNotEmpty) {
+          final currentTimeInMinutes = currentHour * 60 + currentMinute;
           
           for (final interval in intervals) {
             final fromParts = interval['from'].toString().split(':');
             final toParts = interval['to'].toString().split(':');
             
-            final fromMinutes = int.parse(fromParts[0]) * 60 + int.parse(fromParts[1]);
-            final toMinutes = int.parse(toParts[0]) * 60 + int.parse(toParts[1]);
+            final fromHour = int.parse(fromParts[0]);
+            final fromMinute = fromParts.length > 1 ? int.parse(fromParts[1]) : 0;
+            final toHour = int.parse(toParts[0]);
+            final toMinute = toParts.length > 1 ? int.parse(toParts[1]) : 0;
             
-            // Проверяем попадание в интервал
-            if (currentMinute >= fromMinutes && currentMinute < toMinutes) {
-              intervalPrice = interval['price'] as int?;
+            final intervalStartTime = fromHour * 60 + fromMinute;
+            int intervalEndTime = toHour * 60 + toMinute;
+            
+            // Если конец 00:00 или 24:00, это полночь
+            if (intervalEndTime == 0) {
+              intervalEndTime = 24 * 60;
+            }
+            
+            // Проверяем, попадает ли текущее время в интервал
+            if (currentTimeInMinutes >= intervalStartTime && currentTimeInMinutes < intervalEndTime) {
+              slotPrice = interval['price'] as int? ?? basePrice;
               break;
             }
           }
-          
-          // Если нашли цену интервала, используем её
-          if (intervalPrice != null) {
-            // Считаем сколько минут в этом интервале
-            int minutesInInterval = 1;
-            int nextMinute = currentMinute + 1;
-            
-            // Проверяем, сколько минут подряд имеют такую же цену
-            while (nextMinute < endTotalMinutes) {
-              bool samePrice = false;
-              
-              for (final interval in intervals) {
-                final fromParts = interval['from'].toString().split(':');
-                final toParts = interval['to'].toString().split(':');
-                
-                final fromMinutes = int.parse(fromParts[0]) * 60 + int.parse(fromParts[1]);
-                final toMinutes = int.parse(toParts[0]) * 60 + int.parse(toParts[1]);
-                
-                if (nextMinute >= fromMinutes && nextMinute < toMinutes) {
-                  if ((interval['price'] as int?) == intervalPrice) {
-                    samePrice = true;
-                    break;
-                  }
-                }
-              }
-              
-              if (samePrice) {
-                minutesInInterval++;
-                nextMinute++;
-              } else {
-                break;
-              }
-            }
-            
-            // Добавляем стоимость за эти минуты
-            totalPrice += (intervalPrice * minutesInInterval / 60).round();
-            currentMinute += minutesInInterval;
-          } else {
-            // Используем базовую цену
-            final basePrice = _getBasePrice(date, priceWeekday, priceWeekend);
-            totalPrice += (basePrice / 60).round();
-            currentMinute++;
-          }
         }
         
-        return totalPrice;
+        totalPrice += (slotPrice * slotHours).round();
+        
+        // Переходим к следующему слоту
+        remainingMinutes -= slotDuration;
+        currentMinute += slotDuration;
+        if (currentMinute >= 60) {
+          currentHour += currentMinute ~/ 60;
+          currentMinute = currentMinute % 60;
+        }
       }
+      
+      return totalPrice;
     }
     
-    // Базовая цена (приоритет 3)
+    // Используем старую систему с priceWeekday/priceWeekend
     final basePrice = _getBasePrice(date, priceWeekday, priceWeekend);
     return (basePrice * durationMinutes / 60).round();
   }

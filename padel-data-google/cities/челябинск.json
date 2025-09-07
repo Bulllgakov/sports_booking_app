@@ -1,0 +1,41 @@
+[
+  {
+    "name": "Padel Space",
+    "address": "ул. Артиллерийская, 124А, Челябинск, Челябинская обл., Россия, 454007",
+    "latitude": 55.1654899,
+    "longitude": 61.4327183,
+    "phone": "8 (900) 074-39-95",
+    "website": "https://padel74.ru/",
+    "openTime": "07:00",
+    "closeTime": "",
+    "workingDays": [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday"
+    ],
+    "rating": 0,
+    "reviewsCount": 0,
+    "priceLevel": null,
+    "businessStatus": "OPERATIONAL",
+    "googlePlaceId": "ChIJn1TCjCntxUMRbwD3yFHo6V8",
+    "googleMapsUrl": "https://maps.google.com/?cid=6911310541138362479",
+    "photos": [
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpe-_o1HWCNQrxgPd-ew9E2h9GaYlrsRxBoJIfLhyjuAn4tR6egY02jrl4cYy5lAEaI1RXZ7nung224NdOBPIhJhnw7JJnsL4F5ekIGPrEEAq5Tsz0SauIG_onwv-phsatbXu7CvZen4yOCEZXBUFf7GqoaKfCETQAumqXRWQHixEzcZrLqCmVlOx-o6D-YMBpdZGrL8InUvYXDa0PIkdZBIetJPZB_PzZe79EsBomYvNh_mBapK2cmrmNHxMthXfcOQ4uO7NE5AlVf_LPuGeMQhehvskEq2tAMOpT94bpJRTw&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpdt8qo4ujZ2bJKqw2ZJLT6Lk2BpeqG4Ja8ENBjZQEZO4BYZhQHmXdN9I7o91CjWUU7aOYhLXKWI90COqZLrSA8O3Qk2jlS5ka9uUEFKyZlU2Th4qPkZ2FSnUun_SGb36lht-XGH7jTqx0OzgCBNFbPjWixbW3Q9ZL43U-BWCFg-gPah8jtoCco6swme40RGMUaNyOgqXcfeT3m6qzbQd0BxEa0QCmnn6_S4XXwSwTRi3j6cG5itVEAzIs7uthx4VWsCSPTLyzWJUxASkNB3Xc5eYPn5_nvUaFlX4CfzhyxYxA&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4"
+    ],
+    "sports": [
+      "padel"
+    ],
+    "city": "Челябинск",
+    "types": [
+      "point_of_interest",
+      "establishment"
+    ],
+    "source": "Google Places API",
+    "parsedAt": "2025-08-27T10:32:11.778Z"
+  }
+]

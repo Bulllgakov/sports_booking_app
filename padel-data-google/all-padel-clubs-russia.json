@@ -1,0 +1,208 @@
+[
+  {
+    "name": "Padel Battle",
+    "address": "ул. Луговая, Химки, Московская обл., Россия, 141441",
+    "latitude": 55.9475048,
+    "longitude": 37.224094,
+    "phone": "8 (985) 252-97-77",
+    "website": "https://padelbattle.ru/",
+    "openTime": "07:00",
+    "closeTime": "23:00",
+    "workingDays": [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday"
+    ],
+    "rating": 5,
+    "reviewsCount": 3,
+    "priceLevel": null,
+    "businessStatus": "OPERATIONAL",
+    "googlePlaceId": "ChIJQ2YJgQUVtUYR1hDz7SNXWtY",
+    "googleMapsUrl": "https://maps.google.com/?cid=15445753683848138966",
+    "photos": [
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpeHYh5MTqPphN4Oyrmj-1JqZ8oLEAFtRBX-ToeYghdb4jkRoc3h_3GYor8xmLNV4W5CSTf_sO72VpKantcAZRdWMdR9OSe6r4g6WFAS4cePyXF-RQh80nhPEZS3IoAfLQHccJPcUhhqU9VAWwZOQX5MLaF0Wi1yz1m7GbgyihIry4KbgqiE3Z1MIiwoZDUOmEBjOdm0evAdbupKalqTpv6AYJXchHSs03jOoyOuZiOJrAadV1eyV2HuEEwsOJgeNmXlN9Pcl9MJjneUmVRMs47LXnv-u4HWIpfXmfvnOcqisiAQJxUxC0mDAnPohc4aq1LmC6x65ADqfCROGDWm-54oebVPAiVSST7MLrhagNVIRImnzyLFmXmMroE7fBpK9Sin3nkaRmojLz7q1So4bBjADv-tdowkOQnuP3ynQPo&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpeLiovZOv2y70jEWR8HnRNLRo3h_-eIC9Qz7F_KzM5WZIBuCcQ7164iyNc4vXyIN9ZzEGvvRbmr6iLImTJH7jYZLyiGOWjYAYieXrSzBz1VlmXYS3545FaAl9SeLdjLG8eReqW3FXezoSRXCe1175xmiiuBmCqugBu6Wp1y4b-zeTziw_VYMvxK5VQVrrdW2Iczaeizd5xhwTiLMAik-QGwFHs0B8yPradHqJ8jA3SkYxUG7mlCyB4TzqDWR9YDfNz0hkRHiY_cJc3-bC4UIyF6qoSpmtXaosTpW956ycB_jw&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpe_g1ypKDvzyy0yOPBA3ydjmawPdp1KSVo4jWyD0TBiX0ovHvRANsfATGT7EAzZ-IoW8_O4cg_0BfspWGGOagRPFMx4lP2gjryI96jGi5abHYd01_rY0vjtBirVHZpiZ80kmd9TBz5F7YNyihF4iKSIm6PdR9qJ-pb--b3XL1o2FVuzwoHI8eiHnv6FLnbuzUMFb-steS2QIfkrF3rpRQd-D_J3TcXB1GFcpAwDyvpFvAPgob-y5K81mde1IWNmTtm3wAlb1xhp7QKG0JWVLrAyVm0QSdR59yPgmdoM9-pBNOyrTYXLA3X9xyEetbI4muvPQCCQF8NkX02NOlsDLzY9UAVTrd60U3zG41SR_hoq8VTcb2T1gb3RTa0Bb5sKT_arQrVzGWO4LG1cPUt-P3zjQZpQFwrUJJ-3UzHKjAXNWA&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpdWoQFBI7sJEKo2PepRKWEqE2LSlplsfEYTtBT_OUlnHVuV9jkFuAaFTUW_zkUn7A3vnGeEE2NMIpar42EQNwfCRq2pqkH-plGE7qpPE-GAlco-61OouVeoggkIvnR_U5O3wwqYc7cYlSd1EicVvZS87gTAzUqamKFuNGR7cvud4EOxO-9bujCkrZ0aeiAGf7WHJ12ZK2ELcZlts2w2ZWlKzVAM8cHGXNsCPy2TILtJkOhsuAM5s25ja6x8u5XA28TgWffmwVgA1K4ZFxQo3HEj1Cw-a0pW1X5QlUkAHZZyvg&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpdvViSbN6DpSQQQ3rEMvo_7nezRkaiSsSJuab06f2v79PYKcsWljqfeQ4jd2hJHEbABYNrdPoX5ZK6vYHzWIZGLvwm5YuLyYIDVoUwuZMfQiSSZDBCvC9bDYIT5L7QZMNGTs-GdUbkPMhOmlHBJI7jvf3LmipPNhsguuokL5k_JEHUsTmbofku52dnKoRzlUOLkHkQTGJNDHobz23PNC8QVCPL6QQTDOzP1N0IK7-yDGBi0E5vTrv3fnjbbiEVdzP6Z2My7IPQZbhGf81I3J379EW_-2zjkVomoiwqKJLgvPA&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpffYGF39gR6uN9zpLBE06zB7xAWiea1DDSm2zB3cPyCWaippXX4_lI1GLnmrjH2cKgAajDyNDSkBXiL8ckXdRvgNgRmnSprqrqp7aV4Y-387-GM_ug7zoO7EGrijI4sH6MTCOcko-i0De-KQlnTXI2JIT8ElEKvw7ztVZqnkdALhjK7hyV0rcJj1gjLZ-s4RKI3XcjRlvqbzrBBWcoYQzCv83-3xFZ5-eLyDbqwt7Evpo6t8Y5lQ9WA9QBGHYRDppsnIhtOXlMOSFQcBrJt9VxBe0CCGfrUqsYFQtFLD6I1Hw&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpcUL6bdZf_tymWXSbBEEWg19tO1QGJnXQWGNi5gLrkgyDw7u60-4obrwnJkTTkN27txYx5inrjsro0dwfvoY78s8h72h_DdRa__OOm-ICNiRyASPN_5B7MLbymv3u4KJIp2QsljH4fsYkAfFXTeupzT06vySsGVvQa7WtInerZJ8q8EDRKWhRCs-_F6_3QY90eazRbvc9aA38nka79C_Y7gpzu52syVj45frLzzqnDr5p-lo3xH2I4nHK-Xk8Rsv0-ZJOjWTQRN_IoUHwZ6pAL4yLKonKDmw3wXSJpsyd5iwQ&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpfrfnQbFSEQOPLofXBLglJSQ7wIX7jl_v9Th0A61Z2AyS4JSb8Y-dLGcu80V8Wa8m7PeKk8BdnHGd84Ept8Fbm9RFc9NY00F-kIrLhJYF04tCBheVFONewLnlQDLkf_Y2wnLQVW0P0vvO3356ThbE6YJ4rFKgVLJ7lykpXuOAp4GvVitaQ6uRTu_JlIqWSW6AJTtgFPYX6iUAhtgnKEEuUTgL490OnjNGp0tki4HXT9kuYkib2-ybTqi5Bhe8T2jLLEG_wLzN3-pLEO2MAaNA2O8rzXVNEUU05CUtrp5v5S0USXOLdd6GzbYvcGmHd5OGd9eb-Hn_i7-XaVfn-NudjKKu6N7zlQNXeDrtaapllCaR607PlDMcfOIarzWGSHIZlpH7E2EdPlma4yQEqdkB06y9xZVMJD-CCPYz7m0R3Vihcq&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4"
+    ],
+    "sports": [
+      "padel"
+    ],
+    "city": "Москва",
+    "types": [
+      "point_of_interest",
+      "establishment"
+    ],
+    "source": "Google Places API",
+    "parsedAt": "2025-08-27T10:28:45.663Z"
+  },
+  {
+    "name": "Padel del Norte",
+    "address": "ул. Складочная, 1 строение 6, Москва, Россия, 127018",
+    "latitude": 55.803765,
+    "longitude": 37.5951329,
+    "phone": "8 (925) 550-15-85",
+    "website": "",
+    "openTime": "07:00",
+    "closeTime": "23:00",
+    "workingDays": [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday"
+    ],
+    "rating": 0,
+    "reviewsCount": 0,
+    "priceLevel": null,
+    "businessStatus": "OPERATIONAL",
+    "googlePlaceId": "ChIJ03Hy8LU3tUYRV5XVagRqBBY",
+    "googleMapsUrl": "https://maps.google.com/?cid=1586509535946052951",
+    "photos": [
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpcYO9V_WZsObQX-vsamPYO2dpBKg_d3aZnkG0HefQrFbXlYS3WXRPOmdvRpITXEiIXp3SkGlHvuaT4O6jRSpUi0rOd07ZiH9Y7spytPPZ6dfON6rLSolCJ0vHiF1ceqQL5XzH_QULS1hgO47H_ZY13I4Ete2Hxuo7AP7HBwxx2qr_vQe7YcMwVvYsKWhCeOEH7rFrEHUwKAyb6UX73x0IJv-_U073ZSx3snLsIKpUs64zdnfr1_Go5MtqwEYm_LNmn9cT3dbcri2WtVtcDFWNmJLOO6BHmyslfholyWDFinkw&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpdQtOETx7YzJmFmHhOb8yXabEVt2JRqvzf5iF-SwXSI-eGRg70LTYuS9ewul-nDYgejtI72AlUnjjyH9pQbRUh4N3rJxQjsi07KE5qnqgtcroNZa1oTqSxNehTU95L-CG3aGi1JrSxIoZ1JzomcflHQNnc9p8EyY2rmm_XAuxgAK1JUmzvHZ_hhjm0TVwawsxQGs7brP_NOa2L0bLXNmTChupOk02Dzqql1TWw5rjvl_-mhaMT9m0Vy8wgGq80rcY_UNPNgUjrc-onopixhOIMb366U5BFJ3h3QiJ0fHSZcEw&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpchvBtW5haEhEHeDHjrNsaboShCTakztuhW6HJRZVzeWQa--dgPWVYqo051odtsGEgr52Pse16Gxg6yHXd0N8ok3rVIwbkIuvcwTUQ0s5W_otcaPtbLK7eYJR4BLdTUSmDLWwnF-FIjV5cJ_ZsCUtnMbGZ9dh8Unq6gO9G0Rha8F8m4StvcLZc35uzPdJdPrP7RbeRDt0LWU6HDTkSCgyhTeMG-ipD4iQfngdoi9UFO4nvvluXtw--0t0Zp2nbkamOo0y0xdfPpUXBP0wIZKHFADR35dpgIBP4R41lyrtoVKA&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpdbHtEMWZ9SyEj4-HGp5IHMiAOWXLmgNgZ5Zaea3ZbnMO-qIrJqctgmhx3HdHxWfy_LS6Okt3HPfHxUmIqUTcUPoIQ52uN1Fkp17JKsHJJDEzxLEXD2x3P_4t6dHXomsQ7yuD1SZCDCXUa9wFKArLrJ7q9MlgUH5TyB9B2AdcTBfRfheVxZFW68rlwO7eDMIKUoB5Y6rPtBNsX2_BjNEU8HuAQZQLPy4jzhnDHgJoapF2wrW20VRsZXc3V1vEtx4ahh7Xfv9jChhCL9Wfb1bn-g5FraF7tnvWTzr8wqpGtl_Q&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpetUk1-Hd87GJtuJJQ9FZdkz7JATIZ4sAzjC6vpzVMKifj_lagd9oiLuPFoQQ8Fkb3wzdo3OOwiKWQpY61nONU8GjwVUCrGzKJkRVNicNYkvRuYwNaMaynPX8f0F4JZK3WBPUKLPL3Ha8RpzH4zz6g_i8yX2jXtIbbsdRTm6_S06I8HXKe1eUyN0Pr1-8hWw4qQUSogQu0w0JyWQCIO9h5lMkgernJjN4qhzQgniZF4WumPmp7fUuNyARGQcfuG4uubICQXCqJ_jijLnBZlnCcsMfzgm-UAZQIaP-cAgbwZkA&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4"
+    ],
+    "sports": [
+      "padel"
+    ],
+    "city": "Москва",
+    "types": [
+      "point_of_interest",
+      "establishment"
+    ],
+    "source": "Google Places API",
+    "parsedAt": "2025-08-27T10:28:46.385Z"
+  },
+  {
+    "name": "Padel Friends",
+    "address": "ул. Лужники, 24 строение 1, Москва, Россия, 119048",
+    "latitude": 55.7166262,
+    "longitude": 37.5522782,
+    "phone": "8 (980) 418-13-87",
+    "website": "https://padelfriends.ru/",
+    "openTime": "07:00",
+    "closeTime": "23:00",
+    "workingDays": [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday"
+    ],
+    "rating": 3.4,
+    "reviewsCount": 10,
+    "priceLevel": null,
+    "businessStatus": "OPERATIONAL",
+    "googlePlaceId": "ChIJrxzdfYtLtUYRA0FORjgPk9U",
+    "googleMapsUrl": "https://maps.google.com/?cid=15389661086027235587",
+    "photos": [
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpcmxBBVM3ormIaP2VjVeS0xF74syFX4UAX_MmdOiIGAwkg26N7DeuVT3NT7pOAqveg3kfQZEFfUw9RT-DqFw_dp7YjpjjyPghETA-dQMHMH9qT-bYHCDcWlZSSGJrIpzNZklv-MUvwuxP5RNjqXVtcxWg-06ldk2vIpyM8O_ON6_JlbQJcdoGrbYNAV7Yqfj7xxnNR7tWWCR_0mSk9JERrUDo4RcVwPSG6ZYMLG-oVOVvCkqEKOJ5aQ_mPLVMSyH5tpNQd64w8wxXSnmrZtwNFjGdiinFckouhyBZBdiQpWmg&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4"
+    ],
+    "sports": [
+      "padel"
+    ],
+    "city": "Москва",
+    "types": [
+      "point_of_interest",
+      "establishment"
+    ],
+    "source": "Google Places API",
+    "parsedAt": "2025-08-27T10:28:47.092Z"
+  },
+  {
+    "name": "Padel-Racket",
+    "address": "Бутырский Вал ул., д. 32, Москва, Россия, 127055",
+    "latitude": 55.783925,
+    "longitude": 37.5871958,
+    "phone": "8 (977) 101-42-11",
+    "website": "http://padel-racket.ru/",
+    "openTime": "11:00",
+    "closeTime": "18:00",
+    "workingDays": [
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday"
+    ],
+    "rating": 0,
+    "reviewsCount": 0,
+    "priceLevel": null,
+    "businessStatus": "OPERATIONAL",
+    "googlePlaceId": "ChIJS4TxjB5KtUYR9lUzGkgIkug",
+    "googleMapsUrl": "https://maps.google.com/?cid=16758466269169276406",
+    "photos": [],
+    "sports": [
+      "padel"
+    ],
+    "city": "Москва",
+    "types": [
+      "point_of_interest",
+      "establishment"
+    ],
+    "source": "Google Places API",
+    "parsedAt": "2025-08-27T10:28:47.949Z"
+  },
+  {
+    "name": "Jet Arena. Падел Теннис",
+    "address": "Деревня Воронино, Осенний бульвар, 1, Москва, Московская обл., Россия, 143582",
+    "latitude": 55.7844686,
+    "longitude": 37.0042422,
+    "phone": "8 (495) 252-70-29",
+    "website": "http://jet-arena.ru/",
+    "openTime": "07:00",
+    "closeTime": "23:00",
+    "workingDays": [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday"
+    ],
+    "rating": 4.7,
+    "reviewsCount": 15,
+    "priceLevel": null,
+    "businessStatus": "OPERATIONAL",
+    "googlePlaceId": "ChIJeXMjd0ldtUYRUtRIdQ-NUgk",
+    "googleMapsUrl": "https://maps.google.com/?cid=671754391963358290",
+    "photos": [
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpdOxhC-DXY6HfUR6DtaAGkAfDAy0_Z2hVRHbw82j2VyBDMS2zojvSxZ-QyvqTQo_4lyTCJVQ4IhqvSocTWOkPg9iZdFDkP0Zn0YRzXyymMSFLojvjyjXD5jtQM9aDrODp9dmLCNzhqbauzCWksQIAYdqOTuBuL3buGdcJoAzMl9eY5Hsdo2e9DTvjIXOw60X8DgYkSiEwqVHPeHd4D2EePlSz2LAlB2PpZqLKb6-ExHpCPzYQN0gj1Xw4H47mu2bCceV8NylAR13ww-sWJr5hvyQgVzZSamwt55vgFtTn7MtA&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpchktPTfiFIyBgzrXhe8lqIafrpZIZjRij17Y3-xj2E8rIjkkO5ELCDWWAoca-bXIDDfp9PDPZ1i97J3LzPGi2c5sOnfcfnEfHr8lTrUuSYDXVTVIjEDYfjaStjhRtKZgDfT9OhEI-Nl6l9k-HtwKBF0cEgy7S2OSL0LHimL3WyADMf6RMbl4oGeRMxrow6jiqG85LS70bJerqAkYBCnMUq42K3SVqPmOTfOh9xoToT2Bz12HLUwm10AHhjBsko8AG6fiyl_aMtiERHoBt6rs7I3lgNXcoG7uLz6ZLE6f73HA&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpfxP0a_AiNz4_nmyDmextOx_7pFdFN1oakcusHr_wHLKju_Cgz72t7KNTcHP9pXYkHA7gaM3I9vHrLAv3bkZXl69kK5Tp8PLRxBl3ULceIBoKk6j7b68FneDvJA_8tFF6mzadzDTbW1L-_uyEYiONDQfOMwj06lyVQV4WegX5vsIKdrngyo1QWJp0m1--jxTkfNpSN0vqTnKu4TZY4MjjAV7kScmUNJv5gM5RdPLn-1yHmtQO7MKtmX6zpeID3FFzpyAwYnxXE_dstFSEOlZxvpdZEDvcAqtO0jCF1qx9OMTA&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpcQE0apbr-imSGz_aO-UHY9emIgSVME8J5oVTMKj6iWqAjL57KROsbZdY6Vk-5cIyLlazwowavD_2XofwSu4zYvU2IAJOCQQTBQSv0vNAbEBkt8rrifQsnFNRX2Eegtu8JqF6km406poyH0AATFg0EnhSa9quii_SmnCgNoNuIlTDbfPvIf2GlKYjnZR40OAXc1pEQ2pTB60gRZgu-5jLkgd02SXnjG7jg8xZXyOZQ9I8VLCiJL6jbURBzN-lleKMENUcinTRfTIm-SUvNwRMCg0_YJF_3GczmzGDgwlcOKUg&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpcuESeC9F4eKvOU5UyOwkAqeURLLdGRYICqRSdvT0m0-eoco8NXuHngt5IKnSBXBLXobKTF2eaJzVPw4n0bwTeiq4ypgOoVyBpk_GKm95QWMCkCq8ibFKYQeBvRK7dc0McF5yfWRsnPLfEfS1lU3kRHFY4-4Q-8gp2BgeEDew6GGKqGK3XxrKztDVc2NPUKkJ4l77MBjWDdddVBIrIz7OlS6LURUq1cihntrNr-n4ZCMTtq1kEOBINAxisJ4KflMsrGyOJrKxMfWhcm6Po25NW6WZqFzJIwPvoalJmfd4RgMA&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpc5cmetx_g2APGl9tMegWAnapZWTnfPgOVg_EcJh5pbRKwJlOzIPy9d_U90WjGVz5LvYEmpSCyTPvVhfFKHwevVygFVZQ0foQOHI4y0pZYl8gDzce7qmelh2xaHwV3zlFFlcai59kTUjmMhCoYT8NArtEPG1qVvIYL25d36L1tpFCjJ6p8qFuywRg-1TgotqiSuyyvx_5iENfNxJA-Zssb6zDif-XWa8m2llzht58DWAkqBbsMNlt2Ow_GjMTPtNwOaEmVNMs7jfa_gg26RIaGC0QQleD5M5OlnhZpjHI5znw&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpfq9vUJziE-iYjuzCSaO_cyhlj3YIqM0Zdk7wA8C5-mFmqTgC-18afKrxhb46KoZTpDARREjZfK9lmR0DK91YXd1E7b9_7tc6O9dGKh33rMk42BYny5ZojAOhBO8yxKfuoDQXaJg2FU_iEPezH-oXzioQQPrGn0zYEsVw8JZErc6iUUgFz64iyicwYi1MHKuoqv2NzeQ0R_xaBRcR-2XHXxlwUIUDQLlvECeXfx91k4VcO9k3RXa7ylBWakWvKkDsrNmAbX3VEkwcV4lJ1ksUZcCmaYthZ6Rpv_3eReRqeecQ&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpccU651Kqw6nhsMjdv_Zbk6FkaQ-2_GxXtbHATE0x3RzBINIR2GwZySyervEAIlhB3GfOsdN97EjIy0bF95ax4qYhEpf1XIuj0LJDYVVotGdhJeE1nauwwvBkXHlmUcwH7krQ5t1A9ZBUfkv2CdiQVkh7ZB1hYkID6e8IEqtyvBTe1jXILICmsNjtXVWQ3sRUnFNZjKKt-IxlUB2M1GGDvCUr_xNOd3uU2WWDCTJO5oJOH3QWv8tMga_KkVX_pLNhqT3hygVjJ0YejaThLv0op1UYK1sgNKACn59Xprrb9l9w&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpeVDdsH1DQDeLxX9beTW-ut4SAVo8nxShtpoO5QMXxfKl-82d_ir9oUS8WZ-469IcPlChBTtK8ssUyAKXqFd-iJYacuF5fEZAaZNJ8UQ8D2TDC3E2gYsqkTEmhswfEhtKKfQpQifKLAfQHW_xJSQBUMYuZ2IiXaQVZood49uGXQvo3dhJ0xF1ncU29LdhuXgvAuB8-DK13uVJXL1U9yjquc76WmScCfErFaBXCeosv1rUkEcaqNytn4-eemBqUrrpSWYzNCoGKvNwXM_O_g6Jpsiyp2_Z_PtzmrLtjxPEt67A&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4",
+      "https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=ATKogpcbGvTOn7HokbbKKmyo-3gu8vfzzoC7tdZ6tuJywd00YM9uyQpa8090d5O7zNLtpHmW0zkACTF77-UJuhymAMPkUXy5v-5ZYsvGlfTieqF1Htcf7dzGiCqut2z9RrTNi5BmzXSuz3AbW508__SxWS5mtmabmQIS6wwKlWNkPdl-pxkQPgnpIDqeLlG901bdGgiXWwcK7jNRDo18-g86nw5wemgmrO-bVM44498zEeFK5BKSM9Ioimr_CSWDtgHlGKZbXntKo1MovejN5dB32KWmGf7QlaKcs7fp9OKDBT4dYg&key=AIzaSyD0MDiefjKY4bWaoRNalM1KHXBBcF6xJC4"
+    ],
+    "sports": [
+      "padel"
+    ],
+    "city": "Москва",
+    "types": [
+      "point_of_interest",
+      "establishment"
+    ],
+    "source": "Google Places API",
+    "parsedAt": "2025-08-27T10:28:48.808Z"
+  }
+]

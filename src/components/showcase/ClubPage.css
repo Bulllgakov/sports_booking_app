@@ -1,0 +1,281 @@
+.club-page {
+  min-height: 100vh;
+  background: #f8f9fa;
+}
+
+.club-page-header {
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 20px;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.back-button:hover {
+  background: #f8f9fa;
+}
+
+.club-page-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
+
+.club-gallery {
+  position: sticky;
+  top: 100px;
+  height: fit-content;
+}
+
+.gallery-main {
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.gallery-main img {
+  width: 100%;
+  height: 400px;
+  object-fit: cover;
+}
+
+.gallery-placeholder {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.gallery-placeholder img {
+  width: 100%;
+  height: 400px;
+  object-fit: cover;
+}
+
+.gallery-thumbs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.thumb {
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.thumb:hover {
+  opacity: 0.8;
+}
+
+.thumb.active {
+  border-color: #00D632;
+}
+
+.thumb img {
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+}
+
+.club-info {
+  background: white;
+  border-radius: 12px;
+  padding: 32px;
+}
+
+.club-info-header {
+  margin-bottom: 32px;
+}
+
+.club-info-header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1a1f36;
+  margin-bottom: 12px;
+}
+
+.club-sports {
+  display: flex;
+  gap: 8px;
+}
+
+.sport-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #f3f4f6;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.sport-icon {
+  font-size: 16px;
+}
+
+.club-details {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.detail-item {
+  display: flex;
+  gap: 12px;
+}
+
+.detail-item svg {
+  flex-shrink: 0;
+  stroke: #00D632;
+}
+
+.detail-label {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 2px;
+}
+
+.detail-value {
+  font-size: 14px;
+  color: #1a1f36;
+  font-weight: 500;
+}
+
+.detail-value a {
+  color: #00D632;
+  text-decoration: none;
+}
+
+.detail-value a:hover {
+  text-decoration: underline;
+}
+
+.club-description {
+  margin-bottom: 32px;
+}
+
+.club-description h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1f36;
+  margin-bottom: 12px;
+}
+
+.club-description p {
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+.club-features {
+  margin-bottom: 32px;
+}
+
+.club-features h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1f36;
+  margin-bottom: 16px;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.feature-item svg {
+  flex-shrink: 0;
+  stroke: #00D632;
+}
+
+.club-actions {
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.book-button {
+  width: 100%;
+  padding: 14px 24px;
+  background: #00D632;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.book-button:hover {
+  background: #00C02E;
+}
+
+.club-page-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+@media (max-width: 768px) {
+  .club-page-content {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 16px;
+  }
+
+  .club-gallery {
+    position: static;
+  }
+
+  .gallery-main img {
+    height: 250px;
+  }
+
+  .club-info {
+    padding: 20px;
+  }
+
+  .club-info-header h1 {
+    font-size: 24px;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
+}

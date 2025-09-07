@@ -26,19 +26,17 @@ const TrainerModal: React.FC<TrainerModalProps> = ({ isOpen, onClose, onSave, tr
     commissionType: 'percent',
     commissionValue: 20,
     schedule: {
-      monday: { enabled: false },
-      tuesday: { enabled: false },
-      wednesday: { enabled: false },
-      thursday: { enabled: false },
-      friday: { enabled: false },
-      saturday: { enabled: false },
-      sunday: { enabled: false }
+      monday: { enabled: false, start: '09:00', end: '18:00' },
+      tuesday: { enabled: false, start: '09:00', end: '18:00' },
+      wednesday: { enabled: false, start: '09:00', end: '18:00' },
+      thursday: { enabled: false, start: '09:00', end: '18:00' },
+      friday: { enabled: false, start: '09:00', end: '18:00' },
+      saturday: { enabled: false, start: '09:00', end: '18:00' },
+      sunday: { enabled: false, start: '09:00', end: '18:00' }
     },
     worksOnHolidays: false,
     maxDailyHours: 8,
-    minBreakMinutes: 0, // Изменено значение по умолчанию на 0
     advanceBookingDays: 30,
-    cancellationHours: 24,
     availableCourts: [],
     color: '#00A86B',
     status: 'active'
@@ -137,6 +135,9 @@ const TrainerModal: React.FC<TrainerModalProps> = ({ isOpen, onClose, onSave, tr
       schedule: {
         ...prev.schedule,
         [day]: {
+          enabled: prev.schedule![day]?.enabled || false,
+          start: prev.schedule![day]?.start || '09:00',
+          end: prev.schedule![day]?.end || '18:00',
           ...prev.schedule![day],
           [field]: value
         }
@@ -723,7 +724,7 @@ const TrainerModal: React.FC<TrainerModalProps> = ({ isOpen, onClose, onSave, tr
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
                           <input
                             type="time"
-                            value={formData.schedule?.[day]?.start || '09:00'}
+                            value={formData.schedule?.[day]?.start || ''}
                             onChange={(e) => handleScheduleChange(day, 'start', e.target.value)}
                             className="form-input"
                             style={{ width: '140px' }}
@@ -731,7 +732,7 @@ const TrainerModal: React.FC<TrainerModalProps> = ({ isOpen, onClose, onSave, tr
                           <span style={{ color: '#6b7280' }}>—</span>
                           <input
                             type="time"
-                            value={formData.schedule?.[day]?.end || '18:00'}
+                            value={formData.schedule?.[day]?.end || ''}
                             onChange={(e) => handleScheduleChange(day, 'end', e.target.value)}
                             className="form-input"
                             style={{ width: '140px' }}
@@ -773,23 +774,6 @@ const TrainerModal: React.FC<TrainerModalProps> = ({ isOpen, onClose, onSave, tr
                   </div>
                   
                   <div className="form-group">
-                    <label className="form-label">Минимальный перерыв между занятиями</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <input
-                        type="number"
-                        name="minBreakMinutes"
-                        value={formData.minBreakMinutes}
-                        onChange={handleInputChange}
-                        min="0"
-                        max="60"
-                        className="form-input"
-                        style={{ flex: 1 }}
-                      />
-                      <span style={{ color: '#6b7280' }}>минут</span>
-                    </div>
-                  </div>
-                  
-                  <div className="form-group">
                     <label className="form-label">Бронирование вперед</label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <input
@@ -803,23 +787,6 @@ const TrainerModal: React.FC<TrainerModalProps> = ({ isOpen, onClose, onSave, tr
                         style={{ flex: 1 }}
                       />
                       <span style={{ color: '#6b7280' }}>дней</span>
-                    </div>
-                  </div>
-                  
-                  <div className="form-group">
-                    <label className="form-label">Отмена минимум за</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <input
-                        type="number"
-                        name="cancellationHours"
-                        value={formData.cancellationHours}
-                        onChange={handleInputChange}
-                        min="0"
-                        max="72"
-                        className="form-input"
-                        style={{ flex: 1 }}
-                      />
-                      <span style={{ color: '#6b7280' }}>часов</span>
                     </div>
                   </div>
                 </div>

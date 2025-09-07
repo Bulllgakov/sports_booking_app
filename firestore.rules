@@ -137,6 +137,16 @@ service cloud.firestore {
       allow delete: if isSignedIn();
     }
     
+    // Участники групповых тренировок
+    match /groupParticipants/{participantId} {
+      // Чтение доступно всем авторизованным пользователям
+      allow read: if isSignedIn();
+      // Создание и обновление доступно авторизованным пользователям
+      allow create, update: if isSignedIn();
+      // Удаление доступно авторизованным пользователям
+      allow delete: if isSignedIn();
+    }
+    
     // Запрет доступа к остальным коллекциям по умолчанию
     match /{document=**} {
       allow read, write: if false;

@@ -1,0 +1,148 @@
+[
+  {
+    "name": "Padel Friends Казань",
+    "website": "https://padelfriends.ru",
+    "address": "Казань, проспект Альберта Камалеева, 27М",
+    "phone": "+7 (843) 212-23-23",
+    "description": "6 панорамных кортов Drop Shot",
+    "parsedData": {
+      "inn": "770402151123",
+      "ogrn": "322774600612426",
+      "emails": [
+        "padelfriends@mail.ru"
+      ],
+      "companyNames": [
+        "ы и биомеханика игры в падел, 2023",
+        "Миронова Т.А.</span><br><span style=",
+        "322774600612426</span><br><span style="
+      ],
+      "foundOnPages": [
+        "https://padelfriends.ru/#rec554589982"
+      ]
+    },
+    "enrichedData": null,
+    "parseError": null
+  },
+  {
+    "name": "АРТЕН - Арена тенниса",
+    "website": "https://artennis.ru",
+    "address": "Казань, ул. Адоратского, 34",
+    "phone": "+7 (843) 212-10-10",
+    "description": "Падел, сквош и настольный теннис",
+    "parsedData": {
+      "inn": "1685017558",
+      "ogrn": "",
+      "emails": [
+        "fotorama@2x.png",
+        "flags@2x.png",
+        "quarrazzella@ya.ru"
+      ],
+      "companyNames": [
+        ",sotsseti:",
+        "овой текст согласия",
+        "АРТЕНН"
+      ],
+      "foundOnPages": [
+        "https://artennis.ru/kontakty"
+      ]
+    },
+    "enrichedData": {
+      "legalName": "ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ \"АРТЕНН\"",
+      "inn": "1685017558",
+      "ogrn": "1241600035852",
+      "kpp": "168501001",
+      "okved": "68.20",
+      "okvedType": "2014",
+      "legalAddress": "г Казань, пр-кт Ямашева, д 92, кв 91",
+      "managementName": "Ильин Дмитрий Владиславович",
+      "managementPost": "ДИРЕКТОР",
+      "foundedDate": 1722556800000,
+      "organizationStatus": "ACTIVE",
+      "organizationType": "2014",
+      "capital": 15000,
+      "employeeCount": 1,
+      "branchCount": null,
+      "emails": [
+        "QUARRAZZELLA@YA.RU"
+      ],
+      "phones": []
+    },
+    "parseError": null
+  },
+  {
+    "name": "LUNDA Padel Казань",
+    "website": "https://lundapadel.ru",
+    "address": "Казань",
+    "phone": "+7 (800) 234-50-50",
+    "description": "Крупнейшая сеть падел клубов",
+    "parsedData": {
+      "inn": "",
+      "ogrn": "",
+      "emails": [
+        "info@lundapadel.ru"
+      ],
+      "companyNames": [],
+      "foundOnPages": []
+    },
+    "enrichedData": null,
+    "parseError": null
+  },
+  {
+    "name": "Padel Time",
+    "website": "https://padeltime.ru",
+    "address": "Санкт-Петербург, поселок Репино",
+    "phone": "+7 (812) 670-00-00",
+    "description": "Сеть падел клубов",
+    "parsedData": {
+      "inn": "7814838130",
+      "ogrn": "1247800044744",
+      "emails": [
+        "info@padeltime.ru",
+        "corporate@padeltime.ru"
+      ],
+      "companyNames": [
+        "РЕПИНО ПАРК"
+      ],
+      "foundOnPages": [
+        "https://padeltime.ru/#rec756210704",
+        "https://padeltime.ru/privacy"
+      ]
+    },
+    "enrichedData": {
+      "legalName": "ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ \"РЕПИНО ПАРК\"",
+      "inn": "7814838130",
+      "ogrn": "1247800044744",
+      "kpp": "781401001",
+      "okved": "93.11",
+      "okvedType": "2014",
+      "legalAddress": "г Санкт-Петербург, поселок Репино, Приморское шоссе, д 394 к 1 литера б, помещ 194",
+      "managementName": "Мельник Ирина Леонидовна",
+      "managementPost": "ГЕНЕРАЛЬНЫЙ ДИРЕКТОР",
+      "foundedDate": 1714089600000,
+      "organizationStatus": "ACTIVE",
+      "organizationType": "2014",
+      "capital": 10000,
+      "employeeCount": 1,
+      "branchCount": null,
+      "emails": [],
+      "phones": []
+    },
+    "parseError": null
+  },
+  {
+    "name": "Федерация Падел России",
+    "website": "https://federationpadel.ru",
+    "address": "Москва",
+    "phone": "+7 (495) 000-00-00",
+    "description": "Официальная федерация падела",
+    "parsedData": {
+      "inn": "",
+      "ogrn": "",
+      "emails": [],
+      "companyNames": [],
+      "foundOnPages": []
+    },
+    "enrichedData": null,
+    "parseError": "Navigating frame was detached"
+  }
+]

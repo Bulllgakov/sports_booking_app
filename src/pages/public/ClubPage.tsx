@@ -399,7 +399,7 @@ export default function ClubPage() {
     selectedCourtSection: { marginBottom: '8px' },
     selectedCourtDetails: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
     selectedCourtType: { color: 'var(--gray)' },
-    selectedCourtPrice: { color: 'var(--primary)' }
+    selectedCourtPrice: { color: 'var(--primary-dark)', fontWeight: '600' }
   }
 
   if (loading) {
@@ -624,7 +624,10 @@ export default function ClubPage() {
                         </div>
                       </div>
                       <div style={styles.courtPricing}>
-                        <div className="h3" style={styles.courtPrice}>
+                        <div className="h3" style={{
+                          ...styles.courtPrice,
+                          color: isSelected ? 'var(--primary-dark)' : 'var(--primary)'
+                        }}>
                           {getCourtPriceRange(court).display}
                         </div>
                         <div className="caption" style={styles.courtPriceUnit}>за час</div>
@@ -803,7 +806,10 @@ export default function ClubPage() {
                             </div>
                           </div>
                           <div style={styles.courtPricing}>
-                            <div className="h3" style={styles.courtPrice}>
+                            <div className="h3" style={{
+                              ...styles.courtPrice,
+                              color: isSelected ? 'var(--primary-dark)' : 'var(--primary)'
+                            }}>
                               {getCourtPriceRange(court).display}
                             </div>
                             <div className="caption" style={styles.courtPriceUnit}>за час</div>

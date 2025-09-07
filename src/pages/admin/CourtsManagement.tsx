@@ -17,7 +17,7 @@ import {
 import { db } from '../../services/firebase'
 import { Add, Edit, Delete } from '@mui/icons-material'
 import { Alert, AlertTitle } from '@mui/material'
-import { SUBSCRIPTION_PLANS } from '../../types/subscription'
+// Убраны импорты связанные с ограничениями по кортам
 
 interface PriceInterval {
   from: string // время начала HH:00
@@ -87,8 +87,7 @@ export default function CourtsManagement() {
   const [showModal, setShowModal] = useState(false)
   const [success, setSuccess] = useState(false)
   const [editingCourt, setEditingCourt] = useState<Court | null>(null)
-  const [subscription, setSubscription] = useState<any>(null)
-  const [limitExceeded, setLimitExceeded] = useState(false)
+  // Убраны состояния для проверки лимитов кортов
   const [formData, setFormData] = useState({
     name: '',
     type: 'padel' as Court['type'],
@@ -150,30 +149,6 @@ export default function CourtsManagement() {
         }
       }) as Court[]
       setCourts(courtsData)
-      
-      // Загружаем подписку и проверяем лимит кортов
-      const subQuery = query(
-        collection(db, 'subscriptions'),
-        where('venueId', '==', venueId),
-        where('status', 'in', ['active', 'trial'])
-      )
-      const subSnapshot = await getDocs(subQuery)
-      if (!subSnapshot.empty) {
-        const subData = subSnapshot.docs[0].data()
-        setSubscription(subData)
-        
-        // Проверяем лимит для тарифа START
-        if (subData.plan === 'start') {
-          const maxCourts = SUBSCRIPTION_PLANS.start.limits.maxCourts
-          if (courtsData.length >= maxCourts) {
-            setLimitExceeded(true)
-          } else {
-            setLimitExceeded(false)
-          }
-        } else {
-          setLimitExceeded(false)
-        }
-      }
     } catch (error) {
       console.error('Error fetching courts:', error)
     } finally {
@@ -215,6 +190,48 @@ export default function CourtsManagement() {
     
     const venueId = isSuperAdmin ? selectedVenueId : admin?.venueId
     if (!venueId) return
+
+    // Валидация интервалов
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const
+    for (const day of days) {
+      const dayPricing = formData.pricing[day]
+      if (dayPricing && dayPricing.intervals && dayPricing.intervals.length > 0) {
+        const intervals = dayPricing.intervals
+        
+        // Проверка что время "до" больше времени "от"
+        for (const interval of intervals) {
+          const [fromHour, fromMinute] = interval.from.split(':').map(Number)
+          const [toHour, toMinute] = interval.to.split(':').map(Number)
+          const fromTime = fromHour * 60 + fromMinute
+          const toTime = toHour * 60 + toMinute
+          
+          if (toTime <= fromTime && toTime !== 0) { // 00:00 означает 24:00
+            alert(`Неверный интервал в ${day}: время окончания должно быть больше времени начала`)
+            return
+          }
+        }
+        
+        // Проверка на пересечение интервалов
+        for (let i = 0; i < intervals.length; i++) {
+          for (let j = i + 1; j < intervals.length; j++) {
+            const [from1Hour, from1Minute] = intervals[i].from.split(':').map(Number)
+            const [to1Hour, to1Minute] = intervals[i].to.split(':').map(Number)
+            const [from2Hour, from2Minute] = intervals[j].from.split(':').map(Number)
+            const [to2Hour, to2Minute] = intervals[j].to.split(':').map(Number)
+            
+            const from1 = from1Hour * 60 + from1Minute
+            const to1 = to1Hour * 60 + to1Minute || 24 * 60 // 00:00 = 24:00
+            const from2 = from2Hour * 60 + from2Minute
+            const to2 = to2Hour * 60 + to2Minute || 24 * 60
+            
+            if ((from1 < to2 && to1 > from2)) {
+              alert(`Интервалы пересекаются в ${day}: ${intervals[i].from}-${intervals[i].to} и ${intervals[j].from}-${intervals[j].to}`)
+              return
+            }
+          }
+        }
+      }
+    }
 
     try {
       // Создаем безопасную версию данных для отправки
@@ -415,11 +432,6 @@ export default function CourtsManagement() {
           <div className="section-header">
             <h2 className="section-title">Управление кортами</h2>
             <button className="btn btn-primary" onClick={() => {
-              // Проверяем лимит кортов для тарифа START
-              if (limitExceeded && !isSuperAdmin) {
-                alert(`Достигнут лимит кортов для тарифа СТАРТ (максимум ${SUBSCRIPTION_PLANS.start.limits.maxCourts} корта). Для добавления большего количества кортов необходимо улучшить тарифный план.`)
-                return
-              }
               const nextColor = getNextAvailableColor()
               setFormData(prev => ({ ...prev, color: nextColor }))
               setShowModal(true)
@@ -429,23 +441,6 @@ export default function CourtsManagement() {
             </button>
           </div>
           
-          {/* Предупреждение о лимите кортов */}
-          {subscription?.plan === 'start' && courts.length >= SUBSCRIPTION_PLANS.start.limits.maxCourts - 1 && !isSuperAdmin && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              {courts.length >= SUBSCRIPTION_PLANS.start.limits.maxCourts ? (
-                <>
-                  <AlertTitle>Достигнут лимит кортов</AlertTitle>
-                  Тариф СТАРТ позволяет создать максимум {SUBSCRIPTION_PLANS.start.limits.maxCourts} корта. 
-                  Для добавления большего количества кортов необходимо перейти на тариф СТАНДАРТ или ПРОФИ.
-                </>
-              ) : (
-                <>
-                  <AlertTitle>Приближается лимит кортов</AlertTitle>
-                  У вас осталась возможность добавить еще {SUBSCRIPTION_PLANS.start.limits.maxCourts - courts.length} корт(а) на тарифе СТАРТ.
-                </>
-              )}
-            </Alert>
-          )}
           
           {success && (
             <div style={{ 
@@ -666,9 +661,8 @@ export default function CourtsManagement() {
                             
                             return intervals.map((interval, idx) => (
                             <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                              <input
-                                type="time"
-                                className="form-input"
+                              <select
+                                className="form-select"
                                 style={{ width: '140px' }}
                                 value={interval.from}
                                 onChange={(e) => {
@@ -685,12 +679,17 @@ export default function CourtsManagement() {
                                     }
                                   }))
                                 }}
-                                step="3600"
-                              />
+                              >
+                                {Array.from({ length: 48 }, (_, i) => {
+                                  const hour = Math.floor(i / 2)
+                                  const minute = i % 2 === 0 ? '00' : '30'
+                                  const time = `${hour.toString().padStart(2, '0')}:${minute}`
+                                  return <option key={time} value={time}>{time}</option>
+                                })}
+                              </select>
                               <span>-</span>
-                              <input
-                                type="time"
-                                className="form-input"
+                              <select
+                                className="form-select"
                                 style={{ width: '140px' }}
                                 value={interval.to}
                                 onChange={(e) => {
@@ -707,8 +706,15 @@ export default function CourtsManagement() {
                                     }
                                   }))
                                 }}
-                                step="3600"
-                              />
+                              >
+                                {Array.from({ length: 47 }, (_, i) => {
+                                  const hour = Math.floor((i + 1) / 2)
+                                  const minute = (i + 1) % 2 === 0 ? '00' : '30'
+                                  const time = `${hour.toString().padStart(2, '0')}:${minute}`
+                                  return <option key={time} value={time}>{time}</option>
+                                })}
+                                <option value="24:00">24:00</option>
+                              </select>
                               <input
                                 type="number"
                                 className="form-input"

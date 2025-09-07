@@ -31,4 +31,23 @@ export interface Booking {
   trainerPrice?: number
   trainerCommission?: number
   totalAmount?: number // courtPrice + trainerPrice
+  
+  // Поля для групповых тренировок
+  bookingType?: 'individual' | 'group'
+  maxParticipants?: number
+  currentParticipants?: number
+  visibility?: 'public' | 'private'
+  groupRegistrationUrl?: string
+}
+
+export interface GroupParticipant {
+  id: string
+  groupTrainingId: string
+  name: string
+  phone: string
+  email?: string
+  paymentStatus: 'pending' | 'paid' | 'cancelled' | 'refunded'
+  paymentId?: string
+  paymentAmount: number
+  registeredAt: Date
 }

@@ -195,8 +195,11 @@ class VenuesProvider extends ChangeNotifier {
     }
 
     if (_selectedSport != null) {
-      // Filter by sport type in courts
-      // TODO: Implement sport filtering based on courts
+      // Фильтруем по видам спорта из кортов
+      // Клубы без кортов или без нужного вида спорта не показываются
+      filtered = filtered.where((venue) {
+        return venue.courtSportTypes.contains(_selectedSport);
+      }).toList();
     }
 
     return filtered;

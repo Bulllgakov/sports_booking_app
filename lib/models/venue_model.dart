@@ -81,6 +81,7 @@ class VenueModel {
   // Runtime calculated fields (not stored in Firebase)
   double? distance;
   List<CourtModel> courts = [];
+  List<SportType> courtSportTypes = []; // Виды спорта из кортов
 
   VenueModel({
     required this.id,

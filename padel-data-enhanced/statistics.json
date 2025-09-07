@@ -1,0 +1,18 @@
+{
+  "totalClubs": 5,
+  "byCity": {
+    "Москва": 5
+  },
+  "withPhone": 5,
+  "withEmail": 0,
+  "withWebsite": 4,
+  "withPhotos": 4,
+  "withWorkingHours": 5,
+  "withDescription": 3,
+  "withLegalInfo": 0,
+  "averageRating": 2.62,
+  "totalReviews": 28,
+  "googleApiRequestsUsed": 10,
+  "dadataApiRequestsUsed": 5,
+  "parsedAt": "2025-08-27T10:50:54.352Z"
+}

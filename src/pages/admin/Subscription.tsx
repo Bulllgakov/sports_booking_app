@@ -37,11 +37,12 @@ import {
   Warning
 } from '@mui/icons-material'
 import { useAuth } from '../../contexts/AuthContext'
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
+import { doc, getDoc, collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { db } from '../../services/firebase'
-import { SUBSCRIPTION_PLANS, SubscriptionPlan, ClubSubscription } from '../../types/subscription'
+import { SUBSCRIPTION_PLANS, SubscriptionPlan, ClubSubscription, PLAN_MAPPING } from '../../types/subscription'
 import { usePermission } from '../../hooks/usePermission'
 import { VenueSelector, VenueSelectorEmpty } from '../../components/VenueSelector'
+import { migrateSingleSubscription } from '../../utils/migrateSubscriptions'
 
 export default function Subscription() {
   const { admin, club } = useAuth()
@@ -53,6 +54,7 @@ export default function Subscription() {
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null)
   const [paymentHistory, setPaymentHistory] = useState<any[]>([])
   const [moderationDialogOpen, setModerationDialogOpen] = useState(false)
+  const [temporaryBlockDialogOpen, setTemporaryBlockDialogOpen] = useState(false)
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -92,9 +94,55 @@ export default function Subscription() {
       
       if (!subSnapshot.empty) {
         const subData = subSnapshot.docs[0].data()
+        
+        // Если тариф старый, мигрируем его
+        if (subData.plan === 'start' || subData.plan === 'standard') {
+          await migrateSingleSubscription(targetVenueId)
+          // Перезагружаем данные после миграции
+          const updatedSnapshot = await getDocs(subQuery)
+          if (!updatedSnapshot.empty) {
+            const updatedData = updatedSnapshot.docs[0].data()
+            subData.plan = updatedData.plan
+          }
+        }
+        
+        // Загружаем актуальное количество кортов из подколлекции
+        const courtsQuery = query(collection(db, 'venues', targetVenueId, 'courts'))
+        const courtsSnapshot = await getDocs(courtsQuery)
+        const actualCourtsCount = courtsSnapshot.size
+        
+        // Загружаем реальное количество клиентов из бронирований
+        let actualClientsCount = subData.usage?.clientsCount || 0
+        try {
+          const bookingsQuery = query(
+            collection(db, 'bookings'),
+            where('venueId', '==', targetVenueId),
+            limit(1000)
+          )
+          const bookingsSnapshot = await getDocs(bookingsQuery)
+          const uniquePhones = new Set<string>()
+          
+          bookingsSnapshot.docs.forEach(doc => {
+            const booking = doc.data()
+            const customerPhone = booking.customerPhone || booking.clientPhone
+            if (customerPhone) {
+              uniquePhones.add(customerPhone)
+            }
+          })
+          
+          actualClientsCount = uniquePhones.size
+        } catch (error) {
+          console.log('Could not load customers count from bookings, using subscription data:', error)
+          // Используем значение из подписки если не можем загрузить клиентов
+        }
+        
+        // Преобразуем старые названия тарифов в новые (на всякий случай)
+        const mappedPlan = PLAN_MAPPING[subData.plan] || subData.plan
+        
         setSubscription({
           id: subSnapshot.docs[0].id,
           ...subData,
+          plan: mappedPlan,
           startDate: subData.startDate?.toDate(),
           endDate: subData.endDate?.toDate(),
           trialEndDate: subData.trialEndDate?.toDate(),
@@ -102,21 +150,53 @@ export default function Subscription() {
           cancelledAt: subData.cancelledAt?.toDate(),
           usage: {
             ...subData.usage,
+            courtsCount: actualCourtsCount, // Используем актуальное количество кортов
+            clientsCount: actualClientsCount, // Используем реальное количество клиентов
             lastUpdated: subData.usage?.lastUpdated?.toDate()
           }
         } as ClubSubscription)
       } else {
-        // Если подписки нет, создаем бесплатную
+        // Если подписки нет, нужно загрузить количество кортов и клиентов
+        const courtsQuery = query(collection(db, 'venues', targetVenueId, 'courts'))
+        const courtsSnapshot = await getDocs(courtsQuery)
+        const actualCourtsCount = courtsSnapshot.size
+        
+        let actualClientsCount = 0
+        try {
+          const bookingsQuery = query(
+            collection(db, 'bookings'),
+            where('venueId', '==', targetVenueId),
+            limit(1000)
+          )
+          const bookingsSnapshot = await getDocs(bookingsQuery)
+          const uniquePhones = new Set<string>()
+          
+          bookingsSnapshot.docs.forEach(doc => {
+            const booking = doc.data()
+            const customerPhone = booking.customerPhone || booking.clientPhone
+            if (customerPhone) {
+              uniquePhones.add(customerPhone)
+            }
+          })
+          
+          actualClientsCount = uniquePhones.size
+        } catch (error) {
+          console.log('Could not load customers count for new subscription:', error)
+          // Используем 0 если не можем загрузить клиентов
+        }
+        
+        // Создаем виртуальную подписку БАЗОВЫЙ для отображения
         setSubscription({
           id: '',
           venueId: targetVenueId,
-          plan: 'start',
+          plan: 'basic', // Используем новое название тарифа
           status: 'active',
           startDate: new Date(),
           usage: {
-            courtsCount: 0,
+            courtsCount: actualCourtsCount,
             bookingsThisMonth: 0,
             smsEmailsSent: 0,
+            clientsCount: actualClientsCount,
             lastUpdated: new Date()
           }
         })
@@ -144,6 +224,12 @@ export default function Subscription() {
   }
 
   const handleUpgrade = (plan: SubscriptionPlan) => {
+    // Временно блокируем выбор платных тарифов
+    if (plan === 'crm' || plan === 'pro') {
+      setTemporaryBlockDialogOpen(true)
+      return
+    }
+    
     // Проверяем статус клуба
     if (club?.status === 'pending' && !isSuperAdmin) {
       setModerationDialogOpen(true)
@@ -182,40 +268,43 @@ export default function Subscription() {
     return <Alert severity="error">Ошибка загрузки данных подписки</Alert>
   }
 
-  const currentPlan = SUBSCRIPTION_PLANS[subscription.plan]
+  // Преобразуем старые названия в новые
+  const actualPlan = PLAN_MAPPING[subscription.plan] || subscription.plan
+  const currentPlan = SUBSCRIPTION_PLANS[actualPlan as SubscriptionPlan] || SUBSCRIPTION_PLANS.basic
   const limits = currentPlan.limits
   const courtsCount = subscription?.usage?.courtsCount || 0
+  const clientsCount = subscription?.usage?.clientsCount || 0
 
   // Функция расчета стоимости подписки на основе количества кортов
-  const calculateSubscriptionPrice = (plan: SubscriptionPlan, courtsCount: number): number => {
-    const planDetails = SUBSCRIPTION_PLANS[plan]
+  const calculateSubscriptionPrice = (plan: SubscriptionPlan | string, courtsCount: number): number => {
+    // Преобразуем старые названия в новые
+    const mappedPlan = PLAN_MAPPING[plan] || plan
+    const planDetails = SUBSCRIPTION_PLANS[mappedPlan as SubscriptionPlan]
     
-    if (plan === 'start') {
-      return courtsCount <= 2 ? 0 : -1 // -1 означает недоступно
+    if (!planDetails) return 0
+    
+    if (mappedPlan === 'basic' || plan === 'start') {
+      return 0 // Тариф БАЗОВЫЙ всегда бесплатный
     }
     
-    if (plan === 'standard') {
-      return courtsCount >= 1 ? planDetails.pricePerCourt! * courtsCount : -1
+    if (mappedPlan === 'crm' || mappedPlan === 'pro' || plan === 'standard' || plan === 'pro') {
+      // Если кортов нет или некорректное значение, показываем минимальную цену за 1 корт
+      const courts = (courtsCount && !isNaN(courtsCount) && courtsCount > 0) ? courtsCount : 1
+      const pricePerCourt = planDetails.pricePerCourt || planDetails.price
+      return pricePerCourt * courts
     }
     
-    if (plan === 'pro') {
-      return courtsCount >= 1 ? planDetails.pricePerCourt! * courtsCount : -1
-    }
-    
-    return -1 // недоступный тариф
+    return 0 // по умолчанию 0
   }
   
-  // Проверка доступности тарифа для текущего количества кортов
-  const isPlanAvailable = (plan: SubscriptionPlan): boolean => {
-    if (plan === 'start') return courtsCount <= 2
-    if (plan === 'standard') return courtsCount >= 1 // убрали ограничение от 3 кортов
-    if (plan === 'pro') return courtsCount >= 1
-    return false
+  // Все тарифы теперь доступны без ограничений по кортам
+  const isPlanAvailable = (plan: SubscriptionPlan | string): boolean => {
+    return true // Все планы доступны
   }
 
   // Расчет процента использования
-  const courtsUsage = limits.maxCourts > 0 
-    ? (subscription.usage.courtsCount / limits.maxCourts) * 100 
+  const clientsUsage = limits.maxClients > 0 
+    ? (clientsCount / limits.maxClients) * 100 
     : 0
   const bookingsUsage = limits.maxBookingsPerMonth > 0
     ? (subscription.usage.bookingsThisMonth / limits.maxBookingsPerMonth) * 100
@@ -248,9 +337,15 @@ export default function Subscription() {
               <Typography variant="body2" color="text.secondary">
                 {(() => {
                   const price = calculateSubscriptionPrice(subscription.plan, courtsCount)
-                  if (price === 0) return 'Бесплатно'
-                  if (price === -1) return 'По запросу'
-                  return `${price.toLocaleString('ru-RU')} ₽/месяц`
+                  const mappedPlan = PLAN_MAPPING[subscription.plan] || subscription.plan
+                  if (mappedPlan === 'basic' || subscription.plan === 'start') {
+                    return '0 ₽/месяц'
+                  }
+                  // Проверяем, что price является числом
+                  if (isNaN(price) || price === null || price === undefined) {
+                    return '0 ₽/месяц'
+                  }
+                  return `${Math.round(price).toLocaleString('ru-RU')} ₽/месяц`
                 })()}
               </Typography>
             </Box>
@@ -282,18 +377,30 @@ export default function Subscription() {
           </Typography>
           
           <Box sx={{ mt: 2 }}>
+            {/* Показываем количество клиентов вместо кортов для тарифа БАЗОВЫЙ */}
+            {limits.maxClients > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Box display="flex" justifyContent="space-between" mb={1}>
+                  <Typography variant="body2">Клиенты в базе</Typography>
+                  <Typography variant="body2">
+                    {clientsCount} / {limits.maxClients}
+                  </Typography>
+                </Box>
+                <LinearProgress 
+                  variant="determinate" 
+                  value={clientsUsage} 
+                  color={clientsUsage > 90 ? 'error' : clientsUsage > 70 ? 'warning' : 'primary'}
+                />
+              </Box>
+            )}
+            
             <Box sx={{ mb: 2 }}>
               <Box display="flex" justifyContent="space-between" mb={1}>
                 <Typography variant="body2">Корты</Typography>
                 <Typography variant="body2">
-                  {subscription.usage.courtsCount} / {limits.maxCourts > 0 ? limits.maxCourts : '∞'}
+                  {subscription.usage?.courtsCount || 0}
                 </Typography>
               </Box>
-              <LinearProgress 
-                variant="determinate" 
-                value={courtsUsage} 
-                color={courtsUsage > 90 ? 'error' : courtsUsage > 70 ? 'warning' : 'primary'}
-              />
             </Box>
 
             {limits.maxBookingsPerMonth > 0 && (
@@ -301,7 +408,7 @@ export default function Subscription() {
                 <Box display="flex" justifyContent="space-between" mb={1}>
                   <Typography variant="body2">Бронирования в этом месяце</Typography>
                   <Typography variant="body2">
-                    {subscription.usage.bookingsThisMonth} / {limits.maxBookingsPerMonth}
+                    {subscription.usage?.bookingsThisMonth || 0} / {limits.maxBookingsPerMonth}
                   </Typography>
                 </Box>
                 <LinearProgress 
@@ -317,7 +424,7 @@ export default function Subscription() {
                 <Box display="flex" justifyContent="space-between" mb={1}>
                   <Typography variant="body2">SMS/Email уведомления</Typography>
                   <Typography variant="body2">
-                    {subscription.usage.smsEmailsSent} / {limits.smsEmailNotifications}
+                    {subscription.usage?.smsEmailsSent || 0} / {limits.smsEmailNotifications}
                   </Typography>
                 </Box>
                 <LinearProgress 
@@ -330,7 +437,7 @@ export default function Subscription() {
           </Box>
 
           <Typography variant="caption" color="text.secondary">
-            Последнее обновление: {subscription.usage.lastUpdated.toLocaleDateString('ru-RU')}
+            Последнее обновление: {subscription.usage?.lastUpdated?.toLocaleDateString('ru-RU') || 'Не указано'}
           </Typography>
         </CardContent>
       </Card>
@@ -341,11 +448,13 @@ export default function Subscription() {
       </Typography>
       
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        {Object.entries(SUBSCRIPTION_PLANS)
-          .filter(([key]) => key !== 'premium') // Исключаем несуществующий тариф Premium
-          .map(([key, plan]) => {
-          const isCurrentPlan = key === subscription.plan
-          const isDowngrade = SUBSCRIPTION_PLANS[key as SubscriptionPlan].price < currentPlan.price
+        {['basic', 'crm', 'pro'].map((key) => {
+          const plan = SUBSCRIPTION_PLANS[key as SubscriptionPlan]
+          if (!plan) return null
+          const isCurrentPlan = key === actualPlan || key === subscription.plan || 
+                                (key === 'basic' && subscription.plan === 'start') ||
+                                (key === 'crm' && subscription.plan === 'standard')
+          const planPrice = calculateSubscriptionPrice(key, courtsCount)
           
           return (
             <Grid item xs={12} md={4} key={key}>
@@ -354,7 +463,14 @@ export default function Subscription() {
                   height: '100%',
                   position: 'relative',
                   border: isCurrentPlan ? 2 : 1,
-                  borderColor: isCurrentPlan ? 'primary.main' : 'divider'
+                  borderColor: isCurrentPlan ? 'primary.main' : 'divider',
+                  background: key === 'pro' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 
+                            key === 'crm' || key === 'standard' ? 'linear-gradient(135deg, #667eea 0%, #4facfe 100%)' : 
+                            'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
+                  '& .MuiCardContent-root': {
+                    background: 'rgba(255, 255, 255, 0.98)',
+                    height: '100%'
+                  }
                 }}
               >
                 {isCurrentPlan && (
@@ -374,24 +490,37 @@ export default function Subscription() {
                   <Typography variant="h5" component="h3" gutterBottom>
                     {plan.name}
                   </Typography>
-                  <Typography variant="h4" color="primary" gutterBottom>
-                    {(() => {
-                      const price = calculateSubscriptionPrice(key as SubscriptionPlan, courtsCount)
-                      if (price === 0) return 'Бесплатно'
-                      if (price === -1) {
-                        return isPlanAvailable(key as SubscriptionPlan) ? 'Недоступно' : `Нужно ${key === 'standard' ? '1+' : '1+'} кортов`
-                      }
-                      return (
-                        <>
-                          {price.toLocaleString('ru-RU')} ₽
-                          <Typography variant="body2" component="span">/месяц</Typography>
-                        </>
-                      )
-                    })()}
-                  </Typography>
                   
-                  <List dense sx={{ mt: 2 }}>
-                    {plan.features.slice(0, 6).map((feature, index) => (
+                  {/* Цена тарифа */}
+                  <Box sx={{ mb: 3 }}>
+                    {key === 'basic' || key === 'start' ? (
+                      <>
+                        <Typography variant="h3" color="primary" component="div">
+                          Бесплатно
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          До 1000 клиентов
+                        </Typography>
+                      </>
+                    ) : (
+                      <>
+                        <Typography variant="h3" color="primary" component="div">
+                          {plan.pricePerCourt?.toLocaleString('ru-RU')} ₽
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          за корт в месяц
+                        </Typography>
+                        {courtsCount > 0 && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                            Итого: {planPrice.toLocaleString('ru-RU')} ₽/мес за {courtsCount} {courtsCount === 1 ? 'корт' : courtsCount < 5 ? 'корта' : 'кортов'}
+                          </Typography>
+                        )}
+                      </>
+                    )}
+                  </Box>
+                  
+                  <List dense sx={{ mt: 2, mb: 2 }}>
+                    {plan.features.slice(0, 8).map((feature, index) => (
                       <ListItem key={index} disablePadding>
                         <ListItemIcon sx={{ minWidth: 32 }}>
                           <Check fontSize="small" color="success" />
@@ -404,16 +533,55 @@ export default function Subscription() {
                     ))}
                   </List>
 
-                  {!isCurrentPlan && isPlanAvailable(key as SubscriptionPlan) && (
+                  {/* Кнопка выбора тарифа */}
+                  {isCurrentPlan ? (
                     <Button
-                      variant={isDowngrade ? "outlined" : "contained"}
+                      variant="outlined"
+                      fullWidth
+                      disabled
+                      sx={{ mt: 2 }}
+                    >
+                      Текущий тариф
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="contained"
                       fullWidth
                       sx={{ mt: 2 }}
                       onClick={() => handleUpgrade(key as SubscriptionPlan)}
                       startIcon={<Upgrade />}
                     >
-                      {isDowngrade ? 'Понизить тариф' : 'Повысить тариф'}
+                      Выбрать
                     </Button>
+                  )}
+                  
+                  {/* Дополнительная информация о тарифе */}
+                  {(key === 'basic' || key === 'start') && (
+                    <Alert severity="info" sx={{ mt: 2 }}>
+                      <Typography variant="caption">
+                        Оплачивается отдельно:
+                        <br />• SMS уведомления: 6₽/шт
+                        <br />• Комиссия эквайринга: 3.5%
+                      </Typography>
+                    </Alert>
+                  )}
+                  {(key === 'crm' || key === 'standard') && currentPlan?.additionalFees && (
+                    <Alert severity="info" sx={{ mt: 2 }}>
+                      <Typography variant="caption">
+                        Оплачивается отдельно:
+                        <br />• SMS уведомления: 6₽/шт
+                        <br />• Комиссия эквайринга: 3.5%
+                      </Typography>
+                    </Alert>
+                  )}
+                  {key === 'pro' && (
+                    <Alert severity="success" sx={{ mt: 2 }}>
+                      <Typography variant="caption">
+                        Включено в тариф:
+                        <br />• SMS без ограничений
+                        <br />• API доступ
+                      </Typography>
+                    </Alert>
                   )}
                 </CardContent>
               </Card>
@@ -467,7 +635,7 @@ export default function Subscription() {
       </TableContainer>
 
       {/* Действия */}
-      {subscription.plan !== 'start' && subscription.status === 'active' && (
+      {actualPlan !== 'basic' && subscription.status === 'active' && (
         <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
           <Button
             variant="outlined"
@@ -489,7 +657,7 @@ export default function Subscription() {
           {selectedPlan && (
             <>
               <Typography variant="body1" gutterBottom>
-                Вы собираетесь перейти на тариф <strong>{SUBSCRIPTION_PLANS[selectedPlan].name}</strong>
+                Вы собираетесь перейти на тариф <strong>{SUBSCRIPTION_PLANS[selectedPlan]?.name || SUBSCRIPTION_PLANS[PLAN_MAPPING[selectedPlan]]?.name}</strong>
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Стоимость: {(() => {
@@ -500,7 +668,7 @@ export default function Subscription() {
                 })()}
               </Typography>
               
-              {SUBSCRIPTION_PLANS[selectedPlan].price < currentPlan.price && (
+              {((SUBSCRIPTION_PLANS[selectedPlan]?.price || 0) < currentPlan.price) && (
                 <Alert severity="warning" sx={{ mt: 2 }}>
                   При понижении тарифа некоторые функции могут стать недоступны. 
                   Убедитесь, что новые лимиты соответствуют вашим потребностям.
@@ -574,6 +742,34 @@ export default function Subscription() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setModerationDialogOpen(false)} variant="contained">
+            Понятно
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Диалог временной блокировки платных тарифов */}
+      <Dialog
+        open={temporaryBlockDialogOpen}
+        onClose={() => setTemporaryBlockDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Warning color="info" />
+            Информация о тарифах
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Весь функционал доступен на вашем текущем тарифе БАЗОВЫЙ
+          </Alert>
+          <Typography variant="body1">
+            Другие тарифы временно недоступны к выбору. Все необходимые функции для управления клубом полностью доступны на тарифе БАЗОВЫЙ.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTemporaryBlockDialogOpen(false)} variant="contained">
             Понятно
           </Button>
         </DialogActions>

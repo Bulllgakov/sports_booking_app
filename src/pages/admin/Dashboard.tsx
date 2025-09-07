@@ -13,7 +13,7 @@ import {
 } from '@mui/icons-material'
 import { useAuth } from '../../contexts/AuthContext'
 import { usePermission } from '../../hooks/usePermission'
-import { doc, getDoc, collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore'
+import { doc as firestoreDoc, getDoc, collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore'
 import { db } from '../../services/firebase'
 import { QRCodeSVG } from 'qrcode.react'
 import jsPDF from 'jspdf'
@@ -82,6 +82,24 @@ interface Venue {
 export default function Dashboard() {
   const { currentUser, admin } = useAuth()
   const { isSuperAdmin } = usePermission()
+  
+  // Блокируем доступ для тренеров
+  if (admin?.role === 'trainer') {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        minHeight: '400px',
+        gap: '16px'
+      }}>
+        <h2 style={{ color: 'var(--dark)' }}>Доступ запрещен</h2>
+        <p style={{ color: 'var(--gray)' }}>У вас нет прав для просмотра этой страницы</p>
+      </div>
+    )
+  }
+  
   const [venueId, setVenueId] = useState<string | null>(null)
   const [showQRModal, setShowQRModal] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -118,7 +136,7 @@ export default function Dashboard() {
         setVenueId(admin.venueId)
         // Загружаем информацию о клубе для обычного админа
         try {
-          const venueDoc = await getDoc(doc(db, 'venues', admin.venueId))
+          const venueDoc = await getDoc(firestoreDoc(db, 'venues', admin.venueId))
           if (venueDoc.exists()) {
             const venueData = venueDoc.data()
             setCurrentVenueName(venueData.name || '')
@@ -224,7 +242,7 @@ export default function Dashboard() {
           // Получаем информацию о корте
           if (data.courtId) {
             try {
-              const courtDoc = await getDoc(doc(db, 'venues', data.venueId, 'courts', data.courtId))
+              const courtDoc = await getDoc(firestoreDoc(db, 'venues', data.venueId, 'courts', data.courtId))
               if (courtDoc.exists()) {
                 courtName = courtDoc.data().name
               }
@@ -351,7 +369,7 @@ export default function Dashboard() {
         let courtName = data.courtName || 'Корт'
         if (data.courtId && !data.courtName) {
           try {
-            const courtDoc = await getDoc(doc(db, 'venues', venueId, 'courts', data.courtId))
+            const courtDoc = await getDoc(firestoreDoc(db, 'venues', venueId, 'courts', data.courtId))
             if (courtDoc.exists()) {
               courtName = courtDoc.data().name
             }

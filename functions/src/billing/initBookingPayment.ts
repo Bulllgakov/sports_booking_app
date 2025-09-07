@@ -24,8 +24,13 @@ interface PaymentResponse {
 }
 
 // Функция инициализации платежа для бронирования
+// Использует статический IP через VPC коннектор для Т-Банк API
 export const initBookingPayment = functions
   .region(region)
+  .runWith({
+    vpcConnector: 'firebase-connector',
+    vpcConnectorEgressSettings: 'ALL_TRAFFIC'
+  })
   .https.onCall(async (data: InitBookingPaymentRequest, context) => {
     // Для публичных бронирований авторизация не требуется
     const isAuthenticated = !!context.auth;

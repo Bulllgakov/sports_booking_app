@@ -14,12 +14,49 @@ class VenueService {
         .collection('venues')
         .where('status', isEqualTo: 'active')
         .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) {
+        .asyncMap((snapshot) async {
+      List<VenueModel> venues = [];
+      
+      for (var doc in snapshot.docs) {
         final data = doc.data();
         data['id'] = doc.id;
-        return VenueModel.fromMap(data);
-      }).toList();
+        VenueModel venue = VenueModel.fromMap(data);
+        
+        // Загружаем корты для определения видов спорта
+        try {
+          final courtsSnapshot = await _firestore
+              .collection('venues')
+              .doc(doc.id)
+              .collection('courts')
+              .get();
+          
+          // Собираем уникальные виды спорта из кортов
+          Set<SportType> sportTypes = {};
+          for (var courtDoc in courtsSnapshot.docs) {
+            final courtData = courtDoc.data();
+            // Проверяем оба поля: type (старое) и sportType (новое)
+            final sportTypeValue = courtData['sportType'] ?? courtData['type'];
+            if (sportTypeValue != null) {
+              // Приводим к нижнему регистру для унификации (поддерживаем "Tennis", "tennis", "TENNIS")
+              String sportTypeStr = sportTypeValue.toString().toLowerCase();
+              if (sportTypeStr == 'padel') {
+                sportTypes.add(SportType.padel);
+              } else if (sportTypeStr == 'tennis') {
+                sportTypes.add(SportType.tennis);
+              } else if (sportTypeStr == 'badminton') {
+                sportTypes.add(SportType.badminton);
+              }
+            }
+          }
+          venue.courtSportTypes = sportTypes.toList();
+        } catch (e) {
+          print('Error loading courts for venue ${doc.id}: $e');
+        }
+        
+        venues.add(venue);
+      }
+      
+      return venues;
     });
   }
   
@@ -31,11 +68,46 @@ class VenueService {
           .where('status', isEqualTo: 'active')
           .get();
       
-      List<VenueModel> venues = snapshot.docs.map((doc) {
+      List<VenueModel> venues = [];
+      
+      for (var doc in snapshot.docs) {
         final data = doc.data();
         data['id'] = doc.id;
-        return VenueModel.fromMap(data);
-      }).toList();
+        VenueModel venue = VenueModel.fromMap(data);
+        
+        // Загружаем корты для определения видов спорта
+        try {
+          final courtsSnapshot = await _firestore
+              .collection('venues')
+              .doc(doc.id)
+              .collection('courts')
+              .get();
+          
+          // Собираем уникальные виды спорта из кортов
+          Set<SportType> sportTypes = {};
+          for (var courtDoc in courtsSnapshot.docs) {
+            final courtData = courtDoc.data();
+            // Проверяем оба поля: type (старое) и sportType (новое)
+            final sportTypeValue = courtData['sportType'] ?? courtData['type'];
+            if (sportTypeValue != null) {
+              // Приводим к нижнему регистру для унификации (поддерживаем "Tennis", "tennis", "TENNIS")
+              String sportTypeStr = sportTypeValue.toString().toLowerCase();
+              if (sportTypeStr == 'padel') {
+                sportTypes.add(SportType.padel);
+              } else if (sportTypeStr == 'tennis') {
+                sportTypes.add(SportType.tennis);
+              } else if (sportTypeStr == 'badminton') {
+                sportTypes.add(SportType.badminton);
+              }
+            }
+          }
+          venue.courtSportTypes = sportTypes.toList();
+        } catch (e) {
+          print('Error loading courts for venue ${doc.id}: $e');
+        }
+        
+        venues.add(venue);
+      }
       
       // Calculate distances if user position is available
       if (userPosition != null) {

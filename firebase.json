@@ -26,16 +26,24 @@
         "region": "europe-west1"
       },
       {
+        "source": "/club/**/booking/**",
+        "destination": "/admin/index.html"
+      },
+      {
+        "source": "/club/**/booking",
+        "destination": "/admin/index.html"
+      },
+      {
+        "source": "/club/**",
+        "destination": "/admin/index.html"
+      },
+      {
         "source": "/admin/**",
         "destination": "/admin/index.html"
       },
       {
         "source": "/demo/**",
         "destination": "/demo/index.html"
-      },
-      {
-        "source": "/club/**",
-        "destination": "/admin/index.html"
       },
       {
         "source": "/login",
@@ -98,8 +106,24 @@
         "destination": "/fm/index.html"
       },
       {
+        "source": "/analysis",
+        "destination": "/analysis/index.html"
+      },
+      {
+        "source": "/analysis/**",
+        "destination": "/analysis/index.html"
+      },
+      {
+        "source": "/business",
+        "destination": "/business/index.html"
+      },
+      {
+        "source": "/business/**",
+        "destination": "/business/index.html"
+      },
+      {
         "source": "**",
-        "destination": "/index.html"
+        "destination": "/showcase/showcase.html"
       }
     ]
   },
