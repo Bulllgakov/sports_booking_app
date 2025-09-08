@@ -148,6 +148,31 @@ npm run typecheck    # Проверка типов
 ### Защищенные страницы
 - `/fm` - финансовая модель (пароль: BULAT)
 
+## Администрирование и мониторинг
+
+### Команды для бэкапов
+```bash
+# Просмотр логов бэкапов
+firebase functions:log --only scheduledFirestoreBackup
+
+# Ручной запуск бэкапа
+gcloud firestore export gs://sports-booking-backups-1d7e5/manual-$(date +%Y%m%d)
+
+# Проверка существующих бэкапов
+gsutil ls gs://sports-booking-backups-1d7e5/backups/
+
+# Восстановление из конкретного бэкапа
+gcloud firestore import gs://sports-booking-backups-1d7e5/backups/2025-01-07
+
+# Проверка размера базы данных
+gsutil du -sh gs://sports-booking-backups-1d7e5/backups/$(date +%Y-%m-%d)/
+```
+
+### Мониторинг системы
+- **Cloud Functions:** https://console.cloud.google.com/functions/list?project=sports-booking-app-1d7e5
+- **Cloud Storage:** https://console.cloud.google.com/storage/browser/sports-booking-backups-1d7e5
+- **Firestore:** Коллекция `backup_logs` для истории операций
+
 ## Известные проблемы и решения
 
 ### Проблема с датами в календаре
@@ -200,6 +225,26 @@ npm run typecheck    # Проверка типов
 - **Конфигурация:**
   - Настройки в `/functions/src/config/tbankConfig.ts`
   - Cloud Function: `tbankWebhook` для обработки уведомлений
+
+### Система автоматических бэкапов (Январь 2025)
+- **Хранилище:** Cloud Storage bucket `gs://sports-booking-backups-1d7e5/`
+- **Расписание:**
+  - Ежедневные бэкапы в 3:00 МСК
+  - Автоматическая очистка старше 30 дней каждый понедельник
+- **Cloud Functions:**
+  - `scheduledFirestoreBackup` - автоматические ежедневные бэкапы
+  - `manualFirestoreBackup` - ручные бэкапы для superadmin
+  - `cleanupOldBackups` - очистка старых бэкапов
+- **Что включено:**
+  - ВСЕ коллекции Firestore (users, venues, bookings, courts и др.)
+  - Вложенные коллекции и поддокументы
+  - Метаданные и индексы
+  - Текущий размер базы: ~1.64 MB
+- **Восстановление:**
+  ```bash
+  gcloud firestore import gs://sports-booking-backups-1d7e5/backups/YYYY-MM-DD
+  ```
+- **Мониторинг:** Коллекция `backup_logs` в Firestore
 
 ## Последние обновления (Август 2025)
 
